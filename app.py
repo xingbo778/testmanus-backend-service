@@ -6,8 +6,10 @@ import os
 app = Flask(__name__)
 CORS(app)  # 允许跨域请求
 
-# 初始化 OpenAI 客户端
-client = OpenAI()
+# 初始化 OpenAI 客户端 - 显式指定参数避免兼容性问题
+client = OpenAI(
+    api_key=os.environ.get("OPENAI_API_KEY")
+)
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
