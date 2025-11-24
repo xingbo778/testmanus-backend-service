@@ -1,15 +1,14 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from openai import OpenAI
+import requests
 import os
 
 app = Flask(__name__)
 CORS(app)  # 允许跨域请求
 
-# 初始化 OpenAI 客户端 - 显式指定参数避免兼容性问题
-client = OpenAI(
-    api_key=os.environ.get("OPENAI_API_KEY")
-)
+# OpenAI API 配置
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_API_BASE = os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1")
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
@@ -23,24 +22,42 @@ def chat():
         if not user_message:
             return jsonify({'error': '消息不能为空'}), 400
         
-        # 调用 OpenAI API
-        response = client.chat.completions.create(
-            model="gpt-4.1-mini",  # 使用可用的模型
-            messages=[
+        # 直接使用 requests 调用 OpenAI API
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "gpt-4.1-mini",
+            "messages": [
                 {"role": "system", "content": "你是一个友好的 AI 助手，用中文回答问题。"},
                 {"role": "user", "content": user_message}
             ],
-            temperature=0.7,
-            max_tokens=1000
+            "temperature": 0.7,
+            "max_tokens": 1000
+        }
+        
+        response = requests.post(
+            f"{OPENAI_API_BASE}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30
         )
         
-        # 提取回复内容
-        reply = response.choices[0].message.content
-        
-        return jsonify({
-            'reply': reply,
-            'status': 'success'
-        })
+        if response.status_code == 200:
+            result = response.json()
+            reply = result['choices'][0]['message']['content']
+            
+            return jsonify({
+                'reply': reply,
+                'status': 'success'
+            })
+        else:
+            return jsonify({
+                'error': f'API 请求失败: {response.status_code}',
+                'status': 'error'
+            }), 500
     
     except Exception as e:
         print(f"Error: {str(e)}")
