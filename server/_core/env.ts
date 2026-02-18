@@ -10,6 +10,9 @@ export const ENV = {
   // Yunwu API (for Railway independent deployment)
   yunwuApiKey: process.env.YUNWU_API_KEY ?? "",
   yunwuApiUrl: process.env.YUNWU_API_URL ?? "https://yunwu.ai",
+  // ToAPIs (for image upload - converts b64_json to URL)
+  toapisApiKey: process.env.TOAPIS_API_KEY ?? "",
+  toapisApiUrl: process.env.TOAPIS_API_URL ?? "https://toapis.com",
   // Admin API key for simple auth (Railway deployment)
   adminApiKey: process.env.ADMIN_API_KEY ?? "storyboard-admin-2024",
 };

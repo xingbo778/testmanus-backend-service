@@ -118,11 +118,23 @@
 - [x] End-to-end test on Railway
 
 ## Phase 2: Complete Rules & Test Dialogue Scenes
-- [ ] Parse full rulebook (1087 rules across 25 chapters) from uploaded markdown
-- [ ] Batch import all rules to Railway database
-- [ ] Verify rule counts match expected 1087
-- [ ] Review and supplement dialogue scene L3 categories
-- [ ] Create test project for dialogue scene (e.g., cafe conversation)
+- [x] Parse full rulebook (1087 rules across 25 chapters) from uploaded markdown
+- [x] Batch import all rules to Railway database
+- [x] Verify rule counts match expected 1087
+- [x] Review and supplement dialogue scene L3 categories
+- [x] Create test project for dialogue scene (e.g., cafe conversation)
 - [ ] Test full flow: script generation → validation → anchor → grid → prompt
 - [ ] Verify generated content quality
 - [ ] Push updates to GitHub
+
+## Phase 3: ToAPIs Image Upload Integration
+- [x] Research ToAPIs image upload API documentation
+- [x] Add TOAPIS_API_KEY and TOAPIS_API_URL environment variables
+- [x] Implement uploadBase64ToToapis function in imageGeneration.ts
+- [x] Implement resolveBase64Image with 3-tier fallback (ToAPIs → S3 → data URL)
+- [x] Write vitest tests for ToAPIs upload integration (3 tests, all passing)
+- [ ] Push code to GitHub for Railway auto-deploy
+- [ ] Set TOAPIS_API_KEY on Railway environment
+- [ ] End-to-end test: anchor generation with ToAPIs upload
+- [ ] End-to-end test: grid generation with ToAPIs upload
+- [ ] End-to-end test: complete workflow (script → anchor → grid → prompt)
