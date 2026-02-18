@@ -101,18 +101,18 @@
 - [x] Vitest tests for experience feedback
 
 ## Deployment
-- [ ] Save checkpoint
-- [ ] Push to GitHub
-- [ ] Deploy to Railway
-- [ ] End-to-end testing on Railway
+- [x] Save checkpoint
+- [x] Push to GitHub
+- [x] Deploy to Railway
+- [x] End-to-end testing on Railway
 
 ## Railway Independent Deployment
-- [ ] Replace Manus LLM API with Yunwu API (OpenAI compatible)
-- [ ] Replace Manus Image Generation with Yunwu API
-- [ ] Replace Manus OAuth with simple API key auth
-- [ ] Replace Manus S3 storage with local/Railway volume
-- [ ] Create Dockerfile for Railway deployment
-- [ ] Create Railway project and MySQL service
-- [ ] Set environment variables on Railway
-- [ ] Deploy and generate domain
-- [ ] End-to-end test on Railway
+- [x] Replace Manus LLM API with Yunwu API (OpenAI compatible)
+- [x] Replace Manus Image Generation with Yunwu API
+- [x] Replace Manus OAuth with simple API key auth
+- [x] Replace Manus S3 storage with local/Railway volume (using Yunwu image URLs)
+- [x] Create Dockerfile for Railway deployment
+- [x] Create Railway project and MySQL service
+- [x] Set environment variables on Railway
+- [x] Deploy and generate domain
+- [x] End-to-end test on Railway
