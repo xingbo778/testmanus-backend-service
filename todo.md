@@ -142,11 +142,11 @@
 - [x] Verify KB export with confirmed project data
 
 ## Phase 4: Bug Fixes & UX Improvements (User Reported)
-- [ ] 1. 图片模型改用 gemini-3-pro-image-preview (yunwu chat completions API) + gemini-3-flash-preview (LLM)
-- [ ] 2. Anchor 图片在项目详情页不可见，需要修复显示
-- [ ] 3. Grid 整体图片生成prompt需优化，确保与script剧情内容强关联
-- [ ] 4. 项目详情页应同时展示脚本和grid，目前只有grid
-- [ ] 5. 工作流进度按钮分离：查看（纯查看）和重新生成（需确认）
-- [ ] 6. 历史版本展示（最多5个）+ 点击回退（需确认）
-- [ ] 7. Prompt 中出现 #NaN，且缺少时间信息
-- [ ] 8. 规则手册页面可点击查看详情，每章显示标题
+- [x] 1. 图片模型改用 gemini-3-pro-image-preview (yunwu chat completions API) + gemini-3-flash-preview (LLM)
+- [x] 2. Anchor 图片在项目详情页不可见，修复显示（总览+脚本tab都展示）
+- [x] 3. Grid 整体图片生成prompt优化，包含完整剧情上下文、角色、场景、逐帧描述
+- [x] 4. 项目详情页总览同时展示脚本概要+Grid预览+Anchor锤点图
+- [x] 5. 工作流进度按钮分离：查看（纯查看）和重新生成（需确认弹窗）
+- [x] 6. 历史版本展示（脚本/Grid/Prompt各最多5个）+ 点击回退（需确认弹窗）
+- [x] 7. Prompt 中修复 #NaN，正确显示panelIndex和时长信息
+- [x] 8. 规则手册页面可点击查看详情（Dialog），每章显示标题，按分类分组展示
