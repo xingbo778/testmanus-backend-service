@@ -75,6 +75,103 @@ export const appRouter = router({
       await db.clearAllRuleChapters();
       return { success: true, message: "All rule chapters cleared" };
     }),
+    // Create new chapter
+    createChapter: adminProcedure
+      .input(z.object({
+        chapterNumber: z.number(),
+        title: z.string(),
+        category: z.enum(["universal", "scene_specific", "technical", "ai_prompt"]),
+        applicableL2Ids: z.array(z.string()).nullable().optional(),
+        rules: z.array(z.object({
+          type: z.string(),
+          text: z.string(),
+          severity: z.string(),
+        })).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const id = await db.createRuleChapter({
+          chapterNumber: input.chapterNumber,
+          title: input.title,
+          category: input.category,
+          applicableL2Ids: input.applicableL2Ids ?? null,
+          rules: input.rules ?? [],
+          ruleCount: input.rules?.length ?? 0,
+        });
+        return { success: true, id };
+      }),
+    // Update chapter
+    updateChapter: adminProcedure
+      .input(z.object({
+        chapterId: z.number(),
+        title: z.string().optional(),
+        category: z.enum(["universal", "scene_specific", "technical", "ai_prompt"]).optional(),
+        applicableL2Ids: z.array(z.string()).nullable().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { chapterId, ...data } = input;
+        await db.updateRuleChapter(chapterId, data as any);
+        return { success: true };
+      }),
+    // Delete chapter
+    deleteChapter: adminProcedure
+      .input(z.object({ chapterId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteRuleChapter(input.chapterId);
+        return { success: true };
+      }),
+    // Add rule to chapter
+    addRule: adminProcedure
+      .input(z.object({
+        chapterId: z.number(),
+        rule: z.object({
+          type: z.string(),
+          text: z.string(),
+          severity: z.string(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        const chapter = await db.getRuleChapterById(input.chapterId);
+        if (!chapter) throw new Error("Chapter not found");
+        const rules = (chapter.rules as any[]) ?? [];
+        rules.push(input.rule);
+        await db.updateRuleChapter(input.chapterId, { rules, ruleCount: rules.length });
+        return { success: true, ruleCount: rules.length };
+      }),
+    // Update rule in chapter
+    updateRule: adminProcedure
+      .input(z.object({
+        chapterId: z.number(),
+        ruleIndex: z.number(),
+        rule: z.object({
+          type: z.string().optional(),
+          text: z.string().optional(),
+          severity: z.string().optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        const chapter = await db.getRuleChapterById(input.chapterId);
+        if (!chapter) throw new Error("Chapter not found");
+        const rules = (chapter.rules as any[]) ?? [];
+        if (input.ruleIndex < 0 || input.ruleIndex >= rules.length) throw new Error("Rule index out of range");
+        rules[input.ruleIndex] = { ...rules[input.ruleIndex], ...input.rule };
+        await db.updateRuleChapter(input.chapterId, { rules });
+        return { success: true };
+      }),
+    // Delete rule from chapter
+    deleteRule: adminProcedure
+      .input(z.object({
+        chapterId: z.number(),
+        ruleIndex: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const chapter = await db.getRuleChapterById(input.chapterId);
+        if (!chapter) throw new Error("Chapter not found");
+        const rules = (chapter.rules as any[]) ?? [];
+        if (input.ruleIndex < 0 || input.ruleIndex >= rules.length) throw new Error("Rule index out of range");
+        rules.splice(input.ruleIndex, 1);
+        await db.updateRuleChapter(input.chapterId, { rules, ruleCount: rules.length });
+        return { success: true, ruleCount: rules.length };
+      }),
     chapterDetail: publicProcedure
       .input(z.object({ chapterNumber: z.number() }))
       .query(async ({ input }) => {
@@ -102,6 +199,108 @@ export const appRouter = router({
           ruleCount: input.rules.length,
         });
         return { success: true, chapterNumber: input.chapterNumber, ruleCount: input.rules.length };
+      }),
+  }),
+
+  // ============================================================
+  // Category CRUD
+  // ============================================================
+  categoryManage: router({
+    create: adminProcedure
+      .input(z.object({
+        level: z.enum(["1", "2", "3"]),
+        id: z.string(),
+        name: z.string(),
+        nameEn: z.string().optional(),
+        description: z.string().optional(),
+        sortOrder: z.number().optional(),
+        l1Id: z.string().optional(),
+        l2Id: z.string().optional(),
+        templateRef: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const level = parseInt(input.level) as 1 | 2 | 3;
+        const data: any = { id: input.id, name: input.name, nameEn: input.nameEn, description: input.description, sortOrder: input.sortOrder ?? 0 };
+        if (level >= 2) data.l1Id = input.l1Id;
+        if (level === 3) { data.l2Id = input.l2Id; data.templateRef = input.templateRef; }
+        await db.createCategory(level, data);
+        return { success: true };
+      }),
+    update: adminProcedure
+      .input(z.object({
+        level: z.enum(["1", "2", "3"]),
+        id: z.string(),
+        name: z.string().optional(),
+        nameEn: z.string().optional(),
+        description: z.string().optional(),
+        sortOrder: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const level = parseInt(input.level) as 1 | 2 | 3;
+        const { level: _, id, ...data } = input;
+        await db.updateCategory(level, id, data as any);
+        return { success: true };
+      }),
+    delete: adminProcedure
+      .input(z.object({
+        level: z.enum(["1", "2", "3"]),
+        id: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        const level = parseInt(input.level) as 1 | 2 | 3;
+        await db.deleteCategory(level, input.id);
+        return { success: true };
+      }),
+  }),
+
+  // ============================================================
+  // Prompt Template Management (view/edit/translate workflow prompts)
+  // ============================================================
+  promptTemplate: router({
+    // List all workflow prompt templates
+    list: publicProcedure.query(async () => {
+      return [
+        { id: "script_system", name: "脚本生成 System Prompt", description: "用于生成分镜脚本的系统提示词", category: "script" },
+        { id: "script_user", name: "脚本生成 User Prompt", description: "用于生成分镜脚本的用户提示词模板", category: "script" },
+        { id: "anchor_character", name: "角色锚点 Prompt", description: "用于生成角色参考图的提示词模板", category: "anchor" },
+        { id: "anchor_scene", name: "场景锚点 Prompt", description: "用于生成场景参考图的提示词模板", category: "anchor" },
+        { id: "grid_system", name: "Grid生成 Prompt", description: "用于生成分镜Grid图的提示词模板", category: "grid" },
+        { id: "prompt_system", name: "Prompt生成 System Prompt", description: "用于生成视频Prompt的系统提示词", category: "prompt" },
+        { id: "prompt_user", name: "Prompt生成 User Prompt", description: "用于生成视频Prompt的用户提示词模板", category: "prompt" },
+        { id: "validation_system", name: "校验 System Prompt", description: "用于校验脚本的系统提示词", category: "validation" },
+        { id: "panel_fix", name: "面板修复 Prompt", description: "用于修复面板图片的提示词模板", category: "panel" },
+      ];
+    }),
+    // Get actual prompt content by ID
+    get: publicProcedure
+      .input(z.object({ templateId: z.string() }))
+      .query(async ({ input }) => {
+        // Return the actual prompt templates from the codebase
+        const templates: Record<string, string> = {
+          "script_system": `你是一个专业的分镜脚本设计师。根据给定的场景类型和规则，生成结构化的分镜脚本。\n\n## 输出要求\n- 每帧时长：1-3秒\n- 前3秒必须有强钩子\n- 角色anchorPrompt必须是英文，白背景、半身、居中\n- 场景anchorPrompt必须是英文，全景、无人物`,
+          "script_user": `场景类型：{l1Id} > {l2Id} > {l3Id}\n标题：{title}\n总时长：{duration}秒\n补充说明：{additionalContext}`,
+          "anchor_character": `A half-body portrait of [CHARACTER], [detailed appearance]. The character is centered in the frame, facing slightly to the right at a 3/4 angle. Shot against a pure white studio background with soft, even lighting. Professional studio photography, shot on 85mm f/1.4 lens.`,
+          "anchor_scene": `A wide establishing shot of [SCENE], [detailed environment description]. Cinematic composition with depth, atmospheric lighting. No people in the scene, focus on environment and atmosphere. Shot on 35mm wide-angle lens. High detail, 8K resolution, photorealistic.`,
+          "grid_system": `Create a professional storyboard grid image. Layout: {rows}×{cols} panels.\n\nEach panel must:\n- Match the script description exactly\n- Maintain character consistency with anchor reference images\n- Include clear panel numbering and shot type labels\n- Use cinematic composition and lighting`,
+          "prompt_system": `你是一个AI视频生成提示词专家。根据分镜脚本和角色/场景锚点，为每一帧生成结构化的视频生成参数。\n\n## 通用公式\n镜头类型 + 视角 + 主体 + 动作 + 运镜 + 光影 + 材质 + 特效 + 渲染 + 环境交互 + 过渡`,
+          "prompt_user": `分镜脚本：\n{frames}\n\n请为每一帧生成视频生成参数。`,
+          "validation_system": `你是一个分镜脚本质量审核专家。根据规则检查脚本中的问题。`,
+          "panel_fix": `Regenerate this storyboard panel with the following description: {description}\n\nIMPORTANT: Maintain character consistency with the reference images provided. Keep the same art style and visual quality as the original storyboard.`,
+        };
+        return { templateId: input.templateId, content: templates[input.templateId] ?? "Template not found" };
+      }),
+    // Translate prompt to Chinese
+    translate: protectedProcedure
+      .input(z.object({ text: z.string() }))
+      .mutation(async ({ input }) => {
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: "你是一个专业翻译。将以下英文Prompt翻译成中文，保持专业术语的准确性。只输出翻译结果，不要添加任何解释。" },
+            { role: "user", content: input.text },
+          ],
+        });
+        const translated = response.choices?.[0]?.message?.content;
+        return { original: input.text, translated: typeof translated === "string" ? translated : "翻译失败" };
       }),
   }),
 
@@ -229,10 +428,10 @@ ${userRulesContext}
     }
   ],
   "characters": [
-    { "name": "角色名", "description": "外貌描述", "anchorPrompt": "用于生成角色参考图的英文prompt" }
+    { "name": "角色名", "description": "外貌描述（中文，详细）", "anchorPrompt": "用于生成角色参考图的英文prompt，必须遵循以下格式：A half-body portrait of [CHARACTER], [detailed appearance]. The character is centered in the frame, facing slightly to the right at a 3/4 angle. Shot against a pure white studio background with soft, even lighting. Professional studio photography, shot on 85mm f/1.4 lens. Soft key light from the upper left, subtle fill light from the right. Natural skin texture, clean catchlights in the eyes. High detail, 8K resolution, photorealistic." }
   ],
   "scenes": [
-    { "name": "场景名", "description": "场景描述", "anchorPrompt": "用于生成场景参考图的英文prompt" }
+    { "name": "场景名", "description": "场景描述（中文，详细）", "anchorPrompt": "用于生成场景参考图的英文prompt，必须遵循以下格式：A wide establishing shot of [SCENE], [detailed environment description]. Cinematic composition with depth, atmospheric lighting. The scene conveys [mood/atmosphere]. Shot on 35mm wide-angle lens. High detail, 8K resolution, photorealistic. No people in the scene, focus on environment and atmosphere." }
   ],
   "props": [
     { "name": "道具名", "description": "道具描述" }
@@ -342,6 +541,76 @@ ${input.additionalContext ? `补充说明：${input.additionalContext}` : ""}
         await db.updateProject(input.projectId, { status: "scripted", currentVersion: version });
 
         return { scriptId, script: parsed, version };
+      }),
+
+    // Edit single frame
+    updateFrame: protectedProcedure
+      .input(z.object({
+        projectId: z.number(),
+        frameIndex: z.number(),
+        data: z.object({
+          shotType: z.string().optional(),
+          duration: z.number().optional(),
+          description: z.string().optional(),
+          cameraMovement: z.string().optional(),
+          notes: z.string().optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        const script = await db.getLatestScript(input.projectId);
+        if (!script) throw new Error("No script found");
+        const frames = script.frames as any[];
+        const idx = frames.findIndex((f: any) => f.index === input.frameIndex);
+        if (idx === -1) throw new Error(`Frame ${input.frameIndex} not found`);
+        frames[idx] = { ...frames[idx], ...input.data };
+        await db.updateScriptFrames(script.id, frames);
+        return { success: true, frame: frames[idx] };
+      }),
+
+    // Add new frame at position
+    addFrame: protectedProcedure
+      .input(z.object({
+        projectId: z.number(),
+        afterIndex: z.number(), // insert after this index, 0 = insert at beginning
+        frame: z.object({
+          shotType: z.string(),
+          duration: z.number(),
+          description: z.string(),
+          cameraMovement: z.string(),
+          notes: z.string().optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        const script = await db.getLatestScript(input.projectId);
+        if (!script) throw new Error("No script found");
+        const frames = script.frames as any[];
+        const insertPos = input.afterIndex === 0 ? 0 : frames.findIndex((f: any) => f.index === input.afterIndex) + 1;
+        if (input.afterIndex !== 0 && insertPos === 0) throw new Error(`Frame ${input.afterIndex} not found`);
+        const newFrame = { ...input.frame, index: 0, notes: input.frame.notes ?? "" };
+        frames.splice(insertPos, 0, newFrame);
+        // Re-index all frames
+        frames.forEach((f: any, i: number) => { f.index = i + 1; });
+        await db.updateScriptFrames(script.id, frames);
+        return { success: true, frames, totalFrames: frames.length };
+      }),
+
+    // Remove frame
+    removeFrame: protectedProcedure
+      .input(z.object({
+        projectId: z.number(),
+        frameIndex: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const script = await db.getLatestScript(input.projectId);
+        if (!script) throw new Error("No script found");
+        const frames = script.frames as any[];
+        const idx = frames.findIndex((f: any) => f.index === input.frameIndex);
+        if (idx === -1) throw new Error(`Frame ${input.frameIndex} not found`);
+        frames.splice(idx, 1);
+        // Re-index all frames
+        frames.forEach((f: any, i: number) => { f.index = i + 1; });
+        await db.updateScriptFrames(script.id, frames);
+        return { success: true, frames, totalFrames: frames.length };
       }),
 
     validate: protectedProcedure
@@ -565,6 +834,38 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
 
         return { anchors: results };
       }),
+    regenerateOne: protectedProcedure
+      .input(z.object({
+        anchorId: z.number(),
+        customPrompt: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) throw new Error("Database not available");
+
+        const { anchors: anchorsTable } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+        const [anchor] = await dbConn.select().from(anchorsTable).where(eq(anchorsTable.id, input.anchorId)).limit(1);
+        if (!anchor) throw new Error("Anchor not found");
+
+        const prompt = input.customPrompt || anchor.prompt || "";
+
+        try {
+          const { url } = await generateImage({ prompt });
+          await dbConn.update(anchorsTable)
+            .set({ imageUrl: url, prompt })
+            .where(eq(anchorsTable.id, input.anchorId));
+          return { success: true, imageUrl: url, prompt };
+        } catch (e: any) {
+          // Update prompt even if image gen fails
+          if (input.customPrompt) {
+            await dbConn.update(anchorsTable)
+              .set({ prompt: input.customPrompt })
+              .where(eq(anchorsTable.id, input.anchorId));
+          }
+          throw new Error(`Anchor regeneration failed: ${e.message}`);
+        }
+      }),
     list: publicProcedure
       .input(z.object({ projectId: z.number(), version: z.number().optional() }))
       .query(async ({ input }) => {
@@ -601,31 +902,55 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         else if (totalPanels <= 12) { rows = 3; cols = 4; }
         else { rows = 3; cols = 5; }
 
-        // Build grid generation prompt
-        const anchorDescriptions = anchorsList.map(a => `${a.anchorType}: ${a.name} - ${a.description}`).join("\n");
-        const frameDescriptions = frames.map(f =>
-          `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.duration}s, ${f.cameraMovement})`
-        ).join("\n");
-
-        // Build a detailed grid prompt that strongly references the script content
+        // Build grid generation prompt using Nano Banana Pro best practices
         const characters = (script.characters as Array<{ name: string; description: string }>) ?? [];
         const scenes = (script.scenes as Array<{ name: string; description: string }>) ?? [];
-        const charDesc = characters.map(c => `Character "${c.name}": ${c.description}`).join("; ");
-        const sceneDesc = scenes.map(s => `Scene "${s.name}": ${s.description}`).join("; ");
+        const charDesc = characters.map(c => `"${c.name}": ${c.description}`).join("; ");
+        const sceneDesc = scenes.map(s => `"${s.name}": ${s.description}`).join("; ");
 
-        const gridPrompt = input.customPrompt || `Professional cinematic storyboard grid, ${rows}x${cols} layout (${totalPanels} panels total), clean white borders between panels.
+        // Collect anchor image URLs for reference
+        const anchorImageUrls = anchorsList
+          .filter(a => a.imageUrl && a.imageUrl.startsWith("http"))
+          .map(a => ({ url: a.imageUrl! }));
 
-STORY CONTEXT: "${project.title}" - a ${project.duration}-second short video.
-CHARACTERS: ${charDesc || anchorDescriptions}
-SETTING: ${sceneDesc || "as described in panels"}
+        const gridPrompt = input.customPrompt || `WORK SURFACE:
+Create a professional ${rows}x${cols} cinematic storyboard grid (${totalPanels} panels total).
 
-PANEL-BY-PANEL BREAKDOWN (must follow this exact sequence):
-${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} — Camera: ${f.cameraMovement}, Duration: ${f.duration}s`).join("\n")}
+LAYOUT:
+- ${rows} rows x ${cols} columns grid layout
+- Clean white borders between panels (4px width)
+- Each panel is exactly the same size
+- Panel numbers visible in the top-left corner of each panel
+- Horizontal reading order: left to right, top to bottom
 
-STYLE: Consistent character appearance across all panels. Cinematic lighting. Each panel clearly depicts its described scene with recognizable characters and actions. Professional storyboard illustration quality. All ${totalPanels} panels must be exactly the same size.`;
+COMPONENTS:
+Title: "${project.title}" - ${project.duration}-second short film
+Characters: ${charDesc}
+Setting: ${sceneDesc}
+
+PANEL-BY-PANEL BREAKDOWN (each panel must depict its described scene precisely):
+${frames.map(f => `Panel ${f.index} (${f.shotType}): ${f.description}. Camera: ${f.cameraMovement}. Duration: ${f.duration}s`).join("\n")}
+
+STYLE:
+- Cinematic storyboard illustration quality
+- Consistent character appearance across ALL panels (same face, same clothing, same proportions)
+- Dynamic compositions with varied camera angles as specified
+- Atmospheric lighting matching the mood of each scene
+- Professional film storyboard with clear visual storytelling
+
+CONSTRAINTS:
+- Character design MUST remain identical across all panels
+- No overlap between panel borders
+- Each panel must clearly show the described action and camera angle
+- Panel numbers must be sharp and readable
+- Uniform spacing between all panels`;
 
         try {
-          const { url: gridImageUrl } = await generateImage({ prompt: gridPrompt });
+          // Pass anchor images as reference for character/scene consistency
+          const { url: gridImageUrl } = await generateImage({
+            prompt: gridPrompt,
+            originalImages: anchorImageUrls.length > 0 ? anchorImageUrls : undefined,
+          });
 
           const gridId = await db.saveGrid({
             projectId: input.projectId,
@@ -745,26 +1070,33 @@ STYLE: Consistent character appearance across all panels. Cinematic lighting. Ea
         const [panel] = await dbConn.select().from(panelsTable).where(eq(panelsTable.id, input.panelId)).limit(1);
         if (!panel) throw new Error("Panel not found");
 
+        // Auto-collect anchor images for reference
+        const anchorsList = await db.getAnchors(panel.projectId);
+        const anchorRefImages = anchorsList
+          .filter(a => a.imageUrl && a.imageUrl.startsWith("http"))
+          .map(a => ({ url: a.imageUrl! }));
+
         let newImageUrl: string | undefined;
         const prompt = input.modifiedDescription || panel.description || "";
 
+        // Build reference images: anchor images + original panel image + user-provided reference
+        const referenceImages: Array<{ url: string }> = [...anchorRefImages];
+        if (panel.panelImageUrl && panel.panelImageUrl.startsWith("http")) {
+          referenceImages.push({ url: panel.panelImageUrl });
+        }
+        if (input.referenceImageUrl && input.referenceImageUrl.startsWith("http")) {
+          referenceImages.push({ url: input.referenceImageUrl });
+        }
+
+        // Build enhanced prompt that references the original panel context
+        const enhancedPrompt = `Regenerate this storyboard panel with the following description: ${prompt}\n\nIMPORTANT: Maintain character consistency with the reference images provided. Keep the same art style and visual quality as the original storyboard.`;
+
         try {
-          if (input.fixType === "reference_based" && input.referenceImageUrl) {
-            const { url } = await generateImage({
-              prompt,
-              originalImages: [{ url: input.referenceImageUrl }],
-            });
-            newImageUrl = url;
-          } else if (input.fixType === "inpaint" && panel.panelImageUrl) {
-            const { url } = await generateImage({
-              prompt,
-              originalImages: [{ url: panel.panelImageUrl }],
-            });
-            newImageUrl = url;
-          } else {
-            const { url } = await generateImage({ prompt });
-            newImageUrl = url;
-          }
+          const { url } = await generateImage({
+            prompt: enhancedPrompt,
+            originalImages: referenceImages.length > 0 ? referenceImages : undefined,
+          });
+          newImageUrl = url;
         } catch (e) {
           // Image generation failed, continue with metadata update
         }

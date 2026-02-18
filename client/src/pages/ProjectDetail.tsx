@@ -5,22 +5,27 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ArrowLeft, Play, RefreshCw, Wand2, CheckCircle,
   Image as ImageIcon, Pencil, Eye, Loader2, History, RotateCcw,
-  Clock, Film, Camera, FileText, Sparkles
+  Clock, Film, Camera, FileText, Sparkles, Plus, Trash2, Save, X
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 
 const STATUS_MAP: Record<string, string> = {
   draft: "草稿", scripted: "已生成脚本", grid_generated: "已生成Grid",
   reviewing: "审核中", confirmed: "已确认",
 };
+
+const SHOT_TYPES = ["特写", "近景", "中景", "中远景", "远景", "全景", "大特写", "鸟瞰", "仰拍", "俯拍"];
+const CAMERA_MOVES = ["固定", "推", "拉", "摇", "移", "跟", "升", "降", "旋转", "手持", "稳定器跟拍", "无人机航拍"];
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +46,15 @@ export default function ProjectDetail() {
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [promptViewDialog, setPromptViewDialog] = useState<{ title: string; prompts: Array<{ label: string; text: string }> } | null>(null);
 
+  // Frame editing state
+  const [editingFrame, setEditingFrame] = useState<{ index: number; data: any } | null>(null);
+  const [addFrameDialog, setAddFrameDialog] = useState<{ afterIndex: number } | null>(null);
+  const [newFrame, setNewFrame] = useState({ shotType: "中景", duration: 2, description: "", cameraMovement: "固定", notes: "" });
+  const [deleteFrameDialog, setDeleteFrameDialog] = useState<number | null>(null);
+
+  // Anchor editing state
+  const [anchorEditDialog, setAnchorEditDialog] = useState<{ anchor: any; customPrompt: string } | null>(null);
+
   // Mutations
   const generateScript = trpc.script.generate.useMutation({
     onSuccess: () => { toast.success("脚本生成成功"); refetch(); versionHistory.refetch(); },
@@ -50,6 +64,11 @@ export default function ProjectDetail() {
   const generateAnchor = trpc.anchor.generate.useMutation({
     onSuccess: () => { toast.success("Anchor生成成功"); refetch(); versionHistory.refetch(); },
     onError: (err: any) => toast.error(`Anchor生成失败: ${err.message}`),
+  });
+
+  const regenerateOneAnchor = trpc.anchor.regenerateOne.useMutation({
+    onSuccess: () => { toast.success("Anchor重新生成成功"); refetch(); setAnchorEditDialog(null); },
+    onError: (err: any) => toast.error(`Anchor重新生成失败: ${err.message}`),
   });
 
   const generateGrid = trpc.grid.generate.useMutation({
@@ -85,6 +104,22 @@ export default function ProjectDetail() {
       setRollbackDialog(null);
     },
     onError: (err: any) => toast.error(`回退失败: ${err.message}`),
+  });
+
+  // Frame editing mutations
+  const updateFrame = trpc.script.updateFrame.useMutation({
+    onSuccess: () => { toast.success("镜头已更新"); refetch(); setEditingFrame(null); },
+    onError: (err: any) => toast.error(`更新失败: ${err.message}`),
+  });
+
+  const addFrame = trpc.script.addFrame.useMutation({
+    onSuccess: () => { toast.success("镜头已添加"); refetch(); setAddFrameDialog(null); setNewFrame({ shotType: "中景", duration: 2, description: "", cameraMovement: "固定", notes: "" }); },
+    onError: (err: any) => toast.error(`添加失败: ${err.message}`),
+  });
+
+  const removeFrame = trpc.script.removeFrame.useMutation({
+    onSuccess: () => { toast.success("镜头已删除"); refetch(); setDeleteFrameDialog(null); },
+    onError: (err: any) => toast.error(`删除失败: ${err.message}`),
   });
 
   if (isLoading) {
@@ -190,81 +225,44 @@ export default function ProjectDetail() {
 
         {/* ==================== Overview Tab ==================== */}
         <TabsContent value="overview" className="space-y-4">
-          {/* Workflow Steps - 6 steps now */}
+          {/* Workflow Steps */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">工作流进度</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <WorkflowStep
-                step={1}
-                title="生成脚本"
-                done={!!script}
-                loading={generateScript.isPending}
+              <WorkflowStep step={1} title="生成脚本" done={!!script} loading={generateScript.isPending}
                 onView={() => setActiveTab("script")}
-                onRegenerate={() => setConfirmRegenDialog({
-                  step: "脚本",
-                  action: () => generateScript.mutate({ projectId }),
-                })}
+                onRegenerate={() => setConfirmRegenDialog({ step: "脚本", action: () => generateScript.mutate({ projectId }) })}
               />
-              <WorkflowStep
-                step={2}
-                title="生成Anchor（锚点参考图）"
-                done={!!(anchors && anchors.length > 0)}
-                loading={generateAnchor.isPending}
+              <WorkflowStep step={2} title="生成Anchor（锚点参考图）" done={!!(anchors && anchors.length > 0)} loading={generateAnchor.isPending}
                 onView={() => setActiveTab("anchor")}
-                onRegenerate={() => setConfirmRegenDialog({
-                  step: "Anchor",
-                  action: () => generateAnchor.mutate({ projectId }),
-                })}
+                onRegenerate={() => setConfirmRegenDialog({ step: "Anchor", action: () => generateAnchor.mutate({ projectId }) })}
                 disabled={!script}
               />
-              <WorkflowStep
-                step={3}
-                title="生成Grid（分镜图）"
-                done={!!grid}
-                loading={generateGrid.isPending}
+              <WorkflowStep step={3} title="生成Grid（分镜图）" done={!!grid} loading={generateGrid.isPending}
                 onView={() => setActiveTab("grid")}
-                onRegenerate={() => setConfirmRegenDialog({
-                  step: "Grid",
-                  action: () => generateGrid.mutate({ projectId }),
-                })}
+                onRegenerate={() => setConfirmRegenDialog({ step: "Grid", action: () => generateGrid.mutate({ projectId }) })}
                 disabled={!script}
               />
-              <WorkflowStep
-                step={4}
-                title="审查与调整"
-                done={project.status === "reviewing" || project.status === "confirmed"}
-                onView={() => setActiveTab("grid")}
-                disabled={!grid}
+              <WorkflowStep step={4} title="审查与调整" done={project.status === "reviewing" || project.status === "confirmed"}
+                onView={() => setActiveTab("grid")} disabled={!grid}
               />
-              <WorkflowStep
-                step={5}
-                title="生成Prompt"
-                done={!!prompts?.length}
-                loading={generatePrompts.isPending}
+              <WorkflowStep step={5} title="生成Prompt" done={!!prompts?.length} loading={generatePrompts.isPending}
                 onView={() => setActiveTab("prompts")}
-                onRegenerate={() => setConfirmRegenDialog({
-                  step: "Prompt",
-                  action: () => generatePrompts.mutate({ projectId }),
-                })}
+                onRegenerate={() => setConfirmRegenDialog({ step: "Prompt", action: () => generatePrompts.mutate({ projectId }) })}
                 disabled={!grid}
               />
-              <WorkflowStep
-                step={6}
-                title="确认导出"
-                done={project.status === "confirmed"}
+              <WorkflowStep step={6} title="确认导出" done={project.status === "confirmed"}
                 onView={() => {}}
                 onRegenerate={() => confirmProject.mutate({ id: projectId, status: "confirmed" })}
-                disabled={!prompts?.length}
-                confirmLabel="确认"
+                disabled={!prompts?.length} confirmLabel="确认"
               />
             </CardContent>
           </Card>
 
           {/* Script Summary + Grid Preview side by side */}
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Script Summary */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -290,16 +288,6 @@ export default function ProjectDetail() {
                         <p className="text-xs text-muted-foreground pl-2">...还有 {scriptFrames.length - 6} 帧</p>
                       )}
                     </div>
-                    {scriptCharacters.length > 0 && (
-                      <div className="pt-2 border-t">
-                        <p className="text-xs font-medium mb-1">角色</p>
-                        <div className="flex flex-wrap gap-1">
-                          {scriptCharacters.map((c: any, i: number) => (
-                            <Badge key={i} variant="outline" className="text-xs">{c.name}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                     <Button variant="ghost" size="sm" className="w-full" onClick={() => setActiveTab("script")}>
                       查看完整脚本 →
                     </Button>
@@ -313,7 +301,6 @@ export default function ProjectDetail() {
               </CardContent>
             </Card>
 
-            {/* Grid Preview */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -324,11 +311,7 @@ export default function ProjectDetail() {
               <CardContent>
                 {grid?.gridImageUrl ? (
                   <div className="space-y-2">
-                    <img
-                      src={grid.gridImageUrl}
-                      alt="Storyboard Grid"
-                      className="w-full rounded-lg border"
-                    />
+                    <img src={grid.gridImageUrl} alt="Storyboard Grid" className="w-full rounded-lg border" />
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>布局: {grid.rows}×{grid.cols}</span>
                       <span>·</span>
@@ -348,7 +331,7 @@ export default function ProjectDetail() {
             </Card>
           </div>
 
-          {/* Anchors Preview in Overview */}
+          {/* Anchors Preview */}
           {anchors && anchors.length > 0 && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -356,14 +339,7 @@ export default function ProjectDetail() {
                   <Camera className="h-4 w-4" />
                   锚点参考图
                 </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPromptViewDialog({
-                    title: "Anchor 生成 Prompt",
-                    prompts: anchorPromptList,
-                  })}
-                >
+                <Button variant="ghost" size="sm" onClick={() => setPromptViewDialog({ title: "Anchor 生成 Prompt", prompts: anchorPromptList })}>
                   <FileText className="h-4 w-4 mr-1" />
                   <span className="text-xs">查看Prompt</span>
                 </Button>
@@ -396,24 +372,23 @@ export default function ProjectDetail() {
               <CardTitle className="text-base">分镜脚本</CardTitle>
               <div className="flex items-center gap-2">
                 {script?.generationPrompt && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setPromptViewDialog({
-                      title: "脚本生成 Prompt",
-                      prompts: [{ label: "System Prompt", text: script.generationPrompt as string }],
-                    })}
-                  >
+                  <Button size="sm" variant="ghost" onClick={() => setPromptViewDialog({
+                    title: "脚本生成 Prompt",
+                    prompts: [{ label: "System Prompt", text: script.generationPrompt as string }],
+                  })}>
                     <FileText className="h-4 w-4 mr-1" />
                     <span className="text-xs">查看Prompt</span>
                   </Button>
                 )}
+                {script && (
+                  <Button size="sm" variant="outline" onClick={() => setAddFrameDialog({ afterIndex: scriptFrames.length })}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    <span className="text-xs">添加镜头</span>
+                  </Button>
+                )}
                 <Button
                   size="sm"
-                  onClick={() => setConfirmRegenDialog({
-                    step: "脚本",
-                    action: () => generateScript.mutate({ projectId }),
-                  })}
+                  onClick={() => setConfirmRegenDialog({ step: "脚本", action: () => generateScript.mutate({ projectId }) })}
                   disabled={generateScript.isPending}
                 >
                   {generateScript.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
@@ -446,11 +421,12 @@ export default function ProjectDetail() {
                           <th className="px-3 py-2 text-left">描述</th>
                           <th className="px-3 py-2 text-left w-24">运镜</th>
                           <th className="px-3 py-2 text-left w-32">备注</th>
+                          <th className="px-3 py-2 text-left w-28">操作</th>
                         </tr>
                       </thead>
                       <tbody>
                         {scriptFrames.map((f: any, i: number) => (
-                          <tr key={i} className="border-t">
+                          <tr key={i} className="border-t hover:bg-muted/20">
                             <td className="px-3 py-2 font-mono text-xs">{f.index || i + 1}</td>
                             <td className="px-3 py-2">
                               <Badge variant="outline" className="text-xs">{f.shotType || "-"}</Badge>
@@ -459,6 +435,22 @@ export default function ProjectDetail() {
                             <td className="px-3 py-2 text-xs">{f.description || "-"}</td>
                             <td className="px-3 py-2 text-xs">{f.cameraMovement || f.cameraMove || "-"}</td>
                             <td className="px-3 py-2 text-xs text-muted-foreground">{f.notes || "-"}</td>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-1">
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0"
+                                  onClick={() => setEditingFrame({ index: f.index || i + 1, data: { ...f } })}>
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0"
+                                  onClick={() => setAddFrameDialog({ afterIndex: f.index || i + 1 })}>
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                  onClick={() => setDeleteFrameDialog(f.index || i + 1)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -508,36 +500,25 @@ export default function ProjectDetail() {
               <CardTitle className="text-base">锚点参考图 (Anchors)</CardTitle>
               <div className="flex items-center gap-2">
                 {anchors && anchors.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setPromptViewDialog({
-                      title: "Anchor 生成 Prompt",
-                      prompts: anchorPromptList,
-                    })}
-                  >
+                  <Button size="sm" variant="ghost" onClick={() => setPromptViewDialog({ title: "Anchor 生成 Prompt", prompts: anchorPromptList })}>
                     <FileText className="h-4 w-4 mr-1" />
                     <span className="text-xs">查看Prompt</span>
                   </Button>
                 )}
-                <Button
-                  size="sm"
-                  onClick={() => setConfirmRegenDialog({
-                    step: "Anchor",
-                    action: () => generateAnchor.mutate({ projectId }),
-                  })}
+                <Button size="sm"
+                  onClick={() => setConfirmRegenDialog({ step: "全部Anchor", action: () => generateAnchor.mutate({ projectId }) })}
                   disabled={generateAnchor.isPending || !script}
                 >
                   {generateAnchor.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                  {anchors?.length ? "重新生成" : "生成Anchor"}
+                  {anchors?.length ? "重新生成全部" : "生成Anchor"}
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               {anchors && anchors.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {anchors.map((a: any) => (
-                    <div key={a.id} className="space-y-2">
+                    <div key={a.id} className="space-y-2 group relative">
                       {a.imageUrl ? (
                         <img src={a.imageUrl} alt={a.name} className="w-full aspect-square object-cover rounded-lg border" />
                       ) : (
@@ -553,6 +534,23 @@ export default function ProjectDetail() {
                         {a.description && (
                           <p className="text-xs text-muted-foreground line-clamp-2">{a.description}</p>
                         )}
+                      </div>
+                      {/* Per-anchor actions */}
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="outline" className="flex-1 h-7 text-xs"
+                          onClick={() => setAnchorEditDialog({ anchor: a, customPrompt: a.prompt || "" })}>
+                          <Pencil className="h-3 w-3 mr-1" />
+                          编辑Prompt
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs"
+                          onClick={() => setConfirmRegenDialog({
+                            step: `Anchor "${a.name}"`,
+                            action: () => regenerateOneAnchor.mutate({ anchorId: a.id }),
+                          })}
+                          disabled={regenerateOneAnchor.isPending}
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -574,24 +572,16 @@ export default function ProjectDetail() {
               <CardTitle className="text-base">分镜Grid</CardTitle>
               <div className="flex items-center gap-2">
                 {grid?.generationPrompt && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setPromptViewDialog({
-                      title: "Grid 生成 Prompt",
-                      prompts: [{ label: "图片生成Prompt", text: grid.generationPrompt as string }],
-                    })}
-                  >
+                  <Button size="sm" variant="ghost" onClick={() => setPromptViewDialog({
+                    title: "Grid 生成 Prompt",
+                    prompts: [{ label: "图片生成Prompt", text: grid.generationPrompt as string }],
+                  })}>
                     <FileText className="h-4 w-4 mr-1" />
                     <span className="text-xs">查看Prompt</span>
                   </Button>
                 )}
-                <Button
-                  size="sm"
-                  onClick={() => setConfirmRegenDialog({
-                    step: "Grid",
-                    action: () => generateGrid.mutate({ projectId }),
-                  })}
+                <Button size="sm"
+                  onClick={() => setConfirmRegenDialog({ step: "Grid", action: () => generateGrid.mutate({ projectId }) })}
                   disabled={generateGrid.isPending || !script}
                 >
                   {generateGrid.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
@@ -602,11 +592,7 @@ export default function ProjectDetail() {
             <CardContent>
               {grid?.gridImageUrl ? (
                 <div className="space-y-4">
-                  <img
-                    src={grid.gridImageUrl}
-                    alt="Storyboard Grid"
-                    className="w-full rounded-lg border"
-                  />
+                  <img src={grid.gridImageUrl} alt="Storyboard Grid" className="w-full rounded-lg border" />
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>布局: {grid.rows}×{grid.cols}</span>
                     <Separator orientation="vertical" className="h-4" />
@@ -622,11 +608,11 @@ export default function ProjectDetail() {
             </CardContent>
           </Card>
 
-          {/* Panel List with Fix Actions */}
+          {/* Panel List */}
           {panels && panels.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">面板列表（点击面板标记问题）</CardTitle>
+                <CardTitle className="text-base">面板列表（点击面板标记问题或修复）</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -636,10 +622,7 @@ export default function ProjectDetail() {
                       className={`relative rounded-lg border-2 p-2 cursor-pointer transition-all hover:shadow-md ${
                         selectedPanel === p.panelIndex ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                       }`}
-                      onClick={() => {
-                        setSelectedPanel(p.panelIndex);
-                        setFixDialogOpen(true);
-                      }}
+                      onClick={() => { setSelectedPanel(p.panelIndex); setFixDialogOpen(true); }}
                     >
                       <div className="absolute top-1 left-1 bg-background/80 rounded px-1.5 py-0.5 text-xs font-mono">
                         #{p.panelIndex}
@@ -667,18 +650,39 @@ export default function ProjectDetail() {
 
           {/* Fix Dialog */}
           <Dialog open={fixDialogOpen} onOpenChange={setFixDialogOpen}>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>修复面板 #{selectedPanel}</DialogTitle>
+                <DialogDescription>选择修复方式并提供修复指引</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
+                {/* Show current panel image and anchor references */}
+                {selectedPanel !== null && (() => {
+                  const panel = panels?.find((p: any) => p.panelIndex === selectedPanel);
+                  return panel?.panelImageUrl ? (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">当前面板图</Label>
+                      <img src={panel.panelImageUrl} alt={`Panel ${selectedPanel}`} className="w-full aspect-video object-cover rounded border" />
+                    </div>
+                  ) : null;
+                })()}
+                {/* Anchor references */}
+                {anchors && anchors.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Anchor参考图（修复时自动引用）</Label>
+                    <div className="flex gap-2 overflow-x-auto">
+                      {anchors.filter((a: any) => a.imageUrl).map((a: any) => (
+                        <div key={a.id} className="shrink-0 text-center">
+                          <img src={a.imageUrl} alt={a.name} className="h-16 w-16 object-cover rounded border" />
+                          <p className="text-[10px] mt-0.5">{a.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label>问题描述</Label>
-                  <Textarea
-                    placeholder="描述这个面板的问题..."
-                    value={issueText}
-                    onChange={(e) => setIssueText(e.target.value)}
-                  />
+                  <Textarea placeholder="描述这个面板的问题..." value={issueText} onChange={(e) => setIssueText(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>修复方式</Label>
@@ -688,12 +692,8 @@ export default function ProjectDetail() {
                       { value: "regenerate" as const, label: "重新生成", icon: RefreshCw },
                       { value: "reference" as const, label: "参考图生成", icon: ImageIcon },
                     ].map((opt) => (
-                      <Button
-                        key={opt.value}
-                        variant={fixType === opt.value ? "default" : "outline"}
-                        className="flex flex-col h-auto py-3"
-                        onClick={() => setFixType(opt.value)}
-                      >
+                      <Button key={opt.value} variant={fixType === opt.value ? "default" : "outline"} className="flex flex-col h-auto py-3"
+                        onClick={() => setFixType(opt.value)}>
                         <opt.icon className="h-4 w-4 mb-1" />
                         <span className="text-xs">{opt.label}</span>
                       </Button>
@@ -702,11 +702,7 @@ export default function ProjectDetail() {
                 </div>
                 <div className="space-y-2">
                   <Label>修复提示词</Label>
-                  <Textarea
-                    placeholder="输入修复的具体要求..."
-                    value={fixPrompt}
-                    onChange={(e) => setFixPrompt(e.target.value)}
-                  />
+                  <Textarea placeholder="输入修复的具体要求..." value={fixPrompt} onChange={(e) => setFixPrompt(e.target.value)} />
                 </div>
               </div>
               <DialogFooter>
@@ -738,12 +734,8 @@ export default function ProjectDetail() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">视频生成Prompt</CardTitle>
-              <Button
-                size="sm"
-                onClick={() => setConfirmRegenDialog({
-                  step: "Prompt",
-                  action: () => generatePrompts.mutate({ projectId }),
-                })}
+              <Button size="sm"
+                onClick={() => setConfirmRegenDialog({ step: "Prompt", action: () => generatePrompts.mutate({ projectId }) })}
                 disabled={generatePrompts.isPending || !grid}
               >
                 {generatePrompts.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
@@ -812,10 +804,7 @@ export default function ProjectDetail() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmRegenDialog(null)}>取消</Button>
-            <Button onClick={() => {
-              confirmRegenDialog?.action();
-              setConfirmRegenDialog(null);
-            }}>
+            <Button onClick={() => { confirmRegenDialog?.action(); setConfirmRegenDialog(null); }}>
               确认重新生成
             </Button>
           </DialogFooter>
@@ -852,7 +841,6 @@ export default function ProjectDetail() {
             <DialogDescription>查看和回退到历史版本</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Script versions */}
             <div>
               <p className="text-sm font-medium mb-2">脚本版本</p>
               {versionHistory.data?.scriptVersions?.length ? (
@@ -860,12 +848,8 @@ export default function ProjectDetail() {
                   {versionHistory.data.scriptVersions.map((v: any) => (
                     <div key={v.id} className="flex items-center justify-between p-2 rounded border text-xs">
                       <div className="flex items-center gap-2">
-                        <Badge variant={v.version === project.currentVersion ? "default" : "outline"} className="text-xs">
-                          v{v.version}
-                        </Badge>
-                        <span className="text-muted-foreground">
-                          {v.createdAt ? new Date(v.createdAt).toLocaleString() : "-"}
-                        </span>
+                        <Badge variant={v.version === project.currentVersion ? "default" : "outline"} className="text-xs">v{v.version}</Badge>
+                        <span className="text-muted-foreground">{v.createdAt ? new Date(v.createdAt).toLocaleString() : "-"}</span>
                         {v.validationPassed != null && (
                           <Badge variant={v.validationPassed ? "default" : "secondary"} className="text-[10px]">
                             {v.validationPassed ? "校验通过" : "未通过"}
@@ -873,14 +857,9 @@ export default function ProjectDetail() {
                         )}
                       </div>
                       {v.version !== project.currentVersion && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 text-xs"
-                          onClick={() => { setHistoryDialogOpen(false); setRollbackDialog({ version: v.version }); }}
-                        >
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          回退
+                        <Button size="sm" variant="ghost" className="h-6 text-xs"
+                          onClick={() => { setHistoryDialogOpen(false); setRollbackDialog({ version: v.version }); }}>
+                          <RotateCcw className="h-3 w-3 mr-1" />回退
                         </Button>
                       )}
                     </div>
@@ -888,8 +867,6 @@ export default function ProjectDetail() {
                 </div>
               ) : <p className="text-xs text-muted-foreground">暂无版本</p>}
             </div>
-
-            {/* Grid versions */}
             <div>
               <p className="text-sm font-medium mb-2">Grid版本</p>
               {versionHistory.data?.gridVersions?.length ? (
@@ -897,12 +874,8 @@ export default function ProjectDetail() {
                   {versionHistory.data.gridVersions.map((v: any) => (
                     <div key={v.id} className="flex items-center justify-between p-2 rounded border text-xs">
                       <div className="flex items-center gap-2">
-                        <Badge variant={v.version === project.currentVersion ? "default" : "outline"} className="text-xs">
-                          v{v.version}
-                        </Badge>
-                        <span className="text-muted-foreground">
-                          {v.createdAt ? new Date(v.createdAt).toLocaleString() : "-"}
-                        </span>
+                        <Badge variant={v.version === project.currentVersion ? "default" : "outline"} className="text-xs">v{v.version}</Badge>
+                        <span className="text-muted-foreground">{v.createdAt ? new Date(v.createdAt).toLocaleString() : "-"}</span>
                         <span className="text-muted-foreground">{v.rows}×{v.cols}</span>
                       </div>
                       {v.gridImageUrl && (
@@ -913,8 +886,6 @@ export default function ProjectDetail() {
                 </div>
               ) : <p className="text-xs text-muted-foreground">暂无版本</p>}
             </div>
-
-            {/* Prompt versions */}
             <div>
               <p className="text-sm font-medium mb-2">Prompt版本</p>
               {versionHistory.data?.promptVersions?.length ? (
@@ -922,12 +893,8 @@ export default function ProjectDetail() {
                   {versionHistory.data.promptVersions.map((v: any, i: number) => (
                     <div key={i} className="flex items-center justify-between p-2 rounded border text-xs">
                       <div className="flex items-center gap-2">
-                        <Badge variant={v.version === project.currentVersion ? "default" : "outline"} className="text-xs">
-                          v{v.version}
-                        </Badge>
-                        <span className="text-muted-foreground">
-                          {v.createdAt ? new Date(v.createdAt).toLocaleString() : "-"}
-                        </span>
+                        <Badge variant={v.version === project.currentVersion ? "default" : "outline"} className="text-xs">v{v.version}</Badge>
+                        <span className="text-muted-foreground">{v.createdAt ? new Date(v.createdAt).toLocaleString() : "-"}</span>
                         <span className="text-muted-foreground">{v.count} 条prompt</span>
                       </div>
                     </div>
@@ -950,17 +917,218 @@ export default function ProjectDetail() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRollbackDialog(null)}>取消</Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (rollbackDialog) {
-                  rollbackMut.mutate({ projectId, targetVersion: rollbackDialog.version });
-                }
-              }}
+            <Button variant="destructive"
+              onClick={() => { if (rollbackDialog) rollbackMut.mutate({ projectId, targetVersion: rollbackDialog.version }); }}
               disabled={rollbackMut.isPending}
             >
               {rollbackMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
               确认回退
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================== Edit Frame Dialog ==================== */}
+      <Dialog open={!!editingFrame} onOpenChange={(open) => !open && setEditingFrame(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>编辑镜头 #{editingFrame?.index}</DialogTitle>
+            <DialogDescription>修改镜头参数后保存</DialogDescription>
+          </DialogHeader>
+          {editingFrame && (
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>景别</Label>
+                  <Select value={editingFrame.data.shotType || "中景"} onValueChange={(v) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, shotType: v } })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {SHOT_TYPES.map((st) => <SelectItem key={st} value={st}>{st}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>时长 (秒)</Label>
+                  <Input type="number" step="0.5" min="0.5" max="10"
+                    value={editingFrame.data.duration || 2}
+                    onChange={(e) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, duration: parseFloat(e.target.value) || 2 } })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>描述</Label>
+                <Textarea value={editingFrame.data.description || ""}
+                  onChange={(e) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, description: e.target.value } })}
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>运镜</Label>
+                  <Select value={editingFrame.data.cameraMovement || editingFrame.data.cameraMove || "固定"}
+                    onValueChange={(v) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, cameraMovement: v } })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CAMERA_MOVES.map((cm) => <SelectItem key={cm} value={cm}>{cm}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>备注</Label>
+                  <Input value={editingFrame.data.notes || ""}
+                    onChange={(e) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, notes: e.target.value } })}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingFrame(null)}>取消</Button>
+            <Button onClick={() => {
+              if (!editingFrame) return;
+              updateFrame.mutate({
+                projectId,
+                frameIndex: editingFrame.index,
+                data: {
+                  shotType: editingFrame.data.shotType,
+                  duration: editingFrame.data.duration,
+                  description: editingFrame.data.description,
+                  cameraMovement: editingFrame.data.cameraMovement,
+                  notes: editingFrame.data.notes,
+                },
+              });
+            }} disabled={updateFrame.isPending}>
+              {updateFrame.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================== Add Frame Dialog ==================== */}
+      <Dialog open={!!addFrameDialog} onOpenChange={(open) => !open && setAddFrameDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>添加新镜头</DialogTitle>
+            <DialogDescription>
+              将在第 {addFrameDialog?.afterIndex || 0} 帧之后插入新镜头
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>景别</Label>
+                <Select value={newFrame.shotType} onValueChange={(v) => setNewFrame({ ...newFrame, shotType: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SHOT_TYPES.map((st) => <SelectItem key={st} value={st}>{st}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>时长 (秒)</Label>
+                <Input type="number" step="0.5" min="0.5" max="10"
+                  value={newFrame.duration}
+                  onChange={(e) => setNewFrame({ ...newFrame, duration: parseFloat(e.target.value) || 2 })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>描述</Label>
+              <Textarea value={newFrame.description} onChange={(e) => setNewFrame({ ...newFrame, description: e.target.value })} rows={3} placeholder="描述这个镜头的内容..." />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>运镜</Label>
+                <Select value={newFrame.cameraMovement} onValueChange={(v) => setNewFrame({ ...newFrame, cameraMovement: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CAMERA_MOVES.map((cm) => <SelectItem key={cm} value={cm}>{cm}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>备注</Label>
+                <Input value={newFrame.notes} onChange={(e) => setNewFrame({ ...newFrame, notes: e.target.value })} placeholder="可选" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddFrameDialog(null)}>取消</Button>
+            <Button onClick={() => {
+              if (!addFrameDialog || !newFrame.description) { toast.error("请填写描述"); return; }
+              addFrame.mutate({
+                projectId,
+                afterIndex: addFrameDialog.afterIndex,
+                frame: newFrame,
+              });
+            }} disabled={addFrame.isPending}>
+              {addFrame.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              添加
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================== Delete Frame Confirm Dialog ==================== */}
+      <Dialog open={deleteFrameDialog !== null} onOpenChange={(open) => !open && setDeleteFrameDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除镜头</DialogTitle>
+            <DialogDescription>
+              确定要删除第 {deleteFrameDialog} 帧吗？删除后后续帧会自动重新编号。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteFrameDialog(null)}>取消</Button>
+            <Button variant="destructive" onClick={() => {
+              if (deleteFrameDialog !== null) removeFrame.mutate({ projectId, frameIndex: deleteFrameDialog });
+            }} disabled={removeFrame.isPending}>
+              {removeFrame.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              确认删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================== Anchor Edit Prompt Dialog ==================== */}
+      <Dialog open={!!anchorEditDialog} onOpenChange={(open) => !open && setAnchorEditDialog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>编辑Anchor Prompt: {anchorEditDialog?.anchor?.name}</DialogTitle>
+            <DialogDescription>修改prompt后重新生成该Anchor图片</DialogDescription>
+          </DialogHeader>
+          {anchorEditDialog && (
+            <div className="space-y-4 py-2">
+              {anchorEditDialog.anchor.imageUrl && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">当前图片</Label>
+                  <img src={anchorEditDialog.anchor.imageUrl} alt={anchorEditDialog.anchor.name}
+                    className="w-32 h-32 object-cover rounded-lg border" />
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>Prompt</Label>
+                <Textarea
+                  value={anchorEditDialog.customPrompt}
+                  onChange={(e) => setAnchorEditDialog({ ...anchorEditDialog, customPrompt: e.target.value })}
+                  rows={6}
+                  placeholder="输入自定义的图片生成prompt..."
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAnchorEditDialog(null)}>取消</Button>
+            <Button onClick={() => {
+              if (!anchorEditDialog) return;
+              regenerateOneAnchor.mutate({
+                anchorId: anchorEditDialog.anchor.id,
+                customPrompt: anchorEditDialog.customPrompt || undefined,
+              });
+            }} disabled={regenerateOneAnchor.isPending}>
+              {regenerateOneAnchor.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              重新生成
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -993,12 +1161,7 @@ function WorkflowStep({
           </Button>
         )}
         {onRegenerate && (
-          <Button
-            size="sm"
-            variant={done ? "outline" : "default"}
-            onClick={onRegenerate}
-            disabled={disabled || loading}
-          >
+          <Button size="sm" variant={done ? "outline" : "default"} onClick={onRegenerate} disabled={disabled || loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : (
               done ? <RefreshCw className="h-4 w-4 mr-1" /> : <Play className="h-4 w-4 mr-1" />
             )}

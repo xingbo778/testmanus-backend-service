@@ -566,6 +566,125 @@ export async function getRuleChapterByNumber(chapterNumber: number) {
 }
 
 // ============================================================
+// Script Frame Editing helpers
+// ============================================================
+export async function updateScriptFrames(scriptId: number, newFrames: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(scripts).set({ frames: newFrames } as any).where(eq(scripts.id, scriptId));
+}
+
+export async function updateScriptCharacters(scriptId: number, characters: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(scripts).set({ characters } as any).where(eq(scripts.id, scriptId));
+}
+
+export async function updateScriptScenes(scriptId: number, scenes: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(scripts).set({ scenes } as any).where(eq(scripts.id, scriptId));
+}
+
+// ============================================================
+// Rule Chapter CRUD helpers
+// ============================================================
+export async function createRuleChapter(data: {
+  chapterNumber: number; title: string;
+  category: "universal" | "scene_specific" | "technical" | "ai_prompt";
+  applicableL2Ids?: any; rules?: any; ruleCount?: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(ruleChapters).values({
+    ...data,
+    rules: data.rules ?? [],
+    ruleCount: data.ruleCount ?? 0,
+  });
+  return result[0].insertId;
+}
+
+export async function updateRuleChapter(chapterId: number, data: Partial<{
+  title: string; category: string; applicableL2Ids: any; rules: any; ruleCount: number;
+}>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(ruleChapters).set(data as any).where(eq(ruleChapters.id, chapterId));
+}
+
+export async function deleteRuleChapter(chapterId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(ruleChapters).where(eq(ruleChapters.id, chapterId));
+}
+
+// ============================================================
+// Category CRUD helpers
+// ============================================================
+export async function createCategory(level: 1 | 2 | 3, data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  if (level === 1) {
+    await db.insert(categoriesL1).values(data);
+  } else if (level === 2) {
+    await db.insert(categoriesL2).values(data);
+  } else {
+    await db.insert(categoriesL3).values(data);
+  }
+}
+
+export async function updateCategory(level: 1 | 2 | 3, id: string, data: Partial<{ name: string; nameEn: string; description: string; sortOrder: number }>) {
+  const db = await getDb();
+  if (!db) return;
+  if (level === 1) {
+    await db.update(categoriesL1).set(data as any).where(eq(categoriesL1.id, id));
+  } else if (level === 2) {
+    await db.update(categoriesL2).set(data as any).where(eq(categoriesL2.id, id));
+  } else {
+    await db.update(categoriesL3).set(data as any).where(eq(categoriesL3.id, id));
+  }
+}
+
+export async function deleteCategory(level: 1 | 2 | 3, id: string) {
+  const db = await getDb();
+  if (!db) return;
+  if (level === 1) {
+    await db.delete(categoriesL1).where(eq(categoriesL1.id, id));
+  } else if (level === 2) {
+    await db.delete(categoriesL2).where(eq(categoriesL2.id, id));
+  } else {
+    await db.delete(categoriesL3).where(eq(categoriesL3.id, id));
+  }
+}
+
+// ============================================================
+// Anchor single update helper
+// ============================================================
+export async function updateAnchor(anchorId: number, data: Partial<{ prompt: string; imageUrl: string; description: string }>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(anchors).set(data as any).where(eq(anchors.id, anchorId));
+}
+
+export async function getAnchorById(anchorId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(anchors).where(eq(anchors.id, anchorId)).limit(1);
+  return result[0] ?? null;
+}
+
+// ============================================================
+// Prompt deletion helper
+// ============================================================
+export async function deletePromptsForProject(projectId: number, version?: number) {
+  const db = await getDb();
+  if (!db) return;
+  const conditions = [eq(prompts.projectId, projectId)];
+  if (version) conditions.push(eq(prompts.version, version));
+  await db.delete(prompts).where(and(...conditions));
+}
+
+// ============================================================
 // Confirmed projects for export
 // ============================================================
 export async function getConfirmedProjects(filters?: { l1Id?: string; l2Id?: string; l3Id?: string; since?: Date }) {

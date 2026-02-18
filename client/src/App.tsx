@@ -10,6 +10,7 @@ import ProjectDetail from "./pages/ProjectDetail";
 import ExperienceManager from "./pages/ExperienceManager";
 import ExportManager from "./pages/ExportManager";
 import RuleManager from "./pages/RuleManager";
+import PromptManager from "./pages/PromptManager";
 import DashboardLayout from "./components/DashboardLayout";
 
 function Router() {
@@ -25,6 +26,7 @@ function Router() {
         <Route path={"/experience"} component={ExperienceManager} />
         <Route path={"/export"} component={ExportManager} />
         <Route path={"/rules"} component={RuleManager} />
+        <Route path={"/prompts"} component={PromptManager} />
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />
       </Switch>

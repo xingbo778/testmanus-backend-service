@@ -167,3 +167,37 @@
 - [x] 3. Grid下面板列表按grid版本过滤去重
 - [x] 4. 重新生成前清理旧数据（deleteAnchorsForProject/deletePanelsForProject）
 - [x] 5. 添加Anchor和Grid生成prompt查看入口（Dialog弹窗）
+
+## Phase 7: Core Quality Fixes (Prompt & Generation)
+- [x] 1. Anchor prompt优化：角色白背景居中半身、场景全景（Nano Banana Pro最佳实践）
+- [x] 2. 支持单个anchor重新生成（anchor.regenerateOne mutation + 前端UI）
+- [x] 3. Grid生成参考anchor图（传入originalImages）
+- [x] 4. Grid prompt优化：结构化格式（Work Surface + Layout + Components + Constraints）
+- [x] 5. 面板修复参考原始panel+anchor图，修复后同步回grid
+
+## Phase 8: Major Feature Additions
+### 8.1 脚本镜头编辑
+- [x] 后端：script.updateFrame - 修改单个镜头（描述/景别/时长/运镜等）
+- [x] 后端：script.addFrame - 在指定位置插入新镜头
+- [x] 后端：script.removeFrame - 删除指定镜头
+- [x] 前端：脚本tab中每个镜头添加编辑/删除按钮
+- [x] 前端：添加"新增镜头"按钮，支持在任意位置插入
+- [x] 前端：编辑镜头Dialog（修改描述/景别/时长/运镜）
+
+### 8.2 Anchor单个重新生成
+- [x] 前端：每个anchor卡片添加"重新生成"和"编辑prompt"按钮
+- [x] 前端：编辑anchor prompt Dialog，支持自定义prompt后重新生成
+
+### 8.3 规则管理CRUD
+- [x] 后端：ruleCategory.create/update/delete - 分类增删改查
+- [x] 后端：rule.create/update/delete - 规则增删改查
+- [x] 前端：规则分类列表支持新增/编辑/删除
+- [x] 前端：规则详情页支持新增/编辑/删除规则
+
+### 8.4 Prompt管理
+- [x] 后端：promptTemplate.list - 列出工作流中所有prompt模板
+- [x] 后端：promptTemplate.get - 获取prompt模板内容
+- [x] 后端：promptTemplate.translate - 翻译prompt为中文
+- [x] 前端：Prompt管理页面（按分类分组展示）
+- [x] 前端：每个prompt支持查看/编辑/翻译成中文/复制
+- [x] 前端：侧边栏添加Prompt管理入口
