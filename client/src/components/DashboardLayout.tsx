@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, FolderTree, BookOpen, Download, Shield, Film } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, FolderTree, BookOpen, Download, Shield, Film, KeyRound } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -59,11 +59,14 @@ export default function DashboardLayout({
     return <DashboardLayoutSkeleton />
   }
 
+  const isRailwayMode = !import.meta.env.VITE_OAUTH_PORTAL_URL || !import.meta.env.VITE_APP_ID;
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
           <div className="flex flex-col items-center gap-6">
+            <Film className="h-12 w-12 text-primary" />
             <h1 className="text-2xl font-semibold tracking-tight text-center">
               分镜标注与管理平台
             </h1>
@@ -71,15 +74,52 @@ export default function DashboardLayout({
               登录以访问分镜管理、标注调整和知识库导出功能
             </p>
           </div>
-          <Button
-            onClick={() => {
-              window.location.href = getLoginUrl();
-            }}
-            size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all"
-          >
-            登录
-          </Button>
+          {isRailwayMode ? (
+            <div className="w-full space-y-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <KeyRound className="h-4 w-4" />
+                <span>请输入API Key</span>
+              </div>
+              <input
+                type="password"
+                placeholder="输入API Key..."
+                className="w-full px-4 py-2 rounded-lg border bg-background text-foreground"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const key = (e.target as HTMLInputElement).value;
+                    if (key) {
+                      localStorage.setItem('storyboard-api-key', key);
+                      window.location.reload();
+                    }
+                  }
+                }}
+              />
+              <Button
+                onClick={() => {
+                  const input = document.querySelector('input[type=password]') as HTMLInputElement;
+                  const key = input?.value;
+                  if (key) {
+                    localStorage.setItem('storyboard-api-key', key);
+                    window.location.reload();
+                  }
+                }}
+                size="lg"
+                className="w-full shadow-lg hover:shadow-xl transition-all"
+              >
+                登录
+              </Button>
+            </div>
+          ) : (
+            <Button
+              onClick={() => {
+                window.location.href = getLoginUrl();
+              }}
+              size="lg"
+              className="w-full shadow-lg hover:shadow-xl transition-all"
+            >
+              登录
+            </Button>
+          )}
         </div>
       </div>
     );
