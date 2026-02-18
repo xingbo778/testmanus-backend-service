@@ -288,3 +288,67 @@ export const exportRecords = mysqlTable("export_records", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   completedAt: timestamp("completedAt"),
 });
+
+// ============================================================
+// App Logs (product-level operation logs)
+// ============================================================
+export const appLogs = mysqlTable("app_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  level: mysqlEnum("level", ["info", "warn", "error", "debug"]).default("info").notNull(),
+  source: varchar("source", { length: 64 }).notNull(), // e.g. "script_gen", "anchor_gen", "grid_gen", "panel_fix", "video_gen", "export", "system"
+  message: text("message").notNull(),
+  details: json("details"), // { error?, stack?, request?, response?, duration?, metadata? }
+  projectId: int("projectId"),
+  panelIndex: int("panelIndex"),
+  userId: int("userId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AppLog = typeof appLogs.$inferSelect;
+
+// ============================================================
+// Video Clips (generated video per panel)
+// ============================================================
+export const videoClips = mysqlTable("video_clips", {
+  id: int("id").autoincrement().primaryKey(),
+  panelId: int("panelId").notNull(),
+  projectId: int("projectId").notNull(),
+  version: int("version").default(1).notNull(),
+  panelIndex: int("panelIndex").notNull(),
+  // Generation
+  model: varchar("model", { length: 64 }).default("seedance-1.5-pro").notNull(),
+  taskId: varchar("taskId", { length: 256 }), // yunwu task ID
+  prompt: text("prompt"),
+  keyframeUrl: text("keyframeUrl"), // panel image used as keyframe
+  // Result
+  clipUrl: text("clipUrl"), // S3 URL of generated clip
+  rawDuration: varchar("rawDuration", { length: 16 }), // raw clip duration from API
+  targetDuration: varchar("targetDuration", { length: 16 }), // target duration from script
+  trimmedClipUrl: text("trimmedClipUrl"), // trimmed clip URL
+  // Status
+  status: mysqlEnum("status", ["pending", "generating", "upsampling", "completed", "trimmed", "failed"]).default("pending").notNull(),
+  errorMessage: text("errorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type VideoClip = typeof videoClips.$inferSelect;
+
+// ============================================================
+// Final Videos (merged video per project)
+// ============================================================
+export const finalVideos = mysqlTable("final_videos", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  version: int("version").default(1).notNull(),
+  videoUrl: text("videoUrl"), // S3 URL of merged video
+  totalDuration: varchar("totalDuration", { length: 16 }),
+  clipCount: int("clipCount").default(0).notNull(),
+  status: mysqlEnum("status", ["pending", "merging", "completed", "failed"]).default("pending").notNull(),
+  errorMessage: text("errorMessage"),
+  confirmedAt: timestamp("confirmedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FinalVideo = typeof finalVideos.$inferSelect;

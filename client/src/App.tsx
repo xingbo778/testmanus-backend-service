@@ -11,6 +11,7 @@ import ExperienceManager from "./pages/ExperienceManager";
 import ExportManager from "./pages/ExportManager";
 import RuleManager from "./pages/RuleManager";
 import PromptManager from "./pages/PromptManager";
+import LogSession from "./pages/LogSession";
 import DashboardLayout from "./components/DashboardLayout";
 
 function Router() {
@@ -27,6 +28,7 @@ function Router() {
         <Route path={"/export"} component={ExportManager} />
         <Route path={"/rules"} component={RuleManager} />
         <Route path={"/prompts"} component={PromptManager} />
+        <Route path={"/logs"} component={LogSession} />
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />
       </Switch>

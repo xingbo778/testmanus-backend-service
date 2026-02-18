@@ -22,6 +22,13 @@
       "when": 1771442574558,
       "tag": "0002_premium_phantom_reporter",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1771444325761,
+      "tag": "0003_chilly_garia",
+      "breakpoints": true
     }
   ]
 }

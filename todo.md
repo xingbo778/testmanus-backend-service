@@ -236,3 +236,35 @@
 - [x] ExperienceManager: 统计卡片2列适配
 - [x] ExportManager: 导出设置单列适配
 - [x] 所有Dialog中的grid-cols-2改为grid-cols-1 sm:grid-cols-2
+
+## Phase 13: Panel Content Extraction & Display
+- [x] 从Grid图中截取单个panel内容（Sharp裁剪，根据rows/cols/panelIndex计算坐标）
+- [x] extractPanel + extractAllPanels函数实现
+- [x] 修复面板时展示该panel的截取图（panelImageUrl字段）
+- [x] panel截取图保存到ToAPIs并存入数据库
+- [x] 前端“提取面板”按钮在Grid tab中
+
+## Phase 14: Mask-based Panel Fix
+- [x] MaskCanvas组件：前端Canvas画mask（可调画笔大小、擤除、清除）
+- [x] mask数据传输（base64 data URL）
+- [x] 后端inpaint修复：原图+mask+prompt传给gemini
+- [x] Fix Dialog中集成MaskCanvas（选择inpaint时显示）
+
+## Phase 15: Video Generation Workflow (Seedance 1.5 Pro)
+- [x] Seedance 1.5 Pro / Kling v2.6 / VEO 3.1 Fast 模型支持
+- [x] 数据库：videoClips表 + finalVideos表
+- [x] 后端：videoGenerator.ts（创建任务/查询状态/轮询）
+- [x] 后端：videoMerger.ts（FFmpeg合并所有clip）
+- [x] 后端：video路由（generateClips/pollClipStatus/mergeClips/confirmFinal）
+- [x] 前端：Video tab（模型选择/生成/状态网格/合并/播放/确认）
+- [x] 自动轮询clip状态（30秒间隔）
+
+## Phase 16: Error Handling & Log Session
+- [x] 完善各API调用的报错处理（前端toast展示详细错误信息）
+- [x] 数据库：appLogs表
+- [x] 后端：appLogger.ts统一日志记录（logInfo/logWarn/logError/logDebug）
+- [x] 后端：在脚本生成/anchor/grid/panel修复/prompt生成/视频生成中记录日志
+- [x] 后端：日志查询API（分页+按level/source/project筛选）
+- [x] 前端：Log Session页面（实时日志列表，自动刷新，筛选和搜索）
+- [x] 前端：侧边栏“日志中心”入口
+- [x] 前端：日志详情展开查看（JSON格式化details）

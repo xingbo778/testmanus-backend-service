@@ -16,8 +16,9 @@ import {
   Clock, Film, Camera, FileText, Sparkles, Plus, Trash2, Save, X
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
+import MaskCanvas from "@/components/MaskCanvas";
 
 const STATUS_MAP: Record<string, string> = {
   draft: "草稿", scripted: "已生成脚本", grid_generated: "已生成Grid",
@@ -41,6 +42,7 @@ export default function ProjectDetail() {
   const [fixDialogOpen, setFixDialogOpen] = useState(false);
   const [fixType, setFixType] = useState<"inpaint" | "regenerate" | "reference">("inpaint");
   const [fixPrompt, setFixPrompt] = useState("");
+  const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
   const [confirmRegenDialog, setConfirmRegenDialog] = useState<{ step: string; action: () => void } | null>(null);
   const [rollbackDialog, setRollbackDialog] = useState<{ version: number } | null>(null);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
@@ -121,6 +123,69 @@ export default function ProjectDetail() {
     onSuccess: () => { toast.success("镜头已删除"); refetch(); setDeleteFrameDialog(null); },
     onError: (err: any) => toast.error(`删除失败: ${err.message}`),
   });
+
+  // Panel extraction
+  const extractPanelsMut = trpc.panel.extractAll.useMutation({
+    onSuccess: (result: any) => { toast.success(`已提取 ${result.extracted} 个面板图片`); refetch(); },
+    onError: (err: any) => toast.error(`提取失败: ${err.message}`),
+  });
+
+  // Video mutations
+  const videoClips = trpc.video.clips.useQuery({ projectId }, { enabled: !!projectId });
+  const finalVideos = trpc.video.finalVideos.useQuery({ projectId }, { enabled: !!projectId });
+  const [videoModel, setVideoModel] = useState("seedance-1.5-pro");
+  const [isPolling, setIsPolling] = useState(false);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const generateClipsMut = trpc.video.generateClips.useMutation({
+    onSuccess: (result) => {
+      toast.success(`已提交 ${result.clips.length} 个视频生成任务`);
+      videoClips.refetch();
+      setIsPolling(true);
+    },
+    onError: (err: any) => toast.error(`视频生成失败: ${err.message}`),
+  });
+
+  const pollClipsMut = trpc.video.pollClipStatus.useMutation({
+    onSuccess: (result) => {
+      videoClips.refetch();
+      if (result.allCompleted) {
+        setIsPolling(false);
+        toast.success("所有视频clip已完成");
+      }
+    },
+  });
+
+  const mergeClipsMut = trpc.video.mergeClips.useMutation({
+    onSuccess: (result) => {
+      toast.success(`视频合并完成！总时长: ${result.totalDuration.toFixed(1)}秒`);
+      finalVideos.refetch();
+    },
+    onError: (err: any) => toast.error(`视频合并失败: ${err.message}`),
+  });
+
+  const confirmFinalMut = trpc.video.confirmFinal.useMutation({
+    onSuccess: () => {
+      toast.success("最终视频已确认！项目完成");
+      refetch();
+      finalVideos.refetch();
+    },
+    onError: (err: any) => toast.error(`确认失败: ${err.message}`),
+  });
+
+  // Auto-poll video clips
+  useEffect(() => {
+    if (isPolling) {
+      pollTimerRef.current = setInterval(() => {
+        pollClipsMut.mutate({ projectId });
+      }, 30000);
+      // Immediate first poll
+      pollClipsMut.mutate({ projectId });
+    }
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    };
+  }, [isPolling, projectId]);
 
   if (isLoading) {
     return (
@@ -223,6 +288,7 @@ export default function ProjectDetail() {
           <TabsTrigger value="anchor" className="text-xs sm:text-sm">Anchor</TabsTrigger>
           <TabsTrigger value="grid" className="text-xs sm:text-sm">Grid</TabsTrigger>
           <TabsTrigger value="prompts" className="text-xs sm:text-sm">Prompt</TabsTrigger>
+          <TabsTrigger value="video" className="text-xs sm:text-sm">视频</TabsTrigger>
         </TabsList>
 
         {/* ==================== Overview Tab ==================== */}
@@ -626,6 +692,15 @@ export default function ProjectDetail() {
                     <span className="text-xs">查看Prompt</span>
                   </Button>
                 )}
+                {grid && panels && panels.length > 0 && (
+                  <Button size="sm" variant="outline"
+                    onClick={() => extractPanelsMut.mutate({ projectId })}
+                    disabled={extractPanelsMut.isPending}
+                  >
+                    {extractPanelsMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                    提取面板
+                  </Button>
+                )}
                 <Button size="sm"
                   onClick={() => setConfirmRegenDialog({ step: "Grid", action: () => generateGrid.mutate({ projectId }) })}
                   disabled={generateGrid.isPending || !script}
@@ -702,15 +777,26 @@ export default function ProjectDetail() {
                 <DialogDescription>选择修复方式并提供修复指引</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
-                {/* Show current panel image and anchor references */}
+                {/* Show current panel image - with mask canvas for inpaint mode */}
                 {selectedPanel !== null && (() => {
                   const panel = panels?.find((p: any) => p.panelIndex === selectedPanel);
-                  return panel?.panelImageUrl ? (
+                  if (!panel?.panelImageUrl) return null;
+                  return fixType === "inpaint" ? (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">在图上涂抹需要修复的区域</Label>
+                      <MaskCanvas
+                        imageUrl={panel.panelImageUrl}
+                        onMaskChange={setMaskDataUrl}
+                        width={480}
+                        height={300}
+                      />
+                    </div>
+                  ) : (
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">当前面板图</Label>
                       <img src={panel.panelImageUrl} alt={`Panel ${selectedPanel}`} className="w-full aspect-video object-cover rounded border" />
                     </div>
-                  ) : null;
+                  );
                 })()}
                 {/* Anchor references */}
                 {anchors && anchors.length > 0 && (
@@ -762,6 +848,7 @@ export default function ProjectDetail() {
                         panelId: panel.id,
                         fixType: fixType === "reference" ? "reference_based" : fixType,
                         modifiedDescription: fixPrompt || undefined,
+                        maskDataUrl: fixType === "inpaint" ? maskDataUrl || undefined : undefined,
                       });
                     }
                   }}
@@ -833,6 +920,168 @@ export default function ProjectDetail() {
                 <p className="text-muted-foreground text-center py-8">
                   {grid ? "点击生成Prompt开始" : "请先生成Grid"}
                 </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ==================== Video Tab ==================== */}
+        <TabsContent value="video" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <CardTitle className="flex items-center gap-2">
+                  <Film className="h-5 w-5" />
+                  视频生成
+                </CardTitle>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Select value={videoModel} onValueChange={setVideoModel}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="seedance-1.5-pro">Seedance 1.5 Pro</SelectItem>
+                      <SelectItem value="kling-v2-6">Kling v2.6</SelectItem>
+                      <SelectItem value="veo3.1-fast">VEO 3.1 Fast</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={() => generateClipsMut.mutate({ projectId, model: videoModel })}
+                    disabled={generateClipsMut.isPending || !panels?.length}
+                  >
+                    {generateClipsMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+                    生成视频Clips
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Clip Status Grid */}
+              {videoClips.data && videoClips.data.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium">视频Clips ({videoClips.data.length})</h3>
+                    <div className="flex items-center gap-2">
+                      {isPolling && (
+                        <Badge variant="outline" className="animate-pulse">
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          轮询中...
+                        </Badge>
+                      )}
+                      <Button size="sm" variant="outline" onClick={() => pollClipsMut.mutate({ projectId })} disabled={pollClipsMut.isPending}>
+                        <RefreshCw className="mr-1 h-3 w-3" />
+                        刷新状态
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {videoClips.data.map((clip: any) => (
+                      <Card key={clip.id} className="overflow-hidden">
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Panel #{clip.panelIndex}</span>
+                            <Badge variant={
+                              clip.status === "completed" ? "default" :
+                              clip.status === "failed" ? "destructive" :
+                              "secondary"
+                            }>
+                              {clip.status === "completed" ? "✓ 完成" :
+                               clip.status === "failed" ? "✗ 失败" :
+                               clip.status === "generating" ? "生成中..." :
+                               clip.status === "upsampling" ? "超分中..." :
+                               clip.status}
+                            </Badge>
+                          </div>
+                          {clip.clipUrl && (
+                            <video
+                              src={clip.clipUrl}
+                              controls
+                              className="w-full aspect-video rounded bg-black"
+                              preload="metadata"
+                            />
+                          )}
+                          {clip.status === "failed" && clip.errorMessage && (
+                            <p className="text-xs text-destructive">{clip.errorMessage}</p>
+                          )}
+                          {!clip.clipUrl && clip.status !== "failed" && (
+                            <div className="w-full aspect-video rounded bg-muted flex items-center justify-center">
+                              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                            </div>
+                          )}
+                          <p className="text-xs text-muted-foreground truncate" title={clip.prompt}>
+                            {clip.prompt?.substring(0, 80)}...
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* Merge Button */}
+                  {videoClips.data.some((c: any) => c.status === "completed") && (
+                    <div className="flex items-center justify-center pt-4 border-t">
+                      <Button
+                        size="lg"
+                        onClick={() => mergeClipsMut.mutate({ projectId })}
+                        disabled={mergeClipsMut.isPending}
+                      >
+                        {mergeClipsMut.isPending ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />合并中...</>
+                        ) : (
+                          <><Film className="mr-2 h-4 w-4" />合并所有Clips为最终视频</>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-8">
+                  {panels?.length ? "点击“生成视频Clips”开始" : "请先完成Grid和Panel生成"}
+                </p>
+              )}
+
+              {/* Final Video Section */}
+              {finalVideos.data && finalVideos.data.length > 0 && (
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="text-sm font-medium">最终视频</h3>
+                  {finalVideos.data.map((fv: any) => (
+                    <Card key={fv.id} className="overflow-hidden">
+                      <CardContent className="p-4 space-y-3">
+                        {fv.videoUrl ? (
+                          <video
+                            src={fv.videoUrl}
+                            controls
+                            className="w-full aspect-video rounded bg-black"
+                            preload="metadata"
+                          />
+                        ) : (
+                          <div className="w-full aspect-video rounded bg-muted flex items-center justify-center">
+                            <p className="text-muted-foreground">视频处理中...</p>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                            <span>{fv.clipCount} 个clips</span>
+                            {fv.totalDuration && <span>{parseFloat(fv.totalDuration).toFixed(1)}秒</span>}
+                            {fv.confirmedAt && <Badge variant="default">✓ 已确认</Badge>}
+                          </div>
+                          {fv.videoUrl && !fv.confirmedAt && (
+                            <Button
+                              onClick={() => confirmFinalMut.mutate({ projectId })}
+                              disabled={confirmFinalMut.isPending}
+                            >
+                              {confirmFinalMut.isPending ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                              )}
+                              确认完成
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

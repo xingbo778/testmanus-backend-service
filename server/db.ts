@@ -5,8 +5,8 @@ import {
   categoriesL1, categoriesL2, categoriesL3,
   projects, scripts, anchors, grids, panels, prompts,
   references, ruleChapters, experienceRecords, userRules, exportRecords,
-  systemPrompts,
-  type Project, type Script, type Anchor, type Grid, type Panel, type Prompt, type SystemPrompt,
+  systemPrompts, appLogs, videoClips, finalVideos,
+  type Project, type Script, type Anchor, type Grid, type Panel, type Prompt, type SystemPrompt, type AppLog, type VideoClip, type FinalVideo,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -804,4 +804,142 @@ export async function seedSystemPrompts(defaults: Array<{
       });
     }
   }
+}
+
+
+// ============================================================
+// App Logs
+// ============================================================
+export async function getAppLogs(opts: {
+  limit?: number;
+  offset?: number;
+  level?: string;
+  source?: string;
+  projectId?: number;
+  search?: string;
+}) {
+  const db = await getDb();
+  if (!db) return { logs: [], total: 0 };
+
+  const conditions: any[] = [];
+  if (opts.level) conditions.push(eq(appLogs.level, opts.level as any));
+  if (opts.source) conditions.push(eq(appLogs.source, opts.source));
+  if (opts.projectId) conditions.push(eq(appLogs.projectId, opts.projectId));
+  if (opts.search) conditions.push(like(appLogs.message, `%${opts.search}%`));
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [logs, countResult] = await Promise.all([
+    db.select().from(appLogs)
+      .where(where)
+      .orderBy(desc(appLogs.createdAt))
+      .limit(opts.limit ?? 50)
+      .offset(opts.offset ?? 0),
+    db.select({ count: sql<number>`count(*)` }).from(appLogs).where(where),
+  ]);
+
+  return { logs, total: countResult[0]?.count ?? 0 };
+}
+
+export async function clearAppLogs(before?: Date) {
+  const db = await getDb();
+  if (!db) return;
+  if (before) {
+    await db.delete(appLogs).where(sql`${appLogs.createdAt} < ${before}`);
+  } else {
+    await db.delete(appLogs);
+  }
+}
+
+// ============================================================
+// Video Clips
+// ============================================================
+export async function createVideoClip(data: {
+  panelId: number;
+  projectId: number;
+  version?: number;
+  panelIndex: number;
+  model?: string;
+  taskId?: string;
+  prompt?: string;
+  keyframeUrl?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(videoClips).values({
+    panelId: data.panelId,
+    projectId: data.projectId,
+    version: data.version ?? 1,
+    panelIndex: data.panelIndex,
+    model: data.model ?? "seedance-1.5-pro",
+    taskId: data.taskId,
+    prompt: data.prompt,
+    keyframeUrl: data.keyframeUrl,
+  });
+  return result.insertId;
+}
+
+export async function updateVideoClip(id: number, data: Partial<{
+  taskId: string;
+  clipUrl: string;
+  rawDuration: string;
+  targetDuration: string;
+  trimmedClipUrl: string;
+  status: string;
+  errorMessage: string;
+}>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(videoClips).set(data as any).where(eq(videoClips.id, id));
+}
+
+export async function getVideoClips(projectId: number, version?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [eq(videoClips.projectId, projectId)];
+  if (version) conditions.push(eq(videoClips.version, version));
+  return db.select().from(videoClips).where(and(...conditions)).orderBy(videoClips.panelIndex);
+}
+
+export async function getVideoClipByTaskId(taskId: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const [clip] = await db.select().from(videoClips).where(eq(videoClips.taskId, taskId)).limit(1);
+  return clip ?? null;
+}
+
+// ============================================================
+// Final Videos
+// ============================================================
+export async function createFinalVideo(data: {
+  projectId: number;
+  version?: number;
+  clipCount: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(finalVideos).values({
+    projectId: data.projectId,
+    version: data.version ?? 1,
+    clipCount: data.clipCount,
+  });
+  return result.insertId;
+}
+
+export async function updateFinalVideo(id: number, data: Partial<{
+  videoUrl: string;
+  totalDuration: string;
+  status: string;
+  errorMessage: string;
+  confirmedAt: Date;
+}>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(finalVideos).set(data as any).where(eq(finalVideos.id, id));
+}
+
+export async function getFinalVideos(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(finalVideos).where(eq(finalVideos.projectId, projectId)).orderBy(desc(finalVideos.createdAt));
 }

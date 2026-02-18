@@ -11,6 +11,8 @@ import { generateImage } from "./_core/imageGeneration";
 import { storagePut } from "./storage";
 import { generateGridTemplateDataUrl } from "./gridTemplate";
 import { DEFAULT_SYSTEM_PROMPTS } from "./seed-prompts";
+import { logInfo, logError, logWarn } from "./appLogger";
+import { extractPanel, extractAllPanels } from "./panelExtractor";
 
 export const appRouter = router({
   system: systemRouter,
@@ -574,6 +576,11 @@ ${input.additionalContext ? `补充说明：${input.additionalContext}` : ""}
 
         await db.updateProject(input.projectId, { status: "scripted", currentVersion: version });
 
+        await logInfo("script_gen", `Script generated: ${parsed.frames?.length ?? 0} frames, ${parsed.characters?.length ?? 0} characters`, {
+          projectId: input.projectId,
+          details: { version, frameCount: parsed.frames?.length, characterCount: parsed.characters?.length, rulesInjected: totalRulesInjected },
+        });
+
         return { scriptId, script: parsed, version };
       }),
 
@@ -866,6 +873,12 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
           }
         }
 
+        const successCount = results.filter(r => r.imageUrl).length;
+        await logInfo("anchor_gen", `Anchors generated: ${successCount}/${results.length} with images`, {
+          projectId: input.projectId,
+          details: { total: results.length, withImages: successCount, types: results.map(r => r.type) },
+        });
+
         return { anchors: results };
       }),
     regenerateOne: protectedProcedure
@@ -1047,6 +1060,11 @@ STYLE:
 
           await db.updateProject(input.projectId, { status: "grid_generated" });
 
+          await logInfo("grid_gen", `Grid generated: ${rows}x${cols} (${totalPanels} panels) with image`, {
+            projectId: input.projectId,
+            details: { gridId, rows, cols, totalPanels },
+          });
+
           return { gridId, gridImageUrl, rows, cols, totalPanels };
         } catch (e) {
           // Even if image generation fails, save the grid structure
@@ -1073,6 +1091,11 @@ STYLE:
 
           await db.updateProject(input.projectId, { status: "grid_generated" });
 
+          await logError("grid_gen", `Grid image generation failed: ${e instanceof Error ? e.message : String(e)}`, {
+            projectId: input.projectId,
+            details: { gridId, rows, cols, totalPanels, error: e instanceof Error ? e.stack : String(e) },
+          });
+
           return { gridId, gridImageUrl: null, rows, cols, totalPanels, error: "Image generation failed, grid structure saved" };
         }
       }),
@@ -1091,6 +1114,78 @@ STYLE:
       .input(z.object({ projectId: z.number(), version: z.number().optional() }))
       .query(async ({ input }) => {
         return db.getPanels(input.projectId, input.version);
+      }),
+    // Extract all panels from grid image and save individual panel images
+    extractAll: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .mutation(async ({ input }) => {
+        const grid = await db.getLatestGrid(input.projectId);
+        if (!grid) throw new Error("No grid found");
+        if (!grid.gridImageUrl) throw new Error("Grid has no image");
+
+        const panelsList = await db.getPanels(input.projectId);
+        const results: Array<{ panelIndex: number; imageUrl: string }> = [];
+
+        try {
+          const extracted = await extractAllPanels({
+            gridImageUrl: grid.gridImageUrl,
+            rows: grid.rows,
+            cols: grid.cols,
+            totalPanels: grid.totalPanels,
+          });
+
+          for (const { panelIndex, buffer } of extracted) {
+            const key = `projects/${input.projectId}/panels/panel-${panelIndex}-${Date.now()}.png`;
+            const { url } = await storagePut(key, buffer, "image/png");
+
+            // Update panel record
+            const panel = panelsList.find(p => p.panelIndex === panelIndex);
+            if (panel) {
+              await db.updatePanel(panel.id, { panelImageUrl: url });
+            }
+            results.push({ panelIndex, imageUrl: url });
+          }
+
+          await logInfo("panel_extract", `Extracted ${results.length} panels from grid`, {
+            projectId: input.projectId,
+            details: { gridId: grid.id, rows: grid.rows, cols: grid.cols, totalPanels: grid.totalPanels },
+          });
+        } catch (e) {
+          await logError("panel_extract", `Panel extraction failed: ${e instanceof Error ? e.message : String(e)}`, {
+            projectId: input.projectId,
+            details: { error: e instanceof Error ? e.stack : String(e) },
+          });
+          throw e;
+        }
+
+        return { panels: results };
+      }),
+    // Extract a single panel from grid image
+    extractOne: protectedProcedure
+      .input(z.object({ panelId: z.number() }))
+      .mutation(async ({ input }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) throw new Error("Database not available");
+        const { panels: panelsTable } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+        const [panel] = await dbConn.select().from(panelsTable).where(eq(panelsTable.id, input.panelId)).limit(1);
+        if (!panel) throw new Error("Panel not found");
+
+        const grid = await db.getLatestGrid(panel.projectId);
+        if (!grid || !grid.gridImageUrl) throw new Error("Grid image not found");
+
+        const buffer = await extractPanel({
+          gridImageUrl: grid.gridImageUrl,
+          rows: grid.rows,
+          cols: grid.cols,
+          panelIndex: panel.panelIndex,
+        });
+
+        const key = `projects/${panel.projectId}/panels/panel-${panel.panelIndex}-${Date.now()}.png`;
+        const { url } = await storagePut(key, buffer, "image/png");
+        await db.updatePanel(panel.id, { panelImageUrl: url });
+
+        return { panelIndex: panel.panelIndex, imageUrl: url };
       }),
     flag: protectedProcedure
       .input(z.object({
@@ -1130,6 +1225,7 @@ STYLE:
         fixType: z.enum(["regenerate", "inpaint", "reference_based"]),
         modifiedDescription: z.string().optional(),
         referenceImageUrl: z.string().optional(),
+        maskDataUrl: z.string().optional(), // base64 data URL of the mask image (white=fix, black=keep)
       }))
       .mutation(async ({ input }) => {
         const dbConn = await db.getDb();
@@ -1150,16 +1246,25 @@ STYLE:
         const prompt = input.modifiedDescription || panel.description || "";
 
         // Build reference images: anchor images + original panel image + user-provided reference
-        const referenceImages: Array<{ url: string }> = [...anchorRefImages];
+        const referenceImages: Array<{ url: string; mimeType?: string }> = [...anchorRefImages];
         if (panel.panelImageUrl && panel.panelImageUrl.startsWith("http")) {
           referenceImages.push({ url: panel.panelImageUrl });
         }
         if (input.referenceImageUrl && input.referenceImageUrl.startsWith("http")) {
           referenceImages.push({ url: input.referenceImageUrl });
         }
+        // Add mask as reference image if provided (for inpaint mode)
+        if (input.maskDataUrl && input.fixType === "inpaint") {
+          referenceImages.push({ url: input.maskDataUrl, mimeType: "image/png" });
+        }
 
-        // Build enhanced prompt that references the original panel context
-        const enhancedPrompt = `Regenerate this storyboard panel with the following description: ${prompt}\n\nIMPORTANT: Maintain character consistency with the reference images provided. Keep the same art style and visual quality as the original storyboard.`;
+        // Build enhanced prompt based on fix type
+        let enhancedPrompt: string;
+        if (input.fixType === "inpaint" && input.maskDataUrl) {
+          enhancedPrompt = `Edit this storyboard panel image. The white areas in the mask image indicate the regions that need to be modified. Fix those regions according to this description: ${prompt}\n\nIMPORTANT: Keep all non-masked areas exactly the same. Maintain character consistency and art style. The original panel image and mask image are provided as reference.`;
+        } else {
+          enhancedPrompt = `Regenerate this storyboard panel with the following description: ${prompt}\n\nIMPORTANT: Maintain character consistency with the reference images provided. Keep the same art style and visual quality as the original storyboard.`;
+        }
 
         try {
           const { url } = await generateImage({
@@ -1168,7 +1273,12 @@ STYLE:
           });
           newImageUrl = url;
         } catch (e) {
-          // Image generation failed, continue with metadata update
+          const errMsg = e instanceof Error ? e.message : String(e);
+          await logError("panel_fix", `Panel #${panel.panelIndex} image generation failed: ${errMsg}`, {
+            projectId: panel.projectId,
+            panelIndex: panel.panelIndex,
+            details: { fixType: input.fixType, hasMask: !!input.maskDataUrl, error: errMsg },
+          });
         }
 
         const fixEntry = {
@@ -1201,6 +1311,12 @@ STYLE:
           originalContent: { description: panel.description, imageUrl: panel.panelImageUrl },
           issueDescription: panel.issueDescription || undefined,
           fixDescription: `${input.fixType}: ${input.modifiedDescription || "no description"}`,
+        });
+
+        await logInfo("panel_fix", `Panel #${panel.panelIndex} fix (${input.fixType}): ${newImageUrl ? 'success' : 'failed'}`, {
+          projectId: panel.projectId,
+          panelIndex: panel.panelIndex,
+          details: { fixType: input.fixType, hasNewImage: !!newImageUrl, panelId: input.panelId },
         });
 
         return { success: true, newImageUrl };
@@ -1371,6 +1487,11 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
         });
 
         await db.savePrompts(promptData);
+
+        await logInfo("prompt_gen", `Prompts generated: ${parsed.prompts.length} prompts for ${frames.length} frames`, {
+          projectId: input.projectId,
+          details: { promptCount: parsed.prompts.length, models: Array.from(new Set(parsed.prompts.map((p: any) => p.model))) },
+        });
 
         return { prompts: parsed.prompts };
       }),
@@ -1679,6 +1800,240 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
       .mutation(async () => {
         await db.seedSystemPrompts(DEFAULT_SYSTEM_PROMPTS);
         return { success: true, count: DEFAULT_SYSTEM_PROMPTS.length };
+      }),
+  }),
+
+  // ============================================================
+  // App Logs
+  // ============================================================
+  appLog: router({
+    list: protectedProcedure
+      .input(z.object({
+        limit: z.number().min(1).max(200).default(50),
+        offset: z.number().min(0).default(0),
+        level: z.string().optional(),
+        source: z.string().optional(),
+        projectId: z.number().optional(),
+        search: z.string().optional(),
+      }))
+      .query(async ({ input }) => {
+        return db.getAppLogs(input);
+      }),
+    clear: adminProcedure
+      .input(z.object({ before: z.string().optional() }))
+      .mutation(async ({ input }) => {
+        const before = input.before ? new Date(input.before) : undefined;
+        await db.clearAppLogs(before);
+        return { success: true };
+      }),
+  }),
+
+  // ============================================================
+  // Video Clips & Final Videos
+  // ============================================================
+  video: router({
+    clips: publicProcedure
+      .input(z.object({ projectId: z.number(), version: z.number().optional() }))
+      .query(async ({ input }) => {
+        return db.getVideoClips(input.projectId, input.version);
+      }),
+    finalVideos: publicProcedure
+      .input(z.object({ projectId: z.number() }))
+      .query(async ({ input }) => {
+        return db.getFinalVideos(input.projectId);
+      }),
+    generateClips: protectedProcedure
+      .input(z.object({
+        projectId: z.number(),
+        model: z.string().default("seedance-1.5-pro"),
+      }))
+      .mutation(async ({ input }) => {
+        const panelsList = await db.getPanels(input.projectId);
+        const promptsList = await db.getPrompts(input.projectId);
+        if (!panelsList.length) throw new Error("No panels found");
+        if (!promptsList.length) throw new Error("No prompts found");
+
+        const results: Array<{ panelIndex: number; clipId: number; taskId?: string; status: string }> = [];
+
+        for (const panel of panelsList) {
+          const prompt = promptsList.find(p => p.panelId === panel.id);
+          if (!prompt) continue;
+
+          const clipId = await db.createVideoClip({
+            panelId: panel.id,
+            projectId: input.projectId,
+            version: panel.version,
+            panelIndex: panel.panelIndex,
+            model: input.model,
+            prompt: prompt.promptText,
+            keyframeUrl: panel.panelImageUrl ?? undefined,
+          });
+
+          // Submit to yunwu API
+          try {
+            const yunwuUrl = process.env.YUNWU_API_URL || "https://yunwu.ai";
+            const yunwuKey = process.env.YUNWU_API_KEY;
+            if (!yunwuKey) throw new Error("YUNWU_API_KEY not configured");
+
+            const payload: any = {
+              model: input.model,
+              prompt: prompt.promptText,
+              enhance_prompt: true,
+              enable_upsample: true,
+              aspect_ratio: "16:9",
+            };
+            if (panel.panelImageUrl) {
+              payload.images = [panel.panelImageUrl];
+            }
+
+            const resp = await fetch(`${yunwuUrl}/v1/video/create`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${yunwuKey}`,
+              },
+              body: JSON.stringify(payload),
+            });
+            const data = await resp.json();
+
+            if (data.id) {
+              await db.updateVideoClip(clipId, { taskId: data.id, status: "generating" });
+              results.push({ panelIndex: panel.panelIndex, clipId, taskId: data.id, status: "generating" });
+              await logInfo("video_gen", `Video clip submitted: panel #${panel.panelIndex}, task ${data.id}`, {
+                projectId: input.projectId,
+                panelIndex: panel.panelIndex,
+                details: { model: input.model, taskId: data.id },
+              });
+            } else {
+              const errMsg = data.message || data.error || JSON.stringify(data);
+              await db.updateVideoClip(clipId, { status: "failed", errorMessage: errMsg });
+              results.push({ panelIndex: panel.panelIndex, clipId, status: "failed" });
+              await logError("video_gen", `Video clip submission failed: panel #${panel.panelIndex}: ${errMsg}`, {
+                projectId: input.projectId,
+                panelIndex: panel.panelIndex,
+                details: { model: input.model, error: errMsg },
+              });
+            }
+          } catch (e) {
+            const errMsg = e instanceof Error ? e.message : String(e);
+            await db.updateVideoClip(clipId, { status: "failed", errorMessage: errMsg });
+            results.push({ panelIndex: panel.panelIndex, clipId, status: "failed" });
+            await logError("video_gen", `Video clip error: panel #${panel.panelIndex}: ${errMsg}`, {
+              projectId: input.projectId,
+              panelIndex: panel.panelIndex,
+              details: { error: errMsg, stack: e instanceof Error ? e.stack : undefined },
+            });
+          }
+
+          // Small delay between submissions
+          await new Promise(r => setTimeout(r, 1500));
+        }
+
+        return { clips: results };
+      }),
+    pollClipStatus: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .mutation(async ({ input }) => {
+        const clips = await db.getVideoClips(input.projectId);
+        const pendingClips = clips.filter(c => c.status === "generating" || c.status === "upsampling" || c.status === "pending");
+
+        const yunwuUrl = process.env.YUNWU_API_URL || "https://yunwu.ai";
+        const yunwuKey = process.env.YUNWU_API_KEY;
+        if (!yunwuKey) throw new Error("YUNWU_API_KEY not configured");
+
+        const updates: Array<{ clipId: number; panelIndex: number; status: string; clipUrl?: string }> = [];
+
+        for (const clip of pendingClips) {
+          if (!clip.taskId) continue;
+          try {
+            const resp = await fetch(`${yunwuUrl}/v1/video/query?id=${encodeURIComponent(clip.taskId)}`, {
+              headers: { "Authorization": `Bearer ${yunwuKey}` },
+            });
+            const data = await resp.json();
+
+            if (data.status === "completed") {
+              const videoUrl = data.video_url || data.url;
+              await db.updateVideoClip(clip.id, { status: "completed", clipUrl: videoUrl });
+              updates.push({ clipId: clip.id, panelIndex: clip.panelIndex, status: "completed", clipUrl: videoUrl });
+              await logInfo("video_gen", `Video clip completed: panel #${clip.panelIndex}`, {
+                projectId: input.projectId,
+                panelIndex: clip.panelIndex,
+              });
+            } else if (data.status === "failed") {
+              const errMsg = data.error || data.message || "Unknown error";
+              await db.updateVideoClip(clip.id, { status: "failed", errorMessage: errMsg });
+              updates.push({ clipId: clip.id, panelIndex: clip.panelIndex, status: "failed" });
+              await logError("video_gen", `Video clip failed: panel #${clip.panelIndex}: ${errMsg}`, {
+                projectId: input.projectId,
+                panelIndex: clip.panelIndex,
+              });
+            } else {
+              // Still in progress
+              if (data.status === "video_upsampling" && clip.status !== "upsampling") {
+                await db.updateVideoClip(clip.id, { status: "upsampling" });
+              }
+              updates.push({ clipId: clip.id, panelIndex: clip.panelIndex, status: data.status || clip.status });
+            }
+          } catch (e) {
+            // Query failed, skip
+          }
+          await new Promise(r => setTimeout(r, 500));
+        }
+
+        return { updates, allCompleted: pendingClips.length === 0 || updates.every(u => u.status === "completed" || u.status === "failed") };
+      }),
+    mergeClips: protectedProcedure
+      .input(z.object({
+        projectId: z.number(),
+        clipDurations: z.array(z.object({
+          panelIndex: z.number(),
+          duration: z.number().optional(),
+        })).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { mergeVideoClips } = await import("./videoMerger");
+        const clips = await db.getVideoClips(input.projectId);
+        const completedClips = clips.filter(c => c.status === "completed" && c.clipUrl);
+        if (!completedClips.length) throw new Error("No completed clips to merge");
+
+        // Sort by panelIndex
+        completedClips.sort((a, b) => a.panelIndex - b.panelIndex);
+
+        const clipInfos = completedClips.map(c => {
+          const durationOverride = input.clipDurations?.find(d => d.panelIndex === c.panelIndex);
+          return {
+            panelIndex: c.panelIndex,
+            clipUrl: c.clipUrl!,
+            duration: durationOverride?.duration,
+          };
+        });
+
+        const result = await mergeVideoClips(input.projectId, clipInfos);
+
+        // Save final video record
+        const finalId = await db.createFinalVideo({
+          projectId: input.projectId,
+          version: completedClips[0].version,
+          clipCount: completedClips.length,
+        });
+        await db.updateFinalVideo(Number(finalId), {
+          videoUrl: result.finalVideoUrl,
+          totalDuration: String(result.totalDuration),
+          status: "completed",
+        });
+
+        return { finalVideoId: finalId, videoUrl: result.finalVideoUrl, totalDuration: result.totalDuration };
+      }),
+    confirmFinal: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .mutation(async ({ input }) => {
+        const finalVids = await db.getFinalVideos(input.projectId);
+        if (!finalVids.length) throw new Error("No final video found");
+        const latest = finalVids[0];
+        await db.updateFinalVideo(latest.id, { confirmedAt: new Date() });
+        await db.updateProject(input.projectId, { status: "confirmed" });
+        await logInfo("video_gen", `Final video confirmed for project`, { projectId: input.projectId });
+        return { success: true };
       }),
   }),
 });
