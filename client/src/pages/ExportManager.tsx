@@ -31,8 +31,8 @@ export default function ExportManager() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">KB导出</h1>
-        <p className="text-muted-foreground mt-1">将已确认的分镜数据导出为知识库，供视频平台RAG使用</p>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">KB导出</h1>
+        <p className="text-sm text-muted-foreground mt-1">将分镜数据导出为知识库</p>
       </div>
 
       {/* Export Controls */}
@@ -44,7 +44,7 @@ export default function ExportManager() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
             <div className="space-y-2">
               <label className="text-sm font-medium">导出模式</label>
               <Select value={exportMode} onValueChange={setExportMode}>

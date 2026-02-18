@@ -209,3 +209,30 @@
 - [x] 4. 风格统一为photorealistic cinematic（非漫画/插画）
 - [x] 5. 审查步骤：点击"开始审查"进入reviewing状态，在Grid页面标记问题并修复
 - [x] 6. Panel描述详细化：必须包含环境/背景/关键元素/人物位置/光线氛围/景深焦点
+
+## Phase 10: Grid-Anchor Character Consistency + Grid Layout Fix
+- [x] Grid生成的角色与Anchor完全不一致 → 在prompt中注入详细角色外观描述+传入anchor参考图
+- [x] Grid分格大小不均匀 → 用Sharp生成标准均匀网格模板图作为参考输入
+- [x] prompt中明确标注每张参考图的编号和对应关系（Image #N = CHARACTER/SCENE/GRID TEMPLATE）
+- [x] 每张anchor参考图在prompt中包含完整的外观描述（种族/发型/服装/年龄等）
+- [x] 网格模板图用Sharp生成（SVG→PNG），以data URL传入（几KB）
+- [x] gridTemplate.ts + 4个vitest测试全部通过
+
+## Phase 11: System Prompt Management
+- [x] 数据库表：systemPrompts（id, key, name, description, category, content, contentZh, isDefault, updatedAt）
+- [x] 后端CRUD：list/upsert/updateContent/delete/seed system prompts
+- [x] 后端翻译：将英文prompt翻译成中文（LLM调用）
+- [x] 前端Prompt管理页面：按分类展示所有系统prompt（7个分类）
+- [x] 前端支持查看/编辑/翻译成中文/复制/删除/新增
+- [x] 默认prompt种子初始化（seed-prompts.ts）
+
+## Phase 12: Mobile Responsive Design
+- [x] DashboardLayout: 移动端padding优化（p-3 sm:p-4 md:p-6）
+- [x] ProjectDetail: header按钮堆叠、Script表格改卡片列表、Dialog全屏、grid-cols响应式
+- [x] Browse: 分类网格单列适配、header堆叠、breadcrumb溢出滚动
+- [x] Home: 统计卡片2列适配、快速操作单列
+- [x] PromptManager: header堆叠、分类统计网格适配、Dialog适配
+- [x] RuleManager: header按钮缩短文字、分类统计网格适配、章节卡片单列
+- [x] ExperienceManager: 统计卡片2列适配
+- [x] ExportManager: 导出设置单列适配
+- [x] 所有Dialog中的grid-cols-2改为grid-cols-1 sm:grid-cols-2

@@ -258,6 +258,24 @@ export const userRules = mysqlTable("user_rules", {
 });
 
 // ============================================================
+// System Prompts (persisted workflow prompts)
+// ============================================================
+export const systemPrompts = mysqlTable("system_prompts", {
+  id: int("id").autoincrement().primaryKey(),
+  key: varchar("key", { length: 64 }).notNull().unique(), // e.g. "script_system", "grid_system"
+  name: varchar("name", { length: 256 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 32 }).notNull(), // script, anchor, grid, prompt, validation, panel
+  content: text("content").notNull(), // English prompt content
+  contentZh: text("contentZh"), // Chinese translation
+  isDefault: boolean("isDefault").default(true).notNull(), // whether this is a system default
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type SystemPrompt = typeof systemPrompts.$inferSelect;
+
+// ============================================================
 // Export Records
 // ============================================================
 export const exportRecords = mysqlTable("export_records", {

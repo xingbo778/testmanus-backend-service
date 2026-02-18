@@ -15,6 +15,13 @@
       "when": 1771428292884,
       "tag": "0001_slow_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1771442574558,
+      "tag": "0002_premium_phantom_reporter",
+      "breakpoints": true
     }
   ]
 }

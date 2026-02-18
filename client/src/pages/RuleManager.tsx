@@ -135,21 +135,22 @@ export default function RuleManager() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">规则手册</h1>
-          <p className="text-muted-foreground mt-1">
-            分镜设计终极规则手册，共{chapters?.length || 0}章{totalRules}条规则
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">规则手册</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            共{chapters?.length || 0}章{totalRules}条规则
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => {
             setCategoryForm({ key: "", label: "", description: "" });
             setEditingCategory(null);
             setCategoryFormOpen(true);
           }}>
-            <FolderPlus className="mr-2 h-4 w-4" />
-            新增分类
+            <FolderPlus className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">新增分类</span>
+            <span className="sm:hidden">分类</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => {
             const nextNum = (chapters?.length || 0) + 1;
@@ -157,19 +158,20 @@ export default function RuleManager() {
             setEditingChapter(null);
             setChapterFormOpen(true);
           }}>
-            <Plus className="mr-2 h-4 w-4" />
-            新增章节
+            <Plus className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">新增章节</span>
+            <span className="sm:hidden">章节</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => seedRules.mutate()} disabled={seedRules.isPending}>
-            {seedRules.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
-            重新导入
+            {seedRules.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Database className="h-4 w-4 mr-1" />}
+            导入
           </Button>
         </div>
       </div>
 
       {/* Summary Stats */}
       {chapters && chapters.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           {Object.entries(CATEGORY_LABELS).map(([key, label]) => {
             const count = groupedChapters[key]?.length || 0;
             const ruleCount = groupedChapters[key]?.reduce((sum: number, ch: any) => sum + (ch.ruleCount || 0), 0) || 0;
@@ -210,7 +212,7 @@ export default function RuleManager() {
                 </Badge>
                 <span className="text-sm text-muted-foreground font-normal">{chapterList.length}章</span>
               </h2>
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {chapterList.map((ch: any) => (
                   <Card key={ch.id} className="cursor-pointer transition-all hover:shadow-md hover:border-primary/30 group relative"
                     onClick={() => setSelectedChapterNumber(ch.chapterNumber)}>
@@ -410,7 +412,7 @@ export default function RuleManager() {
               <Label>规则内容</Label>
               <Textarea value={ruleForm.text} onChange={(e) => setRuleForm({ ...ruleForm, text: e.target.value })} rows={3} placeholder="描述规则内容..." />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>类型</Label>
                 <Select value={ruleForm.type} onValueChange={(v) => setRuleForm({ ...ruleForm, type: v })}>

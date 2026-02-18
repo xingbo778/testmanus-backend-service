@@ -20,12 +20,12 @@ export default function Home() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">总览</h1>
-        <p className="text-muted-foreground mt-1">分镜标注与管理平台 — 管理分类体系、生成分镜Grid、标注调整、导出知识库</p>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">总览</h1>
+        <p className="text-sm sm:text-base text-muted-foreground mt-1">分镜标注与管理平台</p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/browse")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">分类体系</CardTitle>
@@ -84,7 +84,7 @@ export default function Home() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">快速操作</CardTitle>

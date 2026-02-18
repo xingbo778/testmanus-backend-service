@@ -5,7 +5,8 @@ import {
   categoriesL1, categoriesL2, categoriesL3,
   projects, scripts, anchors, grids, panels, prompts,
   references, ruleChapters, experienceRecords, userRules, exportRecords,
-  type Project, type Script, type Anchor, type Grid, type Panel, type Prompt,
+  systemPrompts,
+  type Project, type Script, type Anchor, type Grid, type Panel, type Prompt, type SystemPrompt,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -696,4 +697,111 @@ export async function getConfirmedProjects(filters?: { l1Id?: string; l2Id?: str
   if (filters?.l3Id) conditions.push(eq(projects.l3Id, filters.l3Id));
   if (filters?.since) conditions.push(sql`${projects.updatedAt} >= ${filters.since}`);
   return db.select().from(projects).where(and(...conditions));
+}
+
+// ============================================================
+// System Prompts CRUD
+// ============================================================
+export async function listSystemPrompts(category?: string): Promise<SystemPrompt[]> {
+  const db = await getDb();
+  if (!db) return [];
+  if (category) {
+    return db.select().from(systemPrompts).where(eq(systemPrompts.category, category)).orderBy(systemPrompts.category, systemPrompts.key);
+  }
+  return db.select().from(systemPrompts).orderBy(systemPrompts.category, systemPrompts.key);
+}
+
+export async function getSystemPrompt(key: string): Promise<SystemPrompt | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(systemPrompts).where(eq(systemPrompts.key, key)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function upsertSystemPrompt(data: {
+  key: string;
+  name: string;
+  description?: string;
+  category: string;
+  content: string;
+  contentZh?: string;
+  isDefault?: boolean;
+}): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Check if exists
+  const existing = await db.select().from(systemPrompts).where(eq(systemPrompts.key, data.key)).limit(1);
+
+  if (existing.length > 0) {
+    await db.update(systemPrompts)
+      .set({
+        name: data.name,
+        description: data.description,
+        category: data.category,
+        content: data.content,
+        contentZh: data.contentZh,
+        isDefault: data.isDefault ?? existing[0].isDefault,
+      })
+      .where(eq(systemPrompts.key, data.key));
+    return existing[0].id;
+  }
+
+  const result = await db.insert(systemPrompts).values({
+    key: data.key,
+    name: data.name,
+    description: data.description,
+    category: data.category,
+    content: data.content,
+    contentZh: data.contentZh,
+    isDefault: data.isDefault ?? true,
+  });
+  return (result as any)[0]?.insertId ?? 0;
+}
+
+export async function updateSystemPromptContent(key: string, content: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(systemPrompts).set({ content, isDefault: false }).where(eq(systemPrompts.key, key));
+}
+
+export async function updateSystemPromptTranslation(key: string, contentZh: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(systemPrompts).set({ contentZh }).where(eq(systemPrompts.key, key));
+}
+
+export async function deleteSystemPrompt(key: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(systemPrompts).where(eq(systemPrompts.key, key));
+}
+
+/**
+ * Seed default system prompts if they don't exist yet.
+ * Called on server startup.
+ */
+export async function seedSystemPrompts(defaults: Array<{
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+  content: string;
+}>): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  for (const d of defaults) {
+    const existing = await db.select({ id: systemPrompts.id }).from(systemPrompts).where(eq(systemPrompts.key, d.key)).limit(1);
+    if (existing.length === 0) {
+      await db.insert(systemPrompts).values({
+        key: d.key,
+        name: d.name,
+        description: d.description,
+        category: d.category,
+        content: d.content,
+        isDefault: true,
+      });
+    }
+  }
 }

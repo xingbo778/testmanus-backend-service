@@ -84,7 +84,7 @@ export default function Browse() {
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm overflow-x-auto">
         {breadcrumbs.map((b, i) => (
           <div key={b.path} className="flex items-center gap-2">
             {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
@@ -99,10 +99,10 @@ export default function Browse() {
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           {l1Id && (
-            <Button variant="ghost" size="icon" onClick={() => {
+            <Button variant="ghost" size="icon" className="shrink-0" onClick={() => {
               if (l3Id) navigate(`/browse/${l1Id}/${l2Id}`);
               else if (l2Id) navigate(`/browse/${l1Id}`);
               else navigate("/browse");
@@ -110,12 +110,12 @@ export default function Browse() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           )}
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">
               {currentL3?.name || currentL2?.name || currentL1?.name || "分类浏览"}
             </h1>
             {currentL3?.description && (
-              <p className="text-sm text-muted-foreground mt-1">{currentL3.description}</p>
+              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{currentL3.description}</p>
             )}
           </div>
         </div>
@@ -214,7 +214,7 @@ export default function Browse() {
 
       {/* Category Grid or Project List */}
       {!l1Id && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {categories?.map((cat: any) => (
             <Card
               key={cat.id}
@@ -239,7 +239,7 @@ export default function Browse() {
       )}
 
       {l1Id && !l2Id && currentL1 && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {currentL1.children?.map((cat: any) => (
             <Card
               key={cat.id}
@@ -261,7 +261,7 @@ export default function Browse() {
       )}
 
       {l2Id && !l3Id && currentL2 && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {currentL2.children?.map((cat: any) => (
             <Card
               key={cat.id}
@@ -295,7 +295,7 @@ export default function Browse() {
                   className="cursor-pointer hover:shadow-md transition-all"
                   onClick={() => navigate(`/project/${p.id}`)}
                 >
-                  <CardContent className="flex items-center justify-between p-4">
+                  <CardContent className="flex items-center justify-between p-3 sm:p-4">
                     <div className="flex items-center gap-3 min-w-0">
                       <Film className="h-5 w-5 text-muted-foreground shrink-0" />
                       <div className="min-w-0">

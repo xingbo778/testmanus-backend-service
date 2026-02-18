@@ -44,12 +44,12 @@ export default function ExperienceManager() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">经验管理</h1>
-        <p className="text-muted-foreground mt-1">标注调整中积累的经验记录，可提炼为新规则</p>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">经验管理</h1>
+        <p className="text-sm text-muted-foreground mt-1">标注调整中积累的经验记录</p>
       </div>
 
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4">
         {summaryLoading ? (
           [1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)
         ) : (

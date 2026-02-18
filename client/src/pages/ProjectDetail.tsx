@@ -179,14 +179,14 @@ export default function ProjectDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/browse")}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate("/browse")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{project.title}</h1>
-            <div className="flex items-center gap-2 mt-1">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">{project.title}</h1>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <Badge variant="outline">{project.duration}秒</Badge>
               <Badge variant={project.status === "confirmed" ? "default" : "secondary"}>
                 {STATUS_MAP[project.status] || project.status}
@@ -195,19 +195,21 @@ export default function ProjectDetail() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-11 sm:ml-0">
           <Button variant="outline" size="sm" onClick={() => setHistoryDialogOpen(true)}>
-            <History className="mr-2 h-4 w-4" />
-            历史版本
+            <History className="mr-1 sm:mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">历史版本</span>
+            <span className="sm:hidden">历史</span>
           </Button>
           {project.status !== "confirmed" && (
             <Button
+              size="sm"
               variant="default"
               onClick={() => confirmProject.mutate({ id: projectId, status: "confirmed" })}
               disabled={confirmProject.isPending || !prompts?.length}
             >
-              <CheckCircle className="mr-2 h-4 w-4" />
-              确认项目
+              <CheckCircle className="mr-1 sm:mr-2 h-4 w-4" />
+              确认
             </Button>
           )}
         </div>
@@ -215,12 +217,12 @@ export default function ProjectDetail() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="overview">总览</TabsTrigger>
-          <TabsTrigger value="script">脚本</TabsTrigger>
-          <TabsTrigger value="anchor">Anchor</TabsTrigger>
-          <TabsTrigger value="grid">Grid</TabsTrigger>
-          <TabsTrigger value="prompts">Prompt</TabsTrigger>
+        <TabsList className="w-full sm:w-auto overflow-x-auto">
+          <TabsTrigger value="overview" className="text-xs sm:text-sm">总览</TabsTrigger>
+          <TabsTrigger value="script" className="text-xs sm:text-sm">脚本</TabsTrigger>
+          <TabsTrigger value="anchor" className="text-xs sm:text-sm">Anchor</TabsTrigger>
+          <TabsTrigger value="grid" className="text-xs sm:text-sm">Grid</TabsTrigger>
+          <TabsTrigger value="prompts" className="text-xs sm:text-sm">Prompt</TabsTrigger>
         </TabsList>
 
         {/* ==================== Overview Tab ==================== */}
@@ -273,7 +275,7 @@ export default function ProjectDetail() {
           </Card>
 
           {/* Script Summary + Grid Preview side by side */}
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -379,9 +381,9 @@ export default function ProjectDetail() {
         {/* ==================== Script Tab ==================== */}
         <TabsContent value="script" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <CardTitle className="text-base">分镜脚本</CardTitle>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {script?.generationPrompt && (
                   <Button size="sm" variant="ghost" onClick={() => setPromptViewDialog({
                     title: "脚本生成 Prompt",
@@ -421,8 +423,8 @@ export default function ProjectDetail() {
                       </pre>
                     </div>
                   )}
-                  {/* Frames Table */}
-                  <div className="border rounded-lg overflow-hidden">
+                  {/* Frames Table - Desktop */}
+                  <div className="border rounded-lg overflow-hidden hidden sm:block">
                     <table className="w-full text-sm">
                       <thead className="bg-muted/50">
                         <tr>
@@ -467,6 +469,39 @@ export default function ProjectDetail() {
                       </tbody>
                     </table>
                   </div>
+                  {/* Frames Cards - Mobile */}
+                  <div className="sm:hidden space-y-2">
+                    {scriptFrames.map((f: any, i: number) => (
+                      <div key={i} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="font-mono text-xs">#{f.index || i + 1}</Badge>
+                            <Badge variant="secondary" className="text-xs">{f.shotType || "-"}</Badge>
+                            <span className="text-xs text-muted-foreground">{f.duration || "-"}s</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                              onClick={() => setEditingFrame({ index: f.index || i + 1, data: { ...f } })}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                              onClick={() => setAddFrameDialog({ afterIndex: f.index || i + 1 })}>
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive"
+                              onClick={() => setDeleteFrameDialog(f.index || i + 1)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-xs">{f.description || "-"}</p>
+                        <div className="flex gap-3 text-[10px] text-muted-foreground">
+                          <span>运镜: {f.cameraMovement || f.cameraMove || "-"}</span>
+                          {f.notes && <span>备注: {f.notes}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                   {/* Characters & Scenes */}
                   <div className="grid gap-4 md:grid-cols-2">
                     {scriptCharacters.length > 0 && (
@@ -507,9 +542,9 @@ export default function ProjectDetail() {
         {/* ==================== Anchor Tab ==================== */}
         <TabsContent value="anchor" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <CardTitle className="text-base">锚点参考图 (Anchors)</CardTitle>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {anchors && anchors.length > 0 && (
                   <Button size="sm" variant="ghost" onClick={() => setPromptViewDialog({ title: "Anchor 生成 Prompt", prompts: anchorPromptList })}>
                     <FileText className="h-4 w-4 mr-1" />
@@ -521,13 +556,13 @@ export default function ProjectDetail() {
                   disabled={generateAnchor.isPending || !script}
                 >
                   {generateAnchor.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                  {anchors?.length ? "重新生成全部" : "生成Anchor"}
+                  {anchors?.length ? "重新生成" : "生成Anchor"}
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               {anchors && anchors.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {anchors.map((a: any) => (
                     <div key={a.id} className="space-y-2 group relative">
                       {a.imageUrl ? (
@@ -579,9 +614,9 @@ export default function ProjectDetail() {
         {/* ==================== Grid Tab ==================== */}
         <TabsContent value="grid" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <CardTitle className="text-base">分镜Grid</CardTitle>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {grid?.generationPrompt && (
                   <Button size="sm" variant="ghost" onClick={() => setPromptViewDialog({
                     title: "Grid 生成 Prompt",
@@ -596,7 +631,7 @@ export default function ProjectDetail() {
                   disabled={generateGrid.isPending || !script}
                 >
                   {generateGrid.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                  {grid ? "重新生成Grid" : "生成Grid"}
+                  {grid ? "重新生成" : "生成Grid"}
                 </Button>
               </div>
             </CardHeader>
@@ -626,7 +661,7 @@ export default function ProjectDetail() {
                 <CardTitle className="text-base">面板列表（点击面板标记问题或修复）</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {panels.map((p: any) => (
                     <div
                       key={p.id}
@@ -661,7 +696,7 @@ export default function ProjectDetail() {
 
           {/* Fix Dialog */}
           <Dialog open={fixDialogOpen} onOpenChange={setFixDialogOpen}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>修复面板 #{selectedPanel}</DialogTitle>
                 <DialogDescription>选择修复方式并提供修复指引</DialogDescription>
@@ -697,7 +732,7 @@ export default function ProjectDetail() {
                 </div>
                 <div className="space-y-2">
                   <Label>修复方式</Label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {[
                       { value: "inpaint" as const, label: "局部修复", icon: Pencil },
                       { value: "regenerate" as const, label: "重新生成", icon: RefreshCw },
@@ -743,7 +778,7 @@ export default function ProjectDetail() {
         {/* ==================== Prompts Tab ==================== */}
         <TabsContent value="prompts" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <CardTitle className="text-base">视频生成Prompt</CardTitle>
               <Button size="sm"
                 onClick={() => setConfirmRegenDialog({ step: "Prompt", action: () => generatePrompts.mutate({ projectId }) })}
@@ -824,7 +859,7 @@ export default function ProjectDetail() {
 
       {/* ==================== Prompt View Dialog ==================== */}
       <Dialog open={!!promptViewDialog} onOpenChange={(open) => !open && setPromptViewDialog(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:max-h-[80vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
@@ -948,24 +983,24 @@ export default function ProjectDetail() {
           </DialogHeader>
           {editingFrame && (
             <div className="space-y-4 py-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>景别</Label>
-                  <Select value={editingFrame.data.shotType || "中景"} onValueChange={(v) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, shotType: v } })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {SHOT_TYPES.map((st) => <SelectItem key={st} value={st}>{st}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>景别</Label>
+                    <Select value={editingFrame.data.shotType || "中景"} onValueChange={(v) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, shotType: v } })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {SHOT_TYPES.map((st) => <SelectItem key={st} value={st}>{st}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>时长 (秒)</Label>
+                    <Input type="number" step="0.5" min="0.5" max="10"
+                      value={editingFrame.data.duration || 2}
+                      onChange={(e) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, duration: parseFloat(e.target.value) || 2 } })}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>时长 (秒)</Label>
-                  <Input type="number" step="0.5" min="0.5" max="10"
-                    value={editingFrame.data.duration || 2}
-                    onChange={(e) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, duration: parseFloat(e.target.value) || 2 } })}
-                  />
-                </div>
-              </div>
               <div className="space-y-2">
                 <Label>描述</Label>
                 <Textarea value={editingFrame.data.description || ""}
@@ -973,24 +1008,24 @@ export default function ProjectDetail() {
                   rows={3}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>运镜</Label>
-                  <Select value={editingFrame.data.cameraMovement || editingFrame.data.cameraMove || "固定"}
-                    onValueChange={(v) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, cameraMovement: v } })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {CAMERA_MOVES.map((cm) => <SelectItem key={cm} value={cm}>{cm}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>运镜</Label>
+                    <Select value={editingFrame.data.cameraMovement || editingFrame.data.cameraMove || "固定"}
+                      onValueChange={(v) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, cameraMovement: v } })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {CAMERA_MOVES.map((cm) => <SelectItem key={cm} value={cm}>{cm}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>备注</Label>
+                    <Input value={editingFrame.data.notes || ""}
+                      onChange={(e) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, notes: e.target.value } })}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>备注</Label>
-                  <Input value={editingFrame.data.notes || ""}
-                    onChange={(e) => setEditingFrame({ ...editingFrame, data: { ...editingFrame.data, notes: e.target.value } })}
-                  />
-                </div>
-              </div>
             </div>
           )}
           <DialogFooter>
@@ -1026,7 +1061,7 @@ export default function ProjectDetail() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>景别</Label>
                 <Select value={newFrame.shotType} onValueChange={(v) => setNewFrame({ ...newFrame, shotType: v })}>
@@ -1048,7 +1083,7 @@ export default function ProjectDetail() {
               <Label>描述</Label>
               <Textarea value={newFrame.description} onChange={(e) => setNewFrame({ ...newFrame, description: e.target.value })} rows={3} placeholder="描述这个镜头的内容..." />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>运镜</Label>
                 <Select value={newFrame.cameraMovement} onValueChange={(v) => setNewFrame({ ...newFrame, cameraMovement: v })}>
@@ -1155,28 +1190,28 @@ function WorkflowStep({
   onView?: () => void; onRegenerate?: () => void; disabled?: boolean; confirmLabel?: string;
 }) {
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg border">
-      <div className="flex items-center gap-3">
-        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+    <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg border gap-2">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
           done ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
         }`}>
-          {done ? <CheckCircle className="h-4 w-4" /> : step}
+          {done ? <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" /> : step}
         </div>
-        <span className={`text-sm ${done ? "font-medium" : "text-muted-foreground"}`}>{title}</span>
+        <span className={`text-xs sm:text-sm truncate ${done ? "font-medium" : "text-muted-foreground"}`}>{title}</span>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 shrink-0">
         {done && onView && (
-          <Button size="sm" variant="ghost" onClick={onView} disabled={disabled}>
-            <Eye className="h-4 w-4 mr-1" />
-            <span className="text-xs">查看</span>
+          <Button size="sm" variant="ghost" className="h-7 px-2 sm:h-8 sm:px-3" onClick={onView} disabled={disabled}>
+            <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="text-xs hidden sm:inline ml-1">查看</span>
           </Button>
         )}
         {onRegenerate && (
-          <Button size="sm" variant={done ? "outline" : "default"} onClick={onRegenerate} disabled={disabled || loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : (
-              done ? <RefreshCw className="h-4 w-4 mr-1" /> : <Play className="h-4 w-4 mr-1" />
+          <Button size="sm" variant={done ? "outline" : "default"} className="h-7 px-2 sm:h-8 sm:px-3" onClick={onRegenerate} disabled={disabled || loading}>
+            {loading ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : (
+              done ? <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4" /> : <Play className="h-3 w-3 sm:h-4 sm:w-4" />
             )}
-            <span className="text-xs">{confirmLabel || (done ? "重新生成" : "执行")}</span>
+            <span className="text-xs ml-1 hidden sm:inline">{confirmLabel || (done ? "重新生成" : "执行")}</span>
           </Button>
         )}
       </div>
