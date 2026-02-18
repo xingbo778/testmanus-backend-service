@@ -209,14 +209,29 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
-const resolveApiUrl = () =>
-  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-    : "https://forge.manus.im/v1/chat/completions";
+const resolveApiUrl = () => {
+  // Prefer Yunwu API for Railway deployment
+  if (ENV.yunwuApiKey && ENV.yunwuApiKey.trim().length > 0) {
+    return `${ENV.yunwuApiUrl.replace(/\/$/, "")}/v1/chat/completions`;
+  }
+  // Fallback to Manus Forge API
+  if (ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0) {
+    return `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`;
+  }
+  return "https://yunwu.ai/v1/chat/completions";
+};
+
+const resolveApiKey = () => {
+  if (ENV.yunwuApiKey && ENV.yunwuApiKey.trim().length > 0) {
+    return ENV.yunwuApiKey;
+  }
+  return ENV.forgeApiKey;
+};
 
 const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+  const key = resolveApiKey();
+  if (!key) {
+    throw new Error("No API key configured (YUNWU_API_KEY or BUILT_IN_FORGE_API_KEY)");
   }
 };
 
@@ -316,7 +331,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
+      authorization: `Bearer ${resolveApiKey()}`,
     },
     body: JSON.stringify(payload),
   });

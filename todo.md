@@ -105,3 +105,14 @@
 - [ ] Push to GitHub
 - [ ] Deploy to Railway
 - [ ] End-to-end testing on Railway
+
+## Railway Independent Deployment
+- [ ] Replace Manus LLM API with Yunwu API (OpenAI compatible)
+- [ ] Replace Manus Image Generation with Yunwu API
+- [ ] Replace Manus OAuth with simple API key auth
+- [ ] Replace Manus S3 storage with local/Railway volume
+- [ ] Create Dockerfile for Railway deployment
+- [ ] Create Railway project and MySQL service
+- [ ] Set environment variables on Railway
+- [ ] Deploy and generate domain
+- [ ] End-to-end test on Railway
