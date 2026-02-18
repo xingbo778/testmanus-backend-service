@@ -246,7 +246,18 @@ export default function ProjectDetail() {
                 disabled={!script}
               />
               <WorkflowStep step={4} title="审查与调整" done={project.status === "reviewing" || project.status === "confirmed"}
-                onView={() => setActiveTab("grid")} disabled={!grid}
+                onView={() => setActiveTab("grid")}
+                onRegenerate={() => {
+                  if (project.status !== "reviewing" && project.status !== "confirmed") {
+                    confirmProject.mutate({ id: projectId, status: "reviewing" });
+                    setActiveTab("grid");
+                    toast.info("已进入审查模式，请在Grid页面检查每个面板并标记问题");
+                  } else {
+                    setActiveTab("grid");
+                  }
+                }}
+                disabled={!grid}
+                confirmLabel={project.status === "reviewing" ? "继续审查" : (project.status === "confirmed" ? "已完成" : "开始审查")}
               />
               <WorkflowStep step={5} title="生成Prompt" done={!!prompts?.length} loading={generatePrompts.isPending}
                 onView={() => setActiveTab("prompts")}

@@ -384,36 +384,68 @@ export const appRouter = router({
         const project = await db.getProjectById(input.projectId);
         if (!project) throw new Error("Project not found");
 
-        // Get applicable rules
-        const ruleChapters = await db.getRulesForScene(project.l2Id);
+        // Get applicable rules - prioritize scene-specific + key universal rules
+        const allRuleChapters = await db.getRulesForScene(project.l2Id);
         const userRulesList = await db.getUserRules({ status: "approved", applicableL2Id: project.l2Id });
 
-        // Build rules context
-        const rulesContext = ruleChapters.map(ch => {
+        // Separate scene-specific and universal/technical rules
+        const sceneSpecific = allRuleChapters.filter(ch => ch.category === 'scene_specific');
+        const universal = allRuleChapters.filter(ch => ch.category === 'universal');
+        const technical = allRuleChapters.filter(ch => ch.category === 'technical');
+        const aiPrompt = allRuleChapters.filter(ch => ch.category === 'ai_prompt');
+
+        // Prioritize: scene-specific (all) + universal (all) + ai_prompt (all) + technical (top 3 by relevance)
+        const prioritizedChapters = [
+          ...sceneSpecific,
+          ...universal,
+          ...aiPrompt,
+          ...technical.slice(0, 3), // Limit technical rules to avoid token overflow
+        ];
+
+        let totalRulesInjected = 0;
+        const rulesContext = prioritizedChapters.map(ch => {
           const rules = ch.rules as Array<{ type: string; text: string; severity: string }>;
-          return `## ${ch.title}\n${rules.map(r => `- [${r.type.toUpperCase()}] ${r.text}`).join("\n")}`;
+          // For large chapters, only include warning/critical rules
+          const filteredRules = rules.length > 30
+            ? rules.filter(r => r.severity === 'warning' || r.severity === 'critical')
+            : rules;
+          totalRulesInjected += filteredRules.length;
+          return `## 第${ch.chapterNumber}章 ${ch.title}（${ch.category}）\n${filteredRules.map(r => `- [${r.type.toUpperCase()}][${r.severity}] ${r.text}`).join("\n")}`;
         }).join("\n\n");
 
         const userRulesContext = userRulesList.length > 0
           ? `## 用户自定义规则（优先级最高）\n${userRulesList.map(r => `- [${r.ruleType.toUpperCase()}][${r.severity}] ${r.ruleText}`).join("\n")}`
           : "";
 
+        console.log(`[ScriptGen] Injected ${totalRulesInjected} rules from ${prioritizedChapters.length} chapters for scene type: ${project.l2Id}`);
+
         const totalDuration = parseInt(project.duration);
         const frameCount = totalDuration === 15 ? "6-8" : "10-15";
         const gridLayout = totalDuration === 15 ? "2×3 or 2×4" : "3×4 or 3×5";
 
-        const systemPrompt = `你是一个专业的分镜脚本设计师。根据给定的场景类型和规则，生成结构化的分镜脚本。
+        const systemPrompt = `你是一个专业的分镜脚本设计师，精通电影分镜、摄影构图和视觉叙事。根据给定的场景类型和专业规则手册，生成高质量的结构化分镜脚本。
+
+# 参考规则手册（共${totalRulesInjected}条规则，来自${prioritizedChapters.length}个章节）
 
 ${rulesContext}
 
 ${userRulesContext}
 
-## 输出要求
+# 输出要求
 - 总时长：${totalDuration}秒
 - 帧数：${frameCount}帧
 - 推荐布局：${gridLayout}
 - 每帧时长：1-3秒
-- 前3秒必须有强钩子
+- 前3秒必须有强钩子（hook）
+- 必须严格遵循上述规则手册中的规则
+
+# 重要：每帧description必须非常详细
+每帧的description字段必须包含以下所有要素（用英文撰写，因为后续用于生成图片）：
+1. **环境/背景**：具体的场景环境描述（如"warm-toned cafe interior with wooden tables, large windows letting in golden afternoon sunlight, potted plants on windowsills"）
+2. **关键元素**：画面中的重要道具和视觉元素（如"two cups of coffee on the table, a handwritten letter partially visible"）
+3. **人物及位置**：每个角色的具体位置、姿态、表情（如"Liam sits on the left side of the frame, leaning forward with nervous anticipation, his hands clasped around a coffee cup. Maya sits across from him on the right, looking down with a gentle smile"）
+4. **光线/氛围**：光线方向、色调、情绪氛围（如"warm golden hour light from the left window, creating soft shadows. Intimate, tender atmosphere"）
+5. **景深/焦点**：前景、中景、背景的层次关系（如"shallow depth of field, focus on characters' faces, background cafe patrons softly blurred"）
 
 请以JSON格式输出，包含以下字段：
 {
@@ -422,16 +454,16 @@ ${userRulesContext}
       "index": 1,
       "shotType": "EWS/WS/FS/MS/MCU/CU/ECU/INS",
       "duration": 2.0,
-      "description": "画面描述",
+      "description": "非常详细的画面描述（英文），必须包含环境、人物位置、关键元素、光线氛围、景深等所有要素",
       "cameraMovement": "static/pan/tilt/dolly/tracking/handheld/crane",
-      "notes": "导演备注"
+      "notes": "导演备注（中文）"
     }
   ],
   "characters": [
-    { "name": "角色名", "description": "外貌描述（中文，详细）", "anchorPrompt": "用于生成角色参考图的英文prompt，必须遵循以下格式：A half-body portrait of [CHARACTER], [detailed appearance]. The character is centered in the frame, facing slightly to the right at a 3/4 angle. Shot against a pure white studio background with soft, even lighting. Professional studio photography, shot on 85mm f/1.4 lens. Soft key light from the upper left, subtle fill light from the right. Natural skin texture, clean catchlights in the eyes. High detail, 8K resolution, photorealistic." }
+    { "name": "角色名", "description": "外貌描述（中文，非常详细：年龄、身高体型、发型发色、五官特征、肤色、穿着风格）", "anchorPrompt": "用于生成角色参考图的英文prompt，必须遵循以下格式：A half-body portrait of [CHARACTER], [age] years old, [ethnicity], [detailed hair description], [detailed facial features], wearing [specific clothing]. The character is centered in the frame, facing slightly to the right at a 3/4 angle. Shot against a pure white studio background (#FFFFFF) with soft, even lighting. Professional studio photography, shot on 85mm f/1.4 lens. Soft key light from the upper left, subtle fill light from the right. Natural skin texture, clean catchlights in the eyes. High detail, 8K resolution, photorealistic." }
   ],
   "scenes": [
-    { "name": "场景名", "description": "场景描述（中文，详细）", "anchorPrompt": "用于生成场景参考图的英文prompt，必须遵循以下格式：A wide establishing shot of [SCENE], [detailed environment description]. Cinematic composition with depth, atmospheric lighting. The scene conveys [mood/atmosphere]. Shot on 35mm wide-angle lens. High detail, 8K resolution, photorealistic. No people in the scene, focus on environment and atmosphere." }
+    { "name": "场景名", "description": "场景描述（中文，非常详细：空间大小、装修风格、家具摆设、光线条件、时间段、氛围）", "anchorPrompt": "用于生成场景参考图的英文prompt，必须遵循以下格式：A wide establishing shot of [SCENE], [detailed environment: furniture, decorations, materials, colors]. [Lighting description: direction, color temperature, shadows]. [Time of day] atmosphere. Cinematic composition with depth. Shot on 35mm wide-angle lens. High detail, 8K resolution, photorealistic. No people in the scene, focus on environment and atmosphere." }
   ],
   "props": [
     { "name": "道具名", "description": "道具描述" }
@@ -535,7 +567,7 @@ ${input.additionalContext ? `补充说明：${input.additionalContext}` : ""}
           scenes: parsed.scenes,
           props: parsed.props,
           generationPrompt: userPrompt,
-          rulesUsed: ruleChapters.map(ch => ch.id),
+          rulesUsed: prioritizedChapters.map((ch: any) => ch.id),
         });
 
         await db.updateProject(input.projectId, { status: "scripted", currentVersion: version });
@@ -913,42 +945,59 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
           .filter(a => a.imageUrl && a.imageUrl.startsWith("http"))
           .map(a => ({ url: a.imageUrl! }));
 
-        const gridPrompt = input.customPrompt || `WORK SURFACE:
-Create a professional ${rows}x${cols} cinematic storyboard grid (${totalPanels} panels total).
+        // Build anchor reference descriptions for the grid prompt
+        const anchorCharDescs = anchorsList
+          .filter(a => a.anchorType === 'character' && a.imageUrl)
+          .map(a => `Character "${a.name}": ${a.description || a.prompt}`)
+          .join("; ");
+        const anchorSceneDescs = anchorsList
+          .filter(a => a.anchorType === 'scene' && a.imageUrl)
+          .map(a => `Scene "${a.name}": ${a.description || a.prompt}`)
+          .join("; ");
+
+        const gridPrompt = input.customPrompt || `Create a professional ${rows}x${cols} cinematic storyboard grid with ${totalPanels} panels.
 
 LAYOUT:
-- ${rows} rows x ${cols} columns grid layout
-- Clean white borders between panels (4px width)
-- Each panel is exactly the same size
-- Panel numbers visible in the top-left corner of each panel
+- ${rows} rows x ${cols} columns grid, clean white borders (4px) between panels
+- Each panel is exactly the same size, no titles or text overlays
+- Small panel number in top-left corner of each panel (subtle, semi-transparent)
 - Horizontal reading order: left to right, top to bottom
+- NO title bar, NO text labels, NO captions outside or inside the grid
 
-COMPONENTS:
-Title: "${project.title}" - ${project.duration}-second short film
-Characters: ${charDesc}
-Setting: ${sceneDesc}
+CHARACTER REFERENCE (MUST match the provided reference images exactly):
+${anchorCharDescs || charDesc}
+The characters in the grid MUST have the exact same face, hair, clothing, and body proportions as shown in the reference images.
 
-PANEL-BY-PANEL BREAKDOWN (each panel must depict its described scene precisely):
-${frames.map(f => `Panel ${f.index} (${f.shotType}): ${f.description}. Camera: ${f.cameraMovement}. Duration: ${f.duration}s`).join("\n")}
+SCENE REFERENCE:
+${anchorSceneDescs || sceneDesc}
+
+PANEL-BY-PANEL BREAKDOWN:
+${frames.map(f => `Panel ${f.index} (${f.shotType}, ${f.duration}s, camera: ${f.cameraMovement}): ${f.description}`).join("\n")}
 
 STYLE:
-- Cinematic storyboard illustration quality
+- Photorealistic cinematic quality, NOT cartoon or illustration
+- Shot on professional cinema camera (ARRI Alexa / RED), natural film grain
 - Consistent character appearance across ALL panels (same face, same clothing, same proportions)
-- Dynamic compositions with varied camera angles as specified
-- Atmospheric lighting matching the mood of each scene
-- Professional film storyboard with clear visual storytelling
+- Cinematic lighting matching the mood described in each panel
+- Natural skin textures, realistic environments, atmospheric depth
+- Each panel looks like a frame from a real film
 
 CONSTRAINTS:
-- Character design MUST remain identical across all panels
-- No overlap between panel borders
-- Each panel must clearly show the described action and camera angle
-- Panel numbers must be sharp and readable
-- Uniform spacing between all panels`;
+- Character faces MUST remain identical across all panels
+- NO text, NO titles, NO captions anywhere in the image
+- Each panel must clearly show the described action, camera angle, and character positions
+- Uniform spacing between all panels
+- The overall image should look like a professional film storyboard contact sheet`;
 
         try {
           // Pass anchor images as reference for character/scene consistency
+          let finalGridPrompt = gridPrompt;
+          if (anchorImageUrls.length > 0) {
+            finalGridPrompt = `REFERENCE IMAGES PROVIDED: I am providing ${anchorImageUrls.length} reference images showing the exact character appearances and scene settings. You MUST use these reference images to maintain character consistency. The characters in every panel MUST look exactly like the people in the reference photos - same face, same hair, same clothing.\n\n${gridPrompt}`;
+          }
+          console.log(`[GridGen] Using ${anchorImageUrls.length} anchor images as reference`);
           const { url: gridImageUrl } = await generateImage({
-            prompt: gridPrompt,
+            prompt: finalGridPrompt,
             originalImages: anchorImageUrls.length > 0 ? anchorImageUrls : undefined,
           });
 
@@ -959,7 +1008,7 @@ CONSTRAINTS:
             cols,
             totalPanels,
             gridImageUrl,
-            generationPrompt: gridPrompt,
+            generationPrompt: finalGridPrompt,
           });
 
           // Create panel records
