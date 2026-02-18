@@ -203,9 +203,9 @@
 - [x] 前端：侧边栏添加Prompt管理入口
 
 ## Phase 9: Core Quality Fixes Round 3
-- [ ] 1. 脚本生成时规则RAG未注入 — 需查询相关规则并注入到LLM prompt
-- [ ] 2. Grid未参考anchor图 — 确认代码是否正确传入anchor图片URL作为参考
-- [ ] 3. Grid格式不需要标题文字 — prompt中明确说明不要标题
-- [ ] 4. 风格不一致：Anchor是真人，Grid是漫画 — 需统一风格
-- [ ] 5. 审查与调整步骤触发方式不明确 — 需要明确UI交互
-- [ ] 6. Panel描述太简单 — 需包含环境/背景/关键元素/人物位置等详细信息
+- [x] 1. 规则RAG注入优化：按优先级筛选规则（场景特定>通用>技术），大章节只保留warning/critical规则
+- [x] 2. Grid参考anchor图：传入originalImages + prompt中明确要求参考角色外观
+- [x] 3. Grid格式去标题：prompt中明确要求NO title/NO text/NO captions
+- [x] 4. 风格统一为photorealistic cinematic（非漫画/插画）
+- [x] 5. 审查步骤：点击"开始审查"进入reviewing状态，在Grid页面标记问题并修复
+- [x] 6. Panel描述详细化：必须包含环境/背景/关键元素/人物位置/光线氛围/景深焦点
