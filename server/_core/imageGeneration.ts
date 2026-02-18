@@ -1,6 +1,7 @@
 /**
- * Image generation helper - supports Yunwu API (OpenAI-compatible) and Manus Forge API
- * Integrates ToAPIs upload for converting b64_json responses to URLs
+ * Image generation helper - uses Yunwu API with gemini-3-pro-image-preview
+ * via chat/completions endpoint (returns base64 in markdown).
+ * Integrates ToAPIs upload for converting base64 responses to URLs.
  */
 import { ENV } from "./env";
 
@@ -27,14 +28,9 @@ function resolveImageApiKey(): string {
   return ENV.forgeApiKey;
 }
 
-function isYunwuMode(): boolean {
-  return !!(ENV.yunwuApiKey && ENV.yunwuApiKey.trim().length > 0);
-}
-
 /**
  * Upload a base64-encoded image to ToAPIs and get back a public URL.
  * POST https://toapis.com/v1/uploads/images
- * Returns the URL from the response data.
  */
 async function uploadBase64ToToapis(
   b64Data: string,
@@ -47,10 +43,7 @@ async function uploadBase64ToToapis(
     throw new Error("TOAPIS_API_KEY is not configured for image upload");
   }
 
-  // Convert base64 to Buffer
   const buffer = Buffer.from(b64Data, "base64");
-
-  // Determine file extension from mime type
   const extMap: Record<string, string> = {
     "image/png": "png",
     "image/jpeg": "jpg",
@@ -61,7 +54,6 @@ async function uploadBase64ToToapis(
   const ext = extMap[mimeType] || "png";
   const fileName = `storyboard_${Date.now()}.${ext}`;
 
-  // Create FormData with the image file
   const blob = new Blob([buffer], { type: mimeType });
   const formData = new FormData();
   formData.append("file", blob, fileName);
@@ -111,7 +103,7 @@ async function resolveBase64Image(
   b64Data: string,
   mimeType: string = "image/png"
 ): Promise<string> {
-  // Strategy 1: Upload to ToAPIs (preferred - gives a real URL)
+  // Strategy 1: Upload to ToAPIs (preferred)
   if (ENV.toapisApiKey) {
     try {
       return await uploadBase64ToToapis(b64Data, mimeType);
@@ -120,7 +112,7 @@ async function resolveBase64Image(
     }
   }
 
-  // Strategy 2: Upload to S3 storage (Manus environment)
+  // Strategy 2: Upload to S3 storage
   try {
     const { storagePut } = await import("../storage");
     const buffer = Buffer.from(b64Data, "base64");
@@ -134,8 +126,29 @@ async function resolveBase64Image(
     console.warn(`[ImageUpload] S3 upload failed, using data URL fallback:`, e);
   }
 
-  // Strategy 3: Return as data URL (last resort - may cause issues with large images)
+  // Strategy 3: Return as data URL (last resort)
   return `data:${mimeType};base64,${b64Data}`;
+}
+
+/**
+ * Extract base64 image data from chat completion response content.
+ * The model returns markdown like: ![image](data:image/png;base64,iVBOR...)
+ * or just the raw base64 data.
+ */
+function extractBase64FromContent(content: string): { b64Data: string; mimeType: string } | null {
+  // Pattern 1: markdown image with data URL - ![...](data:image/xxx;base64,...)
+  const mdMatch = content.match(/!\[.*?\]\(data:(image\/[a-z]+);base64,([A-Za-z0-9+/=]+(?:\s*[A-Za-z0-9+/=]+)*)\)/);
+  if (mdMatch) {
+    return { mimeType: mdMatch[1], b64Data: mdMatch[2].replace(/\s/g, "") };
+  }
+
+  // Pattern 2: raw data URL - data:image/xxx;base64,...
+  const dataUrlMatch = content.match(/data:(image\/[a-z]+);base64,([A-Za-z0-9+/=]+(?:\s*[A-Za-z0-9+/=]+)*)/);
+  if (dataUrlMatch) {
+    return { mimeType: dataUrlMatch[1], b64Data: dataUrlMatch[2].replace(/\s/g, "") };
+  }
+
+  return null;
 }
 
 export async function generateImage(
@@ -146,9 +159,46 @@ export async function generateImage(
     throw new Error("No API key configured for image generation");
   }
 
-  if (isYunwuMode()) {
-    // Yunwu API (OpenAI-compatible images/generations endpoint)
-    const apiUrl = `${ENV.yunwuApiUrl.replace(/\/$/, "")}/v1/images/generations`;
+  const yunwuMode = !!(ENV.yunwuApiKey && ENV.yunwuApiKey.trim().length > 0);
+
+  if (yunwuMode) {
+    const model = options.model || "gemini-3-pro-image-preview";
+    const apiUrl = `${ENV.yunwuApiUrl.replace(/\/$/, "")}/v1/chat/completions`;
+
+    console.log(`[ImageGen] Using model: ${model} via chat completions`);
+
+    // Build messages - for image generation via chat completions
+    const messages: Array<{ role: string; content: string | Array<any> }> = [];
+
+    // If we have original images for editing, include them
+    if (options.originalImages && options.originalImages.length > 0) {
+      const contentParts: Array<any> = [];
+      for (const img of options.originalImages) {
+        if (img.url) {
+          contentParts.push({
+            type: "image_url",
+            image_url: { url: img.url },
+          });
+        } else if (img.b64Json) {
+          const mime = img.mimeType || "image/png";
+          contentParts.push({
+            type: "image_url",
+            image_url: { url: `data:${mime};base64,${img.b64Json}` },
+          });
+        }
+      }
+      contentParts.push({
+        type: "text",
+        text: options.prompt,
+      });
+      messages.push({ role: "user", content: contentParts });
+    } else {
+      messages.push({
+        role: "user",
+        content: `Generate an image based on the following description. Only output the image, no text explanation.\n\n${options.prompt}`,
+      });
+    }
+
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
@@ -156,10 +206,9 @@ export async function generateImage(
         authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: options.model || "flux-schnell",
-        prompt: options.prompt,
-        n: options.n || 1,
-        size: options.size || "1024x1024",
+        model,
+        messages,
+        max_tokens: 8192,
       }),
     });
 
@@ -171,23 +220,35 @@ export async function generateImage(
     }
 
     const result = (await response.json()) as {
-      data: Array<{ url?: string; b64_json?: string }>;
+      choices: Array<{
+        message: {
+          content: string;
+        };
+      }>;
     };
 
-    if (result.data && result.data.length > 0) {
-      const item = result.data[0];
-      // Some models return url directly
-      if (item.url) {
-        return { url: item.url };
-      }
-      // Some models (like gpt-image-1) return b64_json - upload to get URL
-      if (item.b64_json) {
-        const url = await resolveBase64Image(item.b64_json, "image/png");
-        return { url };
-      }
+    if (!result.choices || result.choices.length === 0) {
+      throw new Error("No choices returned from image generation API");
     }
 
-    throw new Error("No image data returned from API");
+    const content = result.choices[0].message.content;
+    const extracted = extractBase64FromContent(content);
+
+    if (extracted) {
+      console.log(`[ImageGen] Extracted base64 image (${extracted.b64Data.length} chars), uploading...`);
+      const url = await resolveBase64Image(extracted.b64Data, extracted.mimeType);
+      return { url };
+    }
+
+    // If no base64 found, check if content contains a URL directly
+    const urlMatch = content.match(/https?:\/\/[^\s\)]+\.(png|jpg|jpeg|webp|gif)/i);
+    if (urlMatch) {
+      console.log(`[ImageGen] Found direct URL in response: ${urlMatch[0]}`);
+      return { url: urlMatch[0] };
+    }
+
+    console.error(`[ImageGen] Could not extract image from response content (length: ${content.length})`);
+    throw new Error("Could not extract image from model response");
   } else {
     // Manus Forge API (original implementation)
     if (!ENV.forgeApiUrl) {
@@ -233,4 +294,4 @@ export async function generateImage(
 }
 
 // Export for testing
-export { uploadBase64ToToapis, resolveBase64Image };
+export { uploadBase64ToToapis, resolveBase64Image, extractBase64FromContent };

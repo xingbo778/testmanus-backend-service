@@ -140,3 +140,13 @@
 - [x] End-to-end test: complete workflow (script → anchor → grid → prompt)
 - [x] Fix export fallback for Railway (data URL when S3 unavailable)
 - [x] Verify KB export with confirmed project data
+
+## Phase 4: Bug Fixes & UX Improvements (User Reported)
+- [ ] 1. 图片模型改用 gemini-3-pro-image-preview (yunwu chat completions API) + gemini-3-flash-preview (LLM)
+- [ ] 2. Anchor 图片在项目详情页不可见，需要修复显示
+- [ ] 3. Grid 整体图片生成prompt需优化，确保与script剧情内容强关联
+- [ ] 4. 项目详情页应同时展示脚本和grid，目前只有grid
+- [ ] 5. 工作流进度按钮分离：查看（纯查看）和重新生成（需确认）
+- [ ] 6. 历史版本展示（最多5个）+ 点击回退（需确认）
+- [ ] 7. Prompt 中出现 #NaN，且缺少时间信息
+- [ ] 8. 规则手册页面可点击查看详情，每章显示标题

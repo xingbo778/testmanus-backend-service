@@ -75,6 +75,11 @@ export const appRouter = router({
       await db.clearAllRuleChapters();
       return { success: true, message: "All rule chapters cleared" };
     }),
+    chapterDetail: publicProcedure
+      .input(z.object({ chapterNumber: z.number() }))
+      .query(async ({ input }) => {
+        return db.getRuleChapterByNumber(input.chapterNumber);
+      }),
     importChapter: adminProcedure
       .input(z.object({
         chapterNumber: z.number(),
@@ -594,15 +599,22 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
           `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.duration}s, ${f.cameraMovement})`
         ).join("\n");
 
-        const gridPrompt = input.customPrompt || `A professional cinematic storyboard grid with EXACTLY ${totalPanels} equal-sized panels arranged in a ${rows}x${cols} grid layout. Each panel is a separate scene from a short video. Clean white borders between panels. Professional illustration style.
+        // Build a detailed grid prompt that strongly references the script content
+        const characters = (script.characters as Array<{ name: string; description: string }>) ?? [];
+        const scenes = (script.scenes as Array<{ name: string; description: string }>) ?? [];
+        const charDesc = characters.map(c => `Character "${c.name}": ${c.description}`).join("; ");
+        const sceneDesc = scenes.map(s => `Scene "${s.name}": ${s.description}`).join("; ");
 
-Characters and scenes:
-${anchorDescriptions}
+        const gridPrompt = input.customPrompt || `Professional cinematic storyboard grid, ${rows}x${cols} layout (${totalPanels} panels total), clean white borders between panels.
 
-Panel descriptions:
-${frameDescriptions}
+STORY CONTEXT: "${project.title}" - a ${project.duration}-second short video.
+CHARACTERS: ${charDesc || anchorDescriptions}
+SETTING: ${sceneDesc || "as described in panels"}
 
-Important: All ${totalPanels} panels must be exactly the same size. Professional storyboard quality with clear visual storytelling in each panel.`;
+PANEL-BY-PANEL BREAKDOWN (must follow this exact sequence):
+${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} — Camera: ${f.cameraMovement}, Duration: ${f.duration}s`).join("\n")}
+
+STYLE: Consistent character appearance across all panels. Cinematic lighting. Each panel clearly depicts its described scene with recognizable characters and actions. Professional storyboard illustration quality. All ${totalPanels} panels must be exactly the same size.`;
 
         try {
           const { url: gridImageUrl } = await generateImage({ prompt: gridPrompt });
@@ -956,6 +968,25 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
       .input(z.object({ projectId: z.number(), version: z.number().optional() }))
       .query(async ({ input }) => {
         return db.getPrompts(input.projectId, input.version);
+      }),
+  }),
+
+  // ============================================================
+  // Version History & Rollback
+  // ============================================================
+  version: router({
+    history: publicProcedure
+      .input(z.object({ projectId: z.number() }))
+      .query(async ({ input }) => {
+        const scriptVersions = await db.getScriptVersions(input.projectId);
+        const gridVersions = await db.getGridVersions(input.projectId);
+        const promptVersions = await db.getPromptVersions(input.projectId);
+        return { scriptVersions, gridVersions, promptVersions };
+      }),
+    rollback: protectedProcedure
+      .input(z.object({ projectId: z.number(), targetVersion: z.number() }))
+      .mutation(async ({ input }) => {
+        return db.rollbackToVersion(input.projectId, input.targetVersion);
       }),
   }),
 

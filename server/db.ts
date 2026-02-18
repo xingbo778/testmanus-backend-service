@@ -465,6 +465,91 @@ export async function getReferences(projectId: number) {
 }
 
 // ============================================================
+// Version History helpers
+// ============================================================
+export async function getScriptVersions(projectId: number, limit: number = 5) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: scripts.id,
+    version: scripts.version,
+    createdAt: scripts.createdAt,
+    validationPassed: scripts.validationPassed,
+  }).from(scripts)
+    .where(eq(scripts.projectId, projectId))
+    .orderBy(desc(scripts.version))
+    .limit(limit);
+}
+
+export async function getGridVersions(projectId: number, limit: number = 5) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: grids.id,
+    version: grids.version,
+    rows: grids.rows,
+    cols: grids.cols,
+    totalPanels: grids.totalPanels,
+    gridImageUrl: grids.gridImageUrl,
+    createdAt: grids.createdAt,
+  }).from(grids)
+    .where(eq(grids.projectId, projectId))
+    .orderBy(desc(grids.version))
+    .limit(limit);
+}
+
+export async function getPromptVersions(projectId: number, limit: number = 5) {
+  const db = await getDb();
+  if (!db) return [];
+  // Get distinct versions from prompts
+  const allPrompts = await db.select({
+    version: prompts.version,
+    createdAt: prompts.createdAt,
+  }).from(prompts)
+    .where(eq(prompts.projectId, projectId))
+    .orderBy(desc(prompts.version));
+  // Deduplicate by version
+  const seen = new Set<number>();
+  const versions: Array<{ version: number; createdAt: Date; count: number }> = [];
+  for (const p of allPrompts) {
+    if (!seen.has(p.version)) {
+      seen.add(p.version);
+      versions.push({ version: p.version, createdAt: p.createdAt, count: allPrompts.filter(x => x.version === p.version).length });
+    }
+    if (versions.length >= limit) break;
+  }
+  return versions;
+}
+
+export async function rollbackToVersion(projectId: number, targetVersion: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // Verify the target version exists
+  const targetScript = await getScriptByVersion(projectId, targetVersion);
+  if (!targetScript) throw new Error(`Version ${targetVersion} not found for project ${projectId}`);
+  // Update project to target version
+  await db.update(projects).set({ currentVersion: targetVersion } as any).where(eq(projects.id, projectId));
+  return { success: true, version: targetVersion };
+}
+
+// ============================================================
+// Rule Chapter detail helper
+// ============================================================
+export async function getRuleChapterById(chapterId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(ruleChapters).where(eq(ruleChapters.id, chapterId)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function getRuleChapterByNumber(chapterNumber: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(ruleChapters).where(eq(ruleChapters.chapterNumber, chapterNumber)).limit(1);
+  return result[0] ?? null;
+}
+
+// ============================================================
 // Confirmed projects for export
 // ============================================================
 export async function getConfirmedProjects(filters?: { l1Id?: string; l2Id?: string; l3Id?: string; since?: Date }) {
