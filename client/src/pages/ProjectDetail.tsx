@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeft, Play, RefreshCw, Wand2, CheckCircle,
   Image as ImageIcon, Pencil, Eye, Loader2, History, RotateCcw,
-  Clock, Film, Camera
+  Clock, Film, Camera, FileText, Sparkles
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { useState } from "react";
@@ -39,11 +39,17 @@ export default function ProjectDetail() {
   const [confirmRegenDialog, setConfirmRegenDialog] = useState<{ step: string; action: () => void } | null>(null);
   const [rollbackDialog, setRollbackDialog] = useState<{ version: number } | null>(null);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [promptViewDialog, setPromptViewDialog] = useState<{ title: string; prompts: Array<{ label: string; text: string }> } | null>(null);
 
   // Mutations
   const generateScript = trpc.script.generate.useMutation({
     onSuccess: () => { toast.success("脚本生成成功"); refetch(); versionHistory.refetch(); },
     onError: (err: any) => toast.error(`脚本生成失败: ${err.message}`),
+  });
+
+  const generateAnchor = trpc.anchor.generate.useMutation({
+    onSuccess: () => { toast.success("Anchor生成成功"); refetch(); versionHistory.refetch(); },
+    onError: (err: any) => toast.error(`Anchor生成失败: ${err.message}`),
   });
 
   const generateGrid = trpc.grid.generate.useMutation({
@@ -129,6 +135,12 @@ export default function ProjectDetail() {
     } catch { return []; }
   })();
 
+  // Build anchor prompt list for viewing
+  const anchorPromptList = (anchors ?? []).map((a: any) => ({
+    label: `${a.anchorType === "character" ? "角色" : a.anchorType === "scene" ? "场景" : "道具"}: ${a.name}`,
+    text: a.prompt || a.description || "(无prompt)",
+  }));
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -171,13 +183,14 @@ export default function ProjectDetail() {
         <TabsList>
           <TabsTrigger value="overview">总览</TabsTrigger>
           <TabsTrigger value="script">脚本</TabsTrigger>
+          <TabsTrigger value="anchor">Anchor</TabsTrigger>
           <TabsTrigger value="grid">Grid</TabsTrigger>
           <TabsTrigger value="prompts">Prompt</TabsTrigger>
         </TabsList>
 
         {/* ==================== Overview Tab ==================== */}
         <TabsContent value="overview" className="space-y-4">
-          {/* Workflow Steps */}
+          {/* Workflow Steps - 6 steps now */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">工作流进度</CardTitle>
@@ -196,25 +209,37 @@ export default function ProjectDetail() {
               />
               <WorkflowStep
                 step={2}
-                title="生成Anchor & Grid"
-                done={!!grid}
-                loading={generateGrid.isPending}
-                onView={() => setActiveTab("grid")}
+                title="生成Anchor（锚点参考图）"
+                done={!!(anchors && anchors.length > 0)}
+                loading={generateAnchor.isPending}
+                onView={() => setActiveTab("anchor")}
                 onRegenerate={() => setConfirmRegenDialog({
-                  step: "Anchor & Grid",
-                  action: () => generateGrid.mutate({ projectId }),
+                  step: "Anchor",
+                  action: () => generateAnchor.mutate({ projectId }),
                 })}
                 disabled={!script}
               />
               <WorkflowStep
                 step={3}
+                title="生成Grid（分镜图）"
+                done={!!grid}
+                loading={generateGrid.isPending}
+                onView={() => setActiveTab("grid")}
+                onRegenerate={() => setConfirmRegenDialog({
+                  step: "Grid",
+                  action: () => generateGrid.mutate({ projectId }),
+                })}
+                disabled={!script}
+              />
+              <WorkflowStep
+                step={4}
                 title="审查与调整"
                 done={project.status === "reviewing" || project.status === "confirmed"}
                 onView={() => setActiveTab("grid")}
                 disabled={!grid}
               />
               <WorkflowStep
-                step={4}
+                step={5}
                 title="生成Prompt"
                 done={!!prompts?.length}
                 loading={generatePrompts.isPending}
@@ -226,7 +251,7 @@ export default function ProjectDetail() {
                 disabled={!grid}
               />
               <WorkflowStep
-                step={5}
+                step={6}
                 title="确认导出"
                 done={project.status === "confirmed"}
                 onView={() => {}}
@@ -265,7 +290,6 @@ export default function ProjectDetail() {
                         <p className="text-xs text-muted-foreground pl-2">...还有 {scriptFrames.length - 6} 帧</p>
                       )}
                     </div>
-                    {/* Characters */}
                     {scriptCharacters.length > 0 && (
                       <div className="pt-2 border-t">
                         <p className="text-xs font-medium mb-1">角色</p>
@@ -327,14 +351,25 @@ export default function ProjectDetail() {
           {/* Anchors Preview in Overview */}
           {anchors && anchors.length > 0 && (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Camera className="h-4 w-4" />
                   锚点参考图
                 </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPromptViewDialog({
+                    title: "Anchor 生成 Prompt",
+                    prompts: anchorPromptList,
+                  })}
+                >
+                  <FileText className="h-4 w-4 mr-1" />
+                  <span className="text-xs">查看Prompt</span>
+                </Button>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {anchors.map((a: any) => (
                     <div key={a.id} className="space-y-1 text-center">
                       {a.imageUrl ? (
@@ -359,17 +394,32 @@ export default function ProjectDetail() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">分镜脚本</CardTitle>
-              <Button
-                size="sm"
-                onClick={() => setConfirmRegenDialog({
-                  step: "脚本",
-                  action: () => generateScript.mutate({ projectId }),
-                })}
-                disabled={generateScript.isPending}
-              >
-                {generateScript.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                {script ? "重新生成" : "生成脚本"}
-              </Button>
+              <div className="flex items-center gap-2">
+                {script?.generationPrompt && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPromptViewDialog({
+                      title: "脚本生成 Prompt",
+                      prompts: [{ label: "System Prompt", text: script.generationPrompt as string }],
+                    })}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    <span className="text-xs">查看Prompt</span>
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={() => setConfirmRegenDialog({
+                    step: "脚本",
+                    action: () => generateScript.mutate({ projectId }),
+                  })}
+                  disabled={generateScript.isPending}
+                >
+                  {generateScript.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  {script ? "重新生成" : "生成脚本"}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {script && scriptFrames.length > 0 ? (
@@ -449,17 +499,45 @@ export default function ProjectDetail() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
 
-          {/* Anchors Section */}
-          {anchors && anchors.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">锚点参考图 (Anchors)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* ==================== Anchor Tab ==================== */}
+        <TabsContent value="anchor" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">锚点参考图 (Anchors)</CardTitle>
+              <div className="flex items-center gap-2">
+                {anchors && anchors.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPromptViewDialog({
+                      title: "Anchor 生成 Prompt",
+                      prompts: anchorPromptList,
+                    })}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    <span className="text-xs">查看Prompt</span>
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={() => setConfirmRegenDialog({
+                    step: "Anchor",
+                    action: () => generateAnchor.mutate({ projectId }),
+                  })}
+                  disabled={generateAnchor.isPending || !script}
+                >
+                  {generateAnchor.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  {anchors?.length ? "重新生成" : "生成Anchor"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {anchors && anchors.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {anchors.map((a: any) => (
-                    <div key={a.id} className="space-y-1">
+                    <div key={a.id} className="space-y-2">
                       {a.imageUrl ? (
                         <img src={a.imageUrl} alt={a.name} className="w-full aspect-square object-cover rounded-lg border" />
                       ) : (
@@ -467,16 +545,26 @@ export default function ProjectDetail() {
                           <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
                         </div>
                       )}
-                      <p className="text-xs font-medium truncate">{a.name}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {a.anchorType === "character" ? "角色" : a.anchorType === "scene" ? "场景" : "道具"}
-                      </Badge>
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium truncate">{a.name}</p>
+                        <Badge variant="outline" className="text-xs">
+                          {a.anchorType === "character" ? "角色" : a.anchorType === "scene" ? "场景" : "道具"}
+                        </Badge>
+                        {a.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">{a.description}</p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <Camera className="h-12 w-12 mb-4 opacity-30" />
+                  <p>{script ? "点击\"生成Anchor\"开始" : "请先生成脚本"}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ==================== Grid Tab ==================== */}
@@ -485,9 +573,21 @@ export default function ProjectDetail() {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">分镜Grid</CardTitle>
               <div className="flex items-center gap-2">
+                {grid?.generationPrompt && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPromptViewDialog({
+                      title: "Grid 生成 Prompt",
+                      prompts: [{ label: "图片生成Prompt", text: grid.generationPrompt as string }],
+                    })}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    <span className="text-xs">查看Prompt</span>
+                  </Button>
+                )}
                 <Button
                   size="sm"
-                  variant="outline"
                   onClick={() => setConfirmRegenDialog({
                     step: "Grid",
                     action: () => generateGrid.mutate({ projectId }),
@@ -495,7 +595,7 @@ export default function ProjectDetail() {
                   disabled={generateGrid.isPending || !script}
                 >
                   {generateGrid.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                  重新生成Grid
+                  {grid ? "重新生成Grid" : "生成Grid"}
                 </Button>
               </div>
             </CardHeader>
@@ -654,7 +754,6 @@ export default function ProjectDetail() {
               {prompts && prompts.length > 0 ? (
                 <div className="space-y-3">
                   {prompts.map((p: any, idx: number) => {
-                    // Find matching panel to get correct panelIndex
                     const matchingPanel = panels?.find((pan: any) => pan.id === p.panelId);
                     const displayIndex = matchingPanel?.panelIndex ?? (idx + 1);
                     const matchingFrame = scriptFrames.find((f: any) => f.index === displayIndex);
@@ -682,7 +781,6 @@ export default function ProjectDetail() {
                             <span className="font-medium text-destructive">Negative:</span> {p.negativePrompt}
                           </p>
                         )}
-                        {/* Structured details */}
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                           {p.cameraAngle && <span>视角: {p.cameraAngle}</span>}
                           {p.cameraMovement && <span>运镜: {p.cameraMovement}</span>}
@@ -721,6 +819,28 @@ export default function ProjectDetail() {
               确认重新生成
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================== Prompt View Dialog ==================== */}
+      <Dialog open={!!promptViewDialog} onOpenChange={(open) => !open && setPromptViewDialog(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              {promptViewDialog?.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {promptViewDialog?.prompts.map((p, i) => (
+              <div key={i} className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">{p.label}</p>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <pre className="text-xs whitespace-pre-wrap break-words font-mono">{p.text}</pre>
+                </div>
+              </div>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
 

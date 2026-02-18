@@ -138,10 +138,12 @@ export const appRouter = router({
         const project = await db.getProjectById(input.id);
         if (!project) return null;
         const script = await db.getLatestScript(input.id);
-        const anchorsList = await db.getAnchors(input.id);
+        const currentVersion = script?.version ?? project.currentVersion;
+        // Filter by current version to avoid duplicates
+        const anchorsList = await db.getAnchors(input.id, currentVersion);
         const grid = await db.getLatestGrid(input.id);
-        const panelsList = await db.getPanels(input.id);
-        const promptsList = await db.getPrompts(input.id);
+        const panelsList = grid ? await db.getPanels(input.id, grid.version) : [];
+        const promptsList = await db.getPrompts(input.id, currentVersion);
         const referencesList = await db.getReferences(input.id);
         return { project, script, anchors: anchorsList, grid, panels: panelsList, prompts: promptsList, references: referencesList };
       }),
@@ -499,10 +501,13 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         const script = await db.getLatestScript(input.projectId);
         if (!script) throw new Error("No script found");
 
+        // Delete old anchors for this project+version before regenerating
+        await db.deleteAnchorsForProject(input.projectId, script.version);
+
         const characters = (script.characters as Array<{ name: string; description: string; anchorPrompt: string }>) ?? [];
         const scenes = (script.scenes as Array<{ name: string; description: string; anchorPrompt: string }>) ?? [];
 
-        const results: Array<{ id: number; type: string; name: string; imageUrl?: string }> = [];
+        const results: Array<{ id: number; type: string; name: string; imageUrl?: string; prompt?: string }> = [];
 
         // Generate character anchors
         for (const char of characters) {
@@ -517,7 +522,7 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
               prompt: char.anchorPrompt,
               imageUrl: url,
             });
-            results.push({ id: anchorId, type: "character", name: char.name, imageUrl: url });
+            results.push({ id: anchorId, type: "character", name: char.name, imageUrl: url, prompt: char.anchorPrompt });
           } catch (e) {
             const anchorId = await db.saveAnchor({
               projectId: input.projectId,
@@ -527,7 +532,7 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
               description: char.description,
               prompt: char.anchorPrompt,
             });
-            results.push({ id: anchorId, type: "character", name: char.name });
+            results.push({ id: anchorId, type: "character", name: char.name, prompt: char.anchorPrompt });
           }
         }
 
@@ -544,7 +549,7 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
               prompt: scene.anchorPrompt,
               imageUrl: url,
             });
-            results.push({ id: anchorId, type: "scene", name: scene.name, imageUrl: url });
+            results.push({ id: anchorId, type: "scene", name: scene.name, imageUrl: url, prompt: scene.anchorPrompt });
           } catch (e) {
             const anchorId = await db.saveAnchor({
               projectId: input.projectId,
@@ -554,7 +559,7 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
               description: scene.description,
               prompt: scene.anchorPrompt,
             });
-            results.push({ id: anchorId, type: "scene", name: scene.name });
+            results.push({ id: anchorId, type: "scene", name: scene.name, prompt: scene.anchorPrompt });
           }
         }
 
@@ -582,6 +587,9 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
 
         const script = await db.getLatestScript(input.projectId);
         if (!script) throw new Error("No script found");
+
+        // Delete old panels for this project+version before regenerating
+        await db.deletePanelsForProject(input.projectId, script.version);
 
         const anchorsList = await db.getAnchors(input.projectId);
         const frames = script.frames as Array<{ index: number; shotType: string; duration: number; description: string; cameraMovement: string }>;

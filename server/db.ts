@@ -195,6 +195,14 @@ export async function getAnchors(projectId: number, version?: number) {
   return db.select().from(anchors).where(and(...conditions));
 }
 
+export async function deleteAnchorsForProject(projectId: number, version?: number) {
+  const db = await getDb();
+  if (!db) return;
+  const conditions = [eq(anchors.projectId, projectId)];
+  if (version) conditions.push(eq(anchors.version, version));
+  await db.delete(anchors).where(and(...conditions));
+}
+
 // ============================================================
 // Grid helpers
 // ============================================================
@@ -239,6 +247,14 @@ export async function getPanels(projectId: number, version?: number) {
   const conditions = [eq(panels.projectId, projectId)];
   if (version) conditions.push(eq(panels.version, version));
   return db.select().from(panels).where(and(...conditions)).orderBy(panels.panelIndex);
+}
+
+export async function deletePanelsForProject(projectId: number, version?: number) {
+  const db = await getDb();
+  if (!db) return;
+  const conditions = [eq(panels.projectId, projectId)];
+  if (version) conditions.push(eq(panels.version, version));
+  await db.delete(panels).where(and(...conditions));
 }
 
 export async function updatePanel(panelId: number, data: Partial<{

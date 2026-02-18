@@ -150,3 +150,20 @@
 - [x] 6. 历史版本展示（脚本/Grid/Prompt各最多5个）+ 点击回退（需确认弹窗）
 - [x] 7. Prompt 中修复 #NaN，正确显示panelIndex和时长信息
 - [x] 8. 规则手册页面可点击查看详情（Dialog），每章显示标题，按分类分组展示
+
+## Phase 5: Yunwu API Key on Railway + Chase Scene Test
+- [x] Set YUNWU_API_KEY on Railway environment
+- [x] Set YUNWU_API_URL on Railway environment
+- [x] Trigger Railway redeploy
+- [ ] Create chase scene project (追逐场景)
+- [ ] Test script generation for chase scene
+- [ ] Test anchor + grid generation with gemini-3-pro-image-preview
+- [ ] Test prompt generation
+- [ ] Verify end-to-end quality
+
+## Phase 6: Bug Fixes Round 2 (User Reported)
+- [x] 1. 锤点参考图去重（project.get按版本过滤anchors/panels）
+- [x] 2. Anchor和Grid拆分为独立步骤（工作流6步，可单独重新生成）
+- [x] 3. Grid下面板列表按grid版本过滤去重
+- [x] 4. 重新生成前清理旧数据（deleteAnchorsForProject/deletePanelsForProject）
+- [x] 5. 添加Anchor和Grid生成prompt查看入口（Dialog弹窗）
