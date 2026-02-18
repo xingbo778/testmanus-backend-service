@@ -1,0 +1,151 @@
+// L1/L2/L3 category taxonomy for storyboard classification
+export const CATEGORY_SEED = {
+  l1: [
+    { id: "narrative", name: "叙事剧情", nameEn: "Narrative Drama", description: "有完整故事线的短视频", sortOrder: 1 },
+    { id: "commercial", name: "商业内容", nameEn: "Commercial", description: "产品推广、品牌广告", sortOrder: 2 },
+    { id: "lifestyle", name: "生活方式", nameEn: "Lifestyle", description: "美食、旅行、日常vlog", sortOrder: 3 },
+    { id: "documentary", name: "纪录纪实", nameEn: "Documentary", description: "纪实、科普、人物访谈", sortOrder: 4 },
+    { id: "music_perf", name: "音乐表演", nameEn: "Music & Performance", description: "MV、舞蹈、乐器演奏", sortOrder: 5 },
+    { id: "scifi_fantasy", name: "科幻奇幻", nameEn: "Sci-Fi & Fantasy", description: "科幻、奇幻、超自然", sortOrder: 6 },
+    { id: "technique", name: "叙事技法", nameEn: "Narrative Technique", description: "蒙太奇、倒叙、平行剪辑", sortOrder: 7 },
+    { id: "sports", name: "体育竞技", nameEn: "Sports", description: "运动、竞技、极限挑战", sortOrder: 8 },
+    { id: "special", name: "特殊风格", nameEn: "Special Style", description: "定格、一镜到底、分屏", sortOrder: 9 },
+  ],
+  l2: [
+    // Narrative Drama L2
+    { id: "narrative.chase", l1Id: "narrative", name: "追逐场景", nameEn: "Chase Scene", description: "角色间的追逐", sortOrder: 1 },
+    { id: "narrative.dialogue", l1Id: "narrative", name: "对话场景", nameEn: "Dialogue Scene", description: "两人或多人对话", sortOrder: 2 },
+    { id: "narrative.action", l1Id: "narrative", name: "动作场景", nameEn: "Action Scene", description: "打斗、武术、动作戏", sortOrder: 3 },
+    { id: "narrative.suspense", l1Id: "narrative", name: "悬疑惊悚", nameEn: "Suspense/Thriller", description: "悬疑、恐怖、惊悚", sortOrder: 4 },
+    { id: "narrative.romance", l1Id: "narrative", name: "浪漫情感", nameEn: "Romance", description: "爱情、亲情、友情", sortOrder: 5 },
+    { id: "narrative.comedy", l1Id: "narrative", name: "喜剧幽默", nameEn: "Comedy", description: "搞笑、反转、讽刺", sortOrder: 6 },
+    { id: "narrative.historical", l1Id: "narrative", name: "古装历史", nameEn: "Historical/Period", description: "古装、武侠、历史题材", sortOrder: 7 },
+    // Commercial L2
+    { id: "commercial.product", l1Id: "commercial", name: "产品展示", nameEn: "Product Showcase", description: "产品特写、功能展示", sortOrder: 1 },
+    { id: "commercial.food", l1Id: "commercial", name: "食物饮品", nameEn: "Food & Beverage", description: "美食制作、饮品展示", sortOrder: 2 },
+    { id: "commercial.fashion", l1Id: "commercial", name: "时尚美妆", nameEn: "Fashion & Beauty", description: "服装、化妆品、配饰", sortOrder: 3 },
+    { id: "commercial.tech", l1Id: "commercial", name: "科技数码", nameEn: "Tech & Digital", description: "电子产品、App展示", sortOrder: 4 },
+    // Lifestyle L2
+    { id: "lifestyle.vlog", l1Id: "lifestyle", name: "日常Vlog", nameEn: "Daily Vlog", description: "日常生活记录", sortOrder: 1 },
+    { id: "lifestyle.travel", l1Id: "lifestyle", name: "旅行探索", nameEn: "Travel", description: "旅行、景点、文化", sortOrder: 2 },
+    { id: "lifestyle.cooking", l1Id: "lifestyle", name: "美食制作", nameEn: "Cooking", description: "烹饪过程、食谱", sortOrder: 3 },
+    { id: "lifestyle.fitness", l1Id: "lifestyle", name: "健身运动", nameEn: "Fitness", description: "健身教程、运动日常", sortOrder: 4 },
+    // Documentary L2
+    { id: "documentary.nature", l1Id: "documentary", name: "自然风光", nameEn: "Nature", description: "自然景观、动物", sortOrder: 1 },
+    { id: "documentary.interview", l1Id: "documentary", name: "人物访谈", nameEn: "Interview", description: "人物采访、口述", sortOrder: 2 },
+    { id: "documentary.science", l1Id: "documentary", name: "科普知识", nameEn: "Science", description: "科学知识、技术解析", sortOrder: 3 },
+    // Music & Performance L2
+    { id: "music_perf.mv", l1Id: "music_perf", name: "音乐MV", nameEn: "Music Video", description: "音乐视频", sortOrder: 1 },
+    { id: "music_perf.dance", l1Id: "music_perf", name: "舞蹈表演", nameEn: "Dance", description: "舞蹈编排、表演", sortOrder: 2 },
+    { id: "music_perf.instrument", l1Id: "music_perf", name: "乐器演奏", nameEn: "Instrument", description: "乐器演奏表演", sortOrder: 3 },
+    // Sci-Fi & Fantasy L2
+    { id: "scifi_fantasy.scifi", l1Id: "scifi_fantasy", name: "科幻场景", nameEn: "Sci-Fi", description: "未来科技、太空", sortOrder: 1 },
+    { id: "scifi_fantasy.fantasy", l1Id: "scifi_fantasy", name: "奇幻魔法", nameEn: "Fantasy", description: "魔法、神话、超自然", sortOrder: 2 },
+    { id: "scifi_fantasy.horror", l1Id: "scifi_fantasy", name: "恐怖超自然", nameEn: "Horror/Supernatural", description: "恐怖、灵异", sortOrder: 3 },
+    // Technique L2
+    { id: "technique.montage", l1Id: "technique", name: "蒙太奇", nameEn: "Montage", description: "蒙太奇剪辑手法", sortOrder: 1 },
+    { id: "technique.flashback", l1Id: "technique", name: "倒叙闪回", nameEn: "Flashback", description: "倒叙、闪回叙事", sortOrder: 2 },
+    { id: "technique.parallel", l1Id: "technique", name: "平行剪辑", nameEn: "Parallel Editing", description: "交叉剪辑、平行叙事", sortOrder: 3 },
+    // Sports L2
+    { id: "sports.competition", l1Id: "sports", name: "竞技比赛", nameEn: "Competition", description: "比赛、对抗", sortOrder: 1 },
+    { id: "sports.extreme", l1Id: "sports", name: "极限运动", nameEn: "Extreme Sports", description: "极限挑战、冒险", sortOrder: 2 },
+    { id: "sports.training", l1Id: "sports", name: "训练日常", nameEn: "Training", description: "训练过程、技巧", sortOrder: 3 },
+    // Special Style L2
+    { id: "special.stopmotion", l1Id: "special", name: "定格动画", nameEn: "Stop Motion", description: "逐帧拍摄动画", sortOrder: 1 },
+    { id: "special.oneshot", l1Id: "special", name: "一镜到底", nameEn: "One-Shot", description: "长镜头、无剪辑", sortOrder: 2 },
+    { id: "special.splitscreen", l1Id: "special", name: "分屏叙事", nameEn: "Split Screen", description: "多画面并列", sortOrder: 3 },
+    { id: "special.group", l1Id: "special", name: "群戏多人", nameEn: "Ensemble/Group", description: "多角色群戏", sortOrder: 4 },
+  ],
+  l3: [
+    // Chase L3
+    { id: "narrative.chase.urban", l1Id: "narrative", l2Id: "narrative.chase", name: "城市街道追逐", nameEn: "Urban Street Chase", templateRef: "template_02", sortOrder: 1 },
+    { id: "narrative.chase.jungle", l1Id: "narrative", l2Id: "narrative.chase", name: "丛林追逐", nameEn: "Jungle Chase", sortOrder: 2 },
+    { id: "narrative.chase.car", l1Id: "narrative", l2Id: "narrative.chase", name: "车辆追逐", nameEn: "Car Chase", sortOrder: 3 },
+    { id: "narrative.chase.indoor", l1Id: "narrative", l2Id: "narrative.chase", name: "室内追逐", nameEn: "Indoor Chase", sortOrder: 4 },
+    // Dialogue L3
+    { id: "narrative.dialogue.cafe", l1Id: "narrative", l2Id: "narrative.dialogue", name: "咖啡馆对话", nameEn: "Cafe Dialogue", templateRef: "template_03", sortOrder: 1 },
+    { id: "narrative.dialogue.office", l1Id: "narrative", l2Id: "narrative.dialogue", name: "办公室对话", nameEn: "Office Dialogue", sortOrder: 2 },
+    { id: "narrative.dialogue.outdoor", l1Id: "narrative", l2Id: "narrative.dialogue", name: "户外对话", nameEn: "Outdoor Dialogue", sortOrder: 3 },
+    { id: "narrative.dialogue.confrontation", l1Id: "narrative", l2Id: "narrative.dialogue", name: "对峙冲突", nameEn: "Confrontation", sortOrder: 4 },
+    // Action L3
+    { id: "narrative.action.martial", l1Id: "narrative", l2Id: "narrative.action", name: "武术格斗", nameEn: "Martial Arts", templateRef: "template_04", sortOrder: 1 },
+    { id: "narrative.action.gunfight", l1Id: "narrative", l2Id: "narrative.action", name: "枪战", nameEn: "Gunfight", sortOrder: 2 },
+    { id: "narrative.action.escape", l1Id: "narrative", l2Id: "narrative.action", name: "逃脱场景", nameEn: "Escape Scene", sortOrder: 3 },
+    // Suspense L3
+    { id: "narrative.suspense.mystery", l1Id: "narrative", l2Id: "narrative.suspense", name: "悬疑推理", nameEn: "Mystery", templateRef: "template_05", sortOrder: 1 },
+    { id: "narrative.suspense.horror", l1Id: "narrative", l2Id: "narrative.suspense", name: "恐怖惊悚", nameEn: "Horror", sortOrder: 2 },
+    { id: "narrative.suspense.reveal", l1Id: "narrative", l2Id: "narrative.suspense", name: "真相揭露", nameEn: "Reveal", sortOrder: 3 },
+    // Romance L3
+    { id: "narrative.romance.firstmeet", l1Id: "narrative", l2Id: "narrative.romance", name: "初次相遇", nameEn: "First Meeting", templateRef: "template_06", sortOrder: 1 },
+    { id: "narrative.romance.farewell", l1Id: "narrative", l2Id: "narrative.romance", name: "离别场景", nameEn: "Farewell", sortOrder: 2 },
+    { id: "narrative.romance.reunion", l1Id: "narrative", l2Id: "narrative.romance", name: "重逢场景", nameEn: "Reunion", sortOrder: 3 },
+    // Comedy L3
+    { id: "narrative.comedy.slapstick", l1Id: "narrative", l2Id: "narrative.comedy", name: "闹剧", nameEn: "Slapstick", templateRef: "template_07", sortOrder: 1 },
+    { id: "narrative.comedy.twist", l1Id: "narrative", l2Id: "narrative.comedy", name: "反转喜剧", nameEn: "Twist Comedy", sortOrder: 2 },
+    { id: "narrative.comedy.satire", l1Id: "narrative", l2Id: "narrative.comedy", name: "讽刺幽默", nameEn: "Satire", sortOrder: 3 },
+    // Historical L3
+    { id: "narrative.historical.wuxia", l1Id: "narrative", l2Id: "narrative.historical", name: "武侠对决", nameEn: "Wuxia Duel", templateRef: "template_08", sortOrder: 1 },
+    { id: "narrative.historical.court", l1Id: "narrative", l2Id: "narrative.historical", name: "宫廷戏", nameEn: "Court Drama", sortOrder: 2 },
+    { id: "narrative.historical.war", l1Id: "narrative", l2Id: "narrative.historical", name: "古代战争", nameEn: "Ancient War", sortOrder: 3 },
+    // Product L3
+    { id: "commercial.product.unboxing", l1Id: "commercial", l2Id: "commercial.product", name: "开箱展示", nameEn: "Unboxing", templateRef: "template_09", sortOrder: 1 },
+    { id: "commercial.product.comparison", l1Id: "commercial", l2Id: "commercial.product", name: "产品对比", nameEn: "Comparison", sortOrder: 2 },
+    { id: "commercial.product.lifestyle", l1Id: "commercial", l2Id: "commercial.product", name: "场景化展示", nameEn: "Lifestyle Showcase", sortOrder: 3 },
+    // Food L3
+    { id: "commercial.food.recipe", l1Id: "commercial", l2Id: "commercial.food", name: "食谱教程", nameEn: "Recipe Tutorial", templateRef: "template_10", sortOrder: 1 },
+    { id: "commercial.food.asmr", l1Id: "commercial", l2Id: "commercial.food", name: "美食ASMR", nameEn: "Food ASMR", sortOrder: 2 },
+    { id: "commercial.food.review", l1Id: "commercial", l2Id: "commercial.food", name: "美食测评", nameEn: "Food Review", sortOrder: 3 },
+    // Fashion L3
+    { id: "commercial.fashion.lookbook", l1Id: "commercial", l2Id: "commercial.fashion", name: "穿搭展示", nameEn: "Lookbook", templateRef: "template_11", sortOrder: 1 },
+    { id: "commercial.fashion.makeup", l1Id: "commercial", l2Id: "commercial.fashion", name: "化妆教程", nameEn: "Makeup Tutorial", sortOrder: 2 },
+    // Tech L3
+    { id: "commercial.tech.review", l1Id: "commercial", l2Id: "commercial.tech", name: "科技评测", nameEn: "Tech Review", templateRef: "template_12", sortOrder: 1 },
+    { id: "commercial.tech.tutorial", l1Id: "commercial", l2Id: "commercial.tech", name: "使用教程", nameEn: "Tutorial", sortOrder: 2 },
+    // Vlog L3
+    { id: "lifestyle.vlog.daily", l1Id: "lifestyle", l2Id: "lifestyle.vlog", name: "日常记录", nameEn: "Daily Record", templateRef: "template_01", sortOrder: 1 },
+    { id: "lifestyle.vlog.event", l1Id: "lifestyle", l2Id: "lifestyle.vlog", name: "事件记录", nameEn: "Event Record", sortOrder: 2 },
+    // Travel L3
+    { id: "lifestyle.travel.city", l1Id: "lifestyle", l2Id: "lifestyle.travel", name: "城市探索", nameEn: "City Exploration", templateRef: "template_13", sortOrder: 1 },
+    { id: "lifestyle.travel.nature", l1Id: "lifestyle", l2Id: "lifestyle.travel", name: "自然风光", nameEn: "Nature Scenery", sortOrder: 2 },
+    // Cooking L3
+    { id: "lifestyle.cooking.home", l1Id: "lifestyle", l2Id: "lifestyle.cooking", name: "家常菜", nameEn: "Home Cooking", sortOrder: 1 },
+    { id: "lifestyle.cooking.baking", l1Id: "lifestyle", l2Id: "lifestyle.cooking", name: "烘焙甜点", nameEn: "Baking", sortOrder: 2 },
+    // Fitness L3
+    { id: "lifestyle.fitness.workout", l1Id: "lifestyle", l2Id: "lifestyle.fitness", name: "健身教程", nameEn: "Workout Tutorial", sortOrder: 1 },
+    { id: "lifestyle.fitness.yoga", l1Id: "lifestyle", l2Id: "lifestyle.fitness", name: "瑜伽冥想", nameEn: "Yoga & Meditation", sortOrder: 2 },
+    // Nature L3
+    { id: "documentary.nature.landscape", l1Id: "documentary", l2Id: "documentary.nature", name: "风景延时", nameEn: "Landscape Timelapse", templateRef: "template_14", sortOrder: 1 },
+    { id: "documentary.nature.wildlife", l1Id: "documentary", l2Id: "documentary.nature", name: "野生动物", nameEn: "Wildlife", sortOrder: 2 },
+    // Interview L3
+    { id: "documentary.interview.portrait", l1Id: "documentary", l2Id: "documentary.interview", name: "人物特写", nameEn: "Portrait", sortOrder: 1 },
+    { id: "documentary.interview.panel", l1Id: "documentary", l2Id: "documentary.interview", name: "圆桌讨论", nameEn: "Panel Discussion", sortOrder: 2 },
+    // Science L3
+    { id: "documentary.science.explainer", l1Id: "documentary", l2Id: "documentary.science", name: "科普讲解", nameEn: "Explainer", sortOrder: 1 },
+    // MV L3
+    { id: "music_perf.mv.narrative", l1Id: "music_perf", l2Id: "music_perf.mv", name: "叙事MV", nameEn: "Narrative MV", templateRef: "template_15", sortOrder: 1 },
+    { id: "music_perf.mv.performance", l1Id: "music_perf", l2Id: "music_perf.mv", name: "表演MV", nameEn: "Performance MV", sortOrder: 2 },
+    // Dance L3
+    { id: "music_perf.dance.solo", l1Id: "music_perf", l2Id: "music_perf.dance", name: "独舞", nameEn: "Solo Dance", sortOrder: 1 },
+    { id: "music_perf.dance.group", l1Id: "music_perf", l2Id: "music_perf.dance", name: "群舞", nameEn: "Group Dance", sortOrder: 2 },
+    // Sci-Fi L3
+    { id: "scifi_fantasy.scifi.space", l1Id: "scifi_fantasy", l2Id: "scifi_fantasy.scifi", name: "太空探索", nameEn: "Space Exploration", templateRef: "template_16", sortOrder: 1 },
+    { id: "scifi_fantasy.scifi.cyberpunk", l1Id: "scifi_fantasy", l2Id: "scifi_fantasy.scifi", name: "赛博朋克", nameEn: "Cyberpunk", sortOrder: 2 },
+    // Fantasy L3
+    { id: "scifi_fantasy.fantasy.magic", l1Id: "scifi_fantasy", l2Id: "scifi_fantasy.fantasy", name: "魔法对决", nameEn: "Magic Duel", sortOrder: 1 },
+    { id: "scifi_fantasy.fantasy.myth", l1Id: "scifi_fantasy", l2Id: "scifi_fantasy.fantasy", name: "神话传说", nameEn: "Mythology", sortOrder: 2 },
+    // Montage L3
+    { id: "technique.montage.rhythmic", l1Id: "technique", l2Id: "technique.montage", name: "节奏蒙太奇", nameEn: "Rhythmic Montage", sortOrder: 1 },
+    { id: "technique.montage.contrast", l1Id: "technique", l2Id: "technique.montage", name: "对比蒙太奇", nameEn: "Contrast Montage", sortOrder: 2 },
+    // Parallel L3
+    { id: "technique.parallel.dual", l1Id: "technique", l2Id: "technique.parallel", name: "双线叙事", nameEn: "Dual Narrative", sortOrder: 1 },
+    // Sports L3
+    { id: "sports.competition.match", l1Id: "sports", l2Id: "sports.competition", name: "比赛实况", nameEn: "Match Highlight", sortOrder: 1 },
+    { id: "sports.extreme.parkour", l1Id: "sports", l2Id: "sports.extreme", name: "跑酷", nameEn: "Parkour", sortOrder: 1 },
+    { id: "sports.extreme.surfing", l1Id: "sports", l2Id: "sports.extreme", name: "冲浪", nameEn: "Surfing", sortOrder: 2 },
+    // Special L3
+    { id: "special.stopmotion.clay", l1Id: "special", l2Id: "special.stopmotion", name: "粘土动画", nameEn: "Clay Animation", sortOrder: 1 },
+    { id: "special.oneshot.continuous", l1Id: "special", l2Id: "special.oneshot", name: "连续长镜头", nameEn: "Continuous Shot", sortOrder: 1 },
+    { id: "special.splitscreen.dual", l1Id: "special", l2Id: "special.splitscreen", name: "双画面分屏", nameEn: "Dual Split Screen", sortOrder: 1 },
+    { id: "special.group.ensemble", l1Id: "special", l2Id: "special.group", name: "群像叙事", nameEn: "Ensemble Narrative", sortOrder: 1 },
+  ],
+};
