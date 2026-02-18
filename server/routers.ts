@@ -1136,12 +1136,21 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
           const jsonlContent = records.map(r => JSON.stringify(r)).join("\n");
           const fileName = `export_${input.exportType}_${Date.now()}.jsonl`;
 
-          // Upload to S3
-          const { url } = await storagePut(
-            `exports/${fileName}`,
-            Buffer.from(jsonlContent, "utf-8"),
-            "application/jsonl"
-          );
+          // Upload to storage (try ToAPIs for image, or return inline for JSONL)
+          let url: string;
+          try {
+            // Try S3 storage first
+            const result = await storagePut(
+              `exports/${fileName}`,
+              Buffer.from(jsonlContent, "utf-8"),
+              "application/jsonl"
+            );
+            url = result.url;
+          } catch {
+            // If S3 not available, return as data URL
+            const b64 = Buffer.from(jsonlContent, "utf-8").toString("base64");
+            url = `data:application/jsonl;base64,${b64}`;
+          }
 
           await db.updateExportRecord(exportId, {
             status: "completed",
