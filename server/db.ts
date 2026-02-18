@@ -319,6 +319,25 @@ export async function getRulesForScene(l2Id: string) {
   });
 }
 
+export async function clearAllRuleChapters() {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(ruleChapters);
+}
+
+export async function importRuleChapter(data: {
+  chapterNumber: number; title: string;
+  category: "universal" | "scene_specific" | "technical" | "ai_prompt";
+  applicableL2Ids: any; rules: any; ruleCount: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // Upsert by chapterNumber
+  await db.insert(ruleChapters).values(data).onDuplicateKeyUpdate({
+    set: { title: data.title, category: data.category, applicableL2Ids: data.applicableL2Ids, rules: data.rules, ruleCount: data.ruleCount }
+  });
+}
+
 // ============================================================
 // Experience Record helpers
 // ============================================================

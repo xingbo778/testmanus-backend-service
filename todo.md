@@ -116,3 +116,13 @@
 - [x] Set environment variables on Railway
 - [x] Deploy and generate domain
 - [x] End-to-end test on Railway
+
+## Phase 2: Complete Rules & Test Dialogue Scenes
+- [ ] Parse full rulebook (1087 rules across 25 chapters) from uploaded markdown
+- [ ] Batch import all rules to Railway database
+- [ ] Verify rule counts match expected 1087
+- [ ] Review and supplement dialogue scene L3 categories
+- [ ] Create test project for dialogue scene (e.g., cafe conversation)
+- [ ] Test full flow: script generation → validation → anchor → grid → prompt
+- [ ] Verify generated content quality
+- [ ] Push updates to GitHub

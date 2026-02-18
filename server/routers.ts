@@ -71,6 +71,33 @@ export const appRouter = router({
         await db.updateUserRule(input.ruleId, { status: "rejected" });
         return { success: true };
       }),
+    clearAll: adminProcedure.mutation(async () => {
+      await db.clearAllRuleChapters();
+      return { success: true, message: "All rule chapters cleared" };
+    }),
+    importChapter: adminProcedure
+      .input(z.object({
+        chapterNumber: z.number(),
+        title: z.string(),
+        category: z.enum(["universal", "scene_specific", "technical", "ai_prompt"]),
+        applicableL2Ids: z.array(z.string()).nullable().optional(),
+        rules: z.array(z.object({
+          type: z.string(),
+          text: z.string(),
+          severity: z.string(),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        await db.importRuleChapter({
+          chapterNumber: input.chapterNumber,
+          title: input.title,
+          category: input.category,
+          applicableL2Ids: input.applicableL2Ids ?? null,
+          rules: input.rules,
+          ruleCount: input.rules.length,
+        });
+        return { success: true, chapterNumber: input.chapterNumber, ruleCount: input.rules.length };
+      }),
   }),
 
   // ============================================================
