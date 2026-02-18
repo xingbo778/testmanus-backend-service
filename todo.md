@@ -268,3 +268,9 @@
 - [x] 前端：Log Session页面（实时日志列表，自动刷新，筛选和搜索）
 - [x] 前端：侧边栏“日志中心”入口
 - [x] 前端：日志详情展开查看（JSON格式化details）
+
+## Phase 17: Git Push & Railway Deploy
+- [ ] 推送代码到GitHub仓库
+- [ ] 部署到Railway
+- [ ] 配置Railway环境变量
+- [ ] 验证Railway部署地址
