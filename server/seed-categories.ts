@@ -62,11 +62,21 @@ export const CATEGORY_SEED = {
     { id: "narrative.chase.jungle", l1Id: "narrative", l2Id: "narrative.chase", name: "丛林追逐", nameEn: "Jungle Chase", sortOrder: 2 },
     { id: "narrative.chase.car", l1Id: "narrative", l2Id: "narrative.chase", name: "车辆追逐", nameEn: "Car Chase", sortOrder: 3 },
     { id: "narrative.chase.indoor", l1Id: "narrative", l2Id: "narrative.chase", name: "室内追逐", nameEn: "Indoor Chase", sortOrder: 4 },
-    // Dialogue L3
-    { id: "narrative.dialogue.cafe", l1Id: "narrative", l2Id: "narrative.dialogue", name: "咖啡馆对话", nameEn: "Cafe Dialogue", templateRef: "template_03", sortOrder: 1 },
-    { id: "narrative.dialogue.office", l1Id: "narrative", l2Id: "narrative.dialogue", name: "办公室对话", nameEn: "Office Dialogue", sortOrder: 2 },
-    { id: "narrative.dialogue.outdoor", l1Id: "narrative", l2Id: "narrative.dialogue", name: "户外对话", nameEn: "Outdoor Dialogue", sortOrder: 3 },
-    { id: "narrative.dialogue.confrontation", l1Id: "narrative", l2Id: "narrative.dialogue", name: "对峙冲突", nameEn: "Confrontation", sortOrder: 4 },
+    // Dialogue L3 - 对话场景细分
+    // 按场景空间分
+    { id: "narrative.dialogue.cafe", l1Id: "narrative", l2Id: "narrative.dialogue", name: "咖啡馆/餐厅对话", nameEn: "Cafe/Restaurant Dialogue", description: "安静环境下的面对面交谈，适合情感铺垫、秘密分享", templateRef: "template_03", sortOrder: 1 },
+    { id: "narrative.dialogue.office", l1Id: "narrative", l2Id: "narrative.dialogue", name: "办公室/职场对话", nameEn: "Office Dialogue", description: "职场环境下的正式或半正式对话，适合权力关系、职场冲突", sortOrder: 2 },
+    { id: "narrative.dialogue.outdoor", l1Id: "narrative", l2Id: "narrative.dialogue", name: "户外/街头对话", nameEn: "Outdoor/Street Dialogue", description: "开放空间的对话，适合偶遇、告别、追赶后的对峙", sortOrder: 3 },
+    { id: "narrative.dialogue.car", l1Id: "narrative", l2Id: "narrative.dialogue", name: "车内对话", nameEn: "Car Dialogue", description: "封闭车厢内的对话，适合紧张氛围、私密交谈、公路片", sortOrder: 4 },
+    { id: "narrative.dialogue.home", l1Id: "narrative", l2Id: "narrative.dialogue", name: "家庭/客厅对话", nameEn: "Home Dialogue", description: "家庭环境下的对话，适合亲情、家庭矛盾、日常温馨", sortOrder: 5 },
+    // 按情绪/功能分
+    { id: "narrative.dialogue.confrontation", l1Id: "narrative", l2Id: "narrative.dialogue", name: "对峙/冲突对话", nameEn: "Confrontation", description: "高张力的正面冲突对话，适合争吵、质问、摊牌", sortOrder: 6 },
+    { id: "narrative.dialogue.interrogation", l1Id: "narrative", l2Id: "narrative.dialogue", name: "审讯/盘问", nameEn: "Interrogation", description: "一方主导的压迫性对话，适合警匪、悬疑、权力不对等", sortOrder: 7 },
+    { id: "narrative.dialogue.confession", l1Id: "narrative", l2Id: "narrative.dialogue", name: "告白/表白", nameEn: "Confession", description: "情感表达的关键对话，适合爱情告白、友情坦白、秘密揭露", sortOrder: 8 },
+    { id: "narrative.dialogue.phone", l1Id: "narrative", l2Id: "narrative.dialogue", name: "电话/视频通话", nameEn: "Phone/Video Call", description: "远程对话，适合分隔两地、紧急通知、悬疑线索", sortOrder: 9 },
+    { id: "narrative.dialogue.whisper", l1Id: "narrative", l2Id: "narrative.dialogue", name: "密谋/窃窃私语", nameEn: "Whisper/Conspiracy", description: "低声密谈，适合阴谋、秘密计划、不想被第三方听到", sortOrder: 10 },
+    { id: "narrative.dialogue.group", l1Id: "narrative", l2Id: "narrative.dialogue", name: "多人群聊/聚会", nameEn: "Group Chat/Gathering", description: "三人及以上的对话场景，适合聚会、会议、家庭聚餐", sortOrder: 11 },
+    { id: "narrative.dialogue.farewell", l1Id: "narrative", l2Id: "narrative.dialogue", name: "告别/离别对话", nameEn: "Farewell Dialogue", description: "分别时刻的对话，适合离别、分手、送行、临终遗言", sortOrder: 12 },
     // Action L3
     { id: "narrative.action.martial", l1Id: "narrative", l2Id: "narrative.action", name: "武术格斗", nameEn: "Martial Arts", templateRef: "template_04", sortOrder: 1 },
     { id: "narrative.action.gunfight", l1Id: "narrative", l2Id: "narrative.action", name: "枪战", nameEn: "Gunfight", sortOrder: 2 },
