@@ -2197,5 +2197,37 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
         return { success: true };
       }),
   }),
+  // ============================================================
+  // Utility: Image proxy for ZIP download (avoid CORS)
+  // ============================================================
+  util: router({
+    proxyImage: protectedProcedure
+      .input(z.object({ url: z.string().url() }))
+      .mutation(async ({ input }) => {
+        const resp = await fetch(input.url);
+        if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+        const buffer = await resp.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString("base64");
+        const contentType = resp.headers.get("content-type") || "image/png";
+        return { base64, contentType };
+      }),
+    proxyImages: protectedProcedure
+      .input(z.object({ urls: z.array(z.string().url()) }))
+      .mutation(async ({ input }) => {
+        const results = await Promise.all(
+          input.urls.map(async (url) => {
+            try {
+              const resp = await fetch(url);
+              if (!resp.ok) return { url, base64: null, contentType: null, error: `HTTP ${resp.status}` };
+              const buffer = await resp.arrayBuffer();
+              return { url, base64: Buffer.from(buffer).toString("base64"), contentType: resp.headers.get("content-type") || "image/png", error: null };
+            } catch (e: any) {
+              return { url, base64: null, contentType: null, error: e.message };
+            }
+          })
+        );
+        return results;
+      }),
+  }),
 });
 export type AppRouter = typeof appRouter;

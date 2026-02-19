@@ -356,3 +356,8 @@
 - [x] 导出Prompt时新增“Seedance格式”选项
 - [x] 一键下载N宫格图+Anchor+面板图（JSZip打包ZIP）
 - [x] 42个测试全部通过
+
+## Seedance导出改进 + ZIP下载修复
+- [x] Seedance prompt改为6个策略选项（动作驱动/动作+氛围/动作+细节/电影感/完整描述/极简）
+- [x] 导出改为复制到剪贴板（点击即复制）
+- [x] 修复ZIP下载CORS问题（通过后端proxyImages代理下载图片）

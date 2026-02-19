@@ -181,6 +181,8 @@ export default function ProjectDetail() {
     onError: (err: any) => toast.error(`视频合并失败: ${err.message}`),
   });
 
+  const proxyImagesMut = trpc.util.proxyImages.useMutation();
+
   const confirmFinalMut = trpc.video.confirmFinal.useMutation({
     onSuccess: () => {
       toast.success("最终视频已确认！项目完成");
@@ -750,38 +752,40 @@ export default function ProjectDetail() {
                           toast.success("下载已开始");
                           return;
                         }
-                        // Multiple files: use JSZip if available, otherwise download individually
+                        // Multiple files: use backend proxy + JSZip to avoid CORS
                         try {
                           const JSZip = (await import("jszip")).default;
                           const zip = new JSZip();
                           const folder = zip.folder(`${project.title}_assets`) || zip;
-                          await Promise.all(files.map(async (f) => {
-                            try {
-                              const resp = await fetch(f.url);
-                              const blob = await resp.blob();
-                              folder.file(f.name, blob);
-                            } catch { /* skip failed downloads */ }
-                          }));
+                          // Use backend proxy to fetch images (avoids CORS)
+                          const urls = files.map(f => f.url);
+                          const proxyResults = await proxyImagesMut.mutateAsync({ urls });
+                          let addedCount = 0;
+                          proxyResults.forEach((r: any, i: number) => {
+                            if (r.base64) {
+                              const binary = atob(r.base64);
+                              const bytes = new Uint8Array(binary.length);
+                              for (let j = 0; j < binary.length; j++) bytes[j] = binary.charCodeAt(j);
+                              folder.file(files[i].name, bytes);
+                              addedCount++;
+                            }
+                          });
+                          if (addedCount === 0) { toast.error("图片下载失败，请重试"); return; }
                           const zipBlob = await zip.generateAsync({ type: "blob" });
                           const url = URL.createObjectURL(zipBlob);
                           const a = document.createElement("a");
                           a.href = url;
-                          a.download = `${project.title}_grid_anchors_${new Date().toISOString().slice(0,10)}.zip`;
+                          a.download = `${project.title}_assets_${new Date().toISOString().slice(0,10)}.zip`;
                           a.click();
                           URL.revokeObjectURL(url);
-                          toast.success(`已打包 ${files.length} 个文件`);
-                        } catch {
-                          // Fallback: download files individually
+                          toast.success(`已打包 ${addedCount} 个文件`);
+                        } catch (zipErr: any) {
+                          console.error("ZIP download failed:", zipErr);
+                          // Fallback: open files in new tabs
                           files.forEach((f, i) => {
-                            setTimeout(() => {
-                              const a = document.createElement("a");
-                              a.href = f.url;
-                              a.download = f.name;
-                              a.target = "_blank";
-                              a.click();
-                            }, i * 500);
+                            setTimeout(() => window.open(f.url, "_blank"), i * 500);
                           });
-                          toast.success(`正在逐个下载 ${files.length} 个文件`);
+                          toast.success(`正在逐个打开 ${files.length} 个文件`);
                         }
                       } catch (err: any) {
                         toast.error(`下载失败: ${err.message}`);
@@ -969,6 +973,115 @@ export default function ProjectDetail() {
               <CardTitle className="text-base">视频生成Prompt</CardTitle>
               <div className="flex items-center gap-2">
                 {prompts && prompts.length > 0 && (
+                  <>
+                  <Select onValueChange={(strategy) => {
+                    if (!prompts || !panels) return;
+                    const exportData = prompts.map((p: any, idx: number) => {
+                      const matchingPanel = panels.find((pan: any) => pan.id === p.panelId);
+                      const displayIndex = matchingPanel?.panelIndex ?? (idx + 1);
+                      return {
+                        panelIndex: displayIndex,
+                        promptText: p.promptText || "",
+                        negativePrompt: p.negativePrompt || "",
+                        shotType: p.shotType || "",
+                        cameraAngle: p.cameraAngle || "",
+                        subject: p.subject || "",
+                        action: p.action || "",
+                        cameraMovement: p.cameraMovement || "",
+                        lighting: p.lighting || "",
+                        texture: p.texture || "",
+                        effects: p.effects || "",
+                        transition: p.transition || "",
+                      };
+                    });
+                    const anchorRefs = anchors?.filter((a: any) => a.imageUrl).map((a: any, i: number) => `@图片${i + 2}(${a.name})`).join("、") || "";
+                    const gridRef = `@图片1`;
+                    const gridSize = `${grid?.rows || 2}×${grid?.cols || 3}`;
+                    let text = "";
+                    if (strategy === "s1") {
+                      // 策略1：极简意图（让模型自由发挥）
+                      text = `参考${gridRef}的${gridSize}宫格分镜图，制作成连续的视频，注意分镜编排。`;
+                      if (anchorRefs) text += `\n角色参考：${anchorRefs}。`;
+                    } else if (strategy === "s2") {
+                      // 策略2：官方R2V格式
+                      text = `参考${gridRef}的分镜脚本，借鉴其中的分镜、景别、运镜、画面和文案。`;
+                      if (anchorRefs) text += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
+                      text += `\n制作${exportData.length * 2}秒短片。`;
+                    } else if (strategy === "s3") {
+                      // 策略3：动作驱动（图管画面，词管动作）
+                      text = `参考${gridRef}的${gridSize}宫格分镜图，按从左到右、从上到下的顺序，依次还原每个分镜的画面内容。`;
+                      if (anchorRefs) text += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
+                      text += `\n分镜详情：`;
+                      exportData.forEach((d: any) => {
+                        const actionDesc = d.action || d.promptText.slice(0, 60);
+                        const cam = d.cameraMovement && d.cameraMovement !== "固定" ? `，${d.cameraMovement}` : "";
+                        text += `\n镜头${d.panelIndex}：${actionDesc}${cam}`;
+                      });
+                    } else if (strategy === "s4") {
+                      // 策略4：五要素结构（Subject→Action→Camera→Style→Constraints）
+                      text = `参考${gridRef}的${gridSize}宫格分镜图，按从左到右、从上到下的顺序，依次还原每个分镜的画面内容。`;
+                      if (anchorRefs) text += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
+                      text += `\n分镜详情：`;
+                      exportData.forEach((d: any) => {
+                        const parts = [
+                          d.subject || "",
+                          d.action || "",
+                          [d.shotType, d.cameraMovement, d.cameraAngle].filter(Boolean).join(", "),
+                          d.lighting || "",
+                          d.texture || d.effects || "",
+                        ].filter(Boolean);
+                        text += `\n镜头${d.panelIndex}：${parts.join("。")}`;
+                      });
+                      text += `\nCinematic, 4K, realistic lighting.`;
+                    } else if (strategy === "s5") {
+                      // 策略5：完整分镜描述（用户参考格式）
+                      text = `参考${gridRef}的${gridSize}宫格分镜图，按从左到右、从上到下的顺序，依次还原每个分镜的画面内容。`;
+                      if (anchorRefs) text += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
+                      text += `\n分镜详情：`;
+                      exportData.forEach((d: any) => {
+                        const shotTag = [d.shotType, d.cameraAngle].filter(Boolean).join(", ");
+                        const camTag = d.cameraMovement || "";
+                        text += `\n镜头${d.panelIndex}：${shotTag ? shotTag + ", " : ""}${d.promptText}${camTag ? `（${camTag}）` : ""}`;
+                      });
+                      text += `\nHigh contrast, cinematic texture, smooth and seamless transitions, vivid characters.`;
+                    } else if (strategy === "s6") {
+                      // 策略6：叙事连贯体（自然语言讲故事）
+                      text = `参考${gridRef}的${gridSize}宫格分镜图。`;
+                      if (anchorRefs) text += `角色参考：${anchorRefs}。`;
+                      const narrative = exportData.map((d: any) => {
+                        return d.action || d.promptText.split("。")[0];
+                      }).join("；");
+                      text += `\n${narrative}。`;
+                      text += `\n高对比度，电影质感，丝滑转场。`;
+                    }
+                    navigator.clipboard.writeText(text).then(() => {
+                      toast.success(`已复制「${["极简意图","官方R2V","动作驱动","五要素结构","完整分镜","叙事连贯"][parseInt(strategy.slice(1))-1]}」策略到剪贴板`);
+                    }).catch(() => {
+                      // Fallback
+                      const ta = document.createElement("textarea");
+                      ta.value = text;
+                      document.body.appendChild(ta);
+                      ta.select();
+                      document.execCommand("copy");
+                      document.body.removeChild(ta);
+                      toast.success(`已复制到剪贴板`);
+                    });
+                  }}>
+                    <SelectTrigger className="w-[160px] h-8 text-xs">
+                      <div className="flex items-center gap-1">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span>复制Seedance Prompt</span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="s1">策略1: 极简意图</SelectItem>
+                      <SelectItem value="s2">策略2: 官方R2V格式</SelectItem>
+                      <SelectItem value="s3">策略3: 动作驱动</SelectItem>
+                      <SelectItem value="s4">策略4: 五要素结构</SelectItem>
+                      <SelectItem value="s5">策略5: 完整分镜描述</SelectItem>
+                      <SelectItem value="s6">策略6: 叙事连贯体</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Select onValueChange={(format) => {
                     if (!prompts || !panels) return;
                     const exportData = prompts.map((p: any, idx: number) => {
@@ -1024,50 +1137,6 @@ export default function ProjectDetail() {
                       }).join("\n\n");
                       filename = `prompts_${project.title}_${new Date().toISOString().slice(0,10)}.txt`;
                       mimeType = "text/plain";
-                    } else if (format === "seedance") {
-                      // Seedance 2.0 格式：@引用语法 + 连贯分镜prompt
-                      const lines: string[] = [];
-                      lines.push(`# Seedance 2.0 视频生成 Prompt`);
-                      lines.push(`# 项目: ${project.title}`);
-                      lines.push(`# 生成时间: ${new Date().toLocaleString("zh-CN")}`);
-                      lines.push(``);
-                      lines.push(`## 素材说明`);
-                      lines.push(`@图片1 = N宫格分镜图 (Grid)${grid?.gridImageUrl ? ` [${grid.gridImageUrl}]` : ""}`);
-                      if (anchors && anchors.length > 0) {
-                        anchors.filter((a: any) => a.imageUrl).forEach((a: any, i: number) => {
-                          lines.push(`@图片${i + 2} = ${a.name} (Anchor)${a.imageUrl ? ` [${a.imageUrl}]` : ""}`);
-                        });
-                      }
-                      lines.push(``);
-                      lines.push(`## Seedance Prompt（可直接复制到即梦/Seedance使用）`);
-                      lines.push(`---`);
-                      // 生成连贯的Seedance prompt
-                      const anchorRefs = anchors?.filter((a: any) => a.imageUrl).map((a: any, i: number) => `@图片${i + 2}(${a.name})`).join("、") || "";
-                      let seedPrompt = `参考@图片1的${grid?.rows || 2}×${grid?.cols || 3}宫格分镜图，按从左到右、从上到下的顺序，依次还原每个分镜的画面内容。`;
-                      if (anchorRefs) seedPrompt += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
-                      seedPrompt += `\n\n分镜详情：`;
-                      exportData.forEach((d: any) => {
-                        const shotInfo = [d.shotType, d.cameraMovement].filter(Boolean).join("，");
-                        seedPrompt += `\n镜头${d.panelIndex}：${d.promptText}${shotInfo ? `（${shotInfo}）` : ""}`;
-                      });
-                      seedPrompt += `\n\n每个镜头之间丝滑衔接，保持画面风格统一。`;
-                      seedPrompt += `\n整体风格：电影级画质，高清细腻。时长${exportData.length * 2}秒。`;
-                      lines.push(seedPrompt);
-                      lines.push(`---`);
-                      lines.push(``);
-                      lines.push(`## 各镜头独立Prompt（用于逐镜头生成）`);
-                      exportData.forEach((d: any) => {
-                        lines.push(``);
-                        lines.push(`### 镜头 ${d.panelIndex}`);
-                        lines.push(`- Prompt: ${d.promptText}`);
-                        if (d.negativePrompt) lines.push(`- Negative: ${d.negativePrompt}`);
-                        const meta = [d.shotType && `景别: ${d.shotType}`, d.cameraAngle && `角度: ${d.cameraAngle}`, d.cameraMovement && `运镜: ${d.cameraMovement}`, d.lighting && `光线: ${d.lighting}`, d.transition && `转场: ${d.transition}`].filter(Boolean);
-                        if (meta.length) lines.push(`- ${meta.join(" | ")}`);
-                        if (d.firstFrameUrl) lines.push(`- 首帧参考: ${d.firstFrameUrl}`);
-                      });
-                      content = lines.join("\n");
-                      filename = `seedance_prompt_${project.title}_${new Date().toISOString().slice(0,10)}.md`;
-                      mimeType = "text/markdown";
                     }
                     const blob = new Blob([content], { type: mimeType });
                     const url = URL.createObjectURL(blob);
@@ -1078,19 +1147,19 @@ export default function ProjectDetail() {
                     URL.revokeObjectURL(url);
                     toast.success(`已导出 ${exportData.length} 条Prompt (${format.toUpperCase()})`);
                   }}>
-                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                    <SelectTrigger className="w-[120px] h-8 text-xs">
                       <div className="flex items-center gap-1">
                         <Download className="h-3.5 w-3.5" />
-                        <span>导出Prompt</span>
+                        <span>导出文件</span>
                       </div>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="seedance">导出 Seedance 格式</SelectItem>
                       <SelectItem value="json">导出 JSON</SelectItem>
                       <SelectItem value="csv">导出 CSV</SelectItem>
                       <SelectItem value="txt">导出 TXT</SelectItem>
                     </SelectContent>
                   </Select>
+                  </>
                 )}
                 <Button size="sm"
                   onClick={() => setConfirmRegenDialog({ step: "Prompt", action: () => generatePrompts.mutate({ projectId }) })}
