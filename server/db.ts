@@ -901,6 +901,22 @@ export async function getVideoClips(projectId: number, version?: number) {
   return db.select().from(videoClips).where(and(...conditions)).orderBy(videoClips.panelIndex);
 }
 
+export async function deleteFailedClips(projectId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.delete(videoClips).where(
+    and(eq(videoClips.projectId, projectId), eq(videoClips.status, "failed"))
+  );
+  return (result as any)[0]?.affectedRows ?? 0;
+}
+
+export async function deleteAllClips(projectId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.delete(videoClips).where(eq(videoClips.projectId, projectId));
+  return (result as any)[0]?.affectedRows ?? 0;
+}
+
 export async function getVideoClipByTaskId(taskId: string) {
   const db = await getDb();
   if (!db) return null;

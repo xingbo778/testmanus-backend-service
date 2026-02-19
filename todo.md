@@ -308,3 +308,10 @@
 ## Bug Fix: Prompt管理页面为空
 - [x] Railway数据库system_prompts表为空（服务器启动时自动seed）
 - [x] 确保seed-prompts在Railway部署时自动执行（autoSeedOnStartup）
+
+## Bug Fix: 视频生成改进
+- [ ] kling-v2-6模型不可用（503），默认改用seedance-1.5-pro
+- [ ] 添加"清除失败clips"按钮和API
+- [ ] 失败clips折叠显示，不占太多空间
+- [ ] 视频生成改为异步：前端提交后立即返回，后台异步处理
+- [ ] 旧的[object Object]错误clips也需要能清除

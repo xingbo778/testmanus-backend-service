@@ -1871,12 +1871,11 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
         if (!panelsList.length) throw new Error("No panels found");
         if (!promptsList.length) throw new Error("No prompts found");
 
-        const results: Array<{ panelIndex: number; clipId: number; taskId?: string; status: string }> = [];
-
+        // Create clip records immediately (pending status)
+        const clipIds: Array<{ clipId: number; panelIndex: number; panelId: number; prompt: string; keyframeUrl?: string }> = [];
         for (const panel of panelsList) {
           const prompt = promptsList.find(p => p.panelId === panel.id);
           if (!prompt) continue;
-
           const clipId = await db.createVideoClip({
             panelId: panel.id,
             projectId: input.projectId,
@@ -1886,75 +1885,96 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
             prompt: prompt.promptText,
             keyframeUrl: panel.panelImageUrl ?? undefined,
           });
-
-          // Submit to yunwu API
-          try {
-            const yunwuUrl = process.env.YUNWU_API_URL || "https://yunwu.ai";
-            const yunwuKey = process.env.YUNWU_API_KEY;
-            if (!yunwuKey) throw new Error("YUNWU_API_KEY not configured");
-
-            const payload: any = {
-              model: input.model,
-              prompt: prompt.promptText,
-              enhance_prompt: true,
-              enable_upsample: true,
-              aspect_ratio: "16:9",
-            };
-            if (panel.panelImageUrl) {
-              payload.images = [panel.panelImageUrl];
-            }
-
-            const resp = await fetch(`${yunwuUrl}/v1/video/create`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${yunwuKey}`,
-              },
-              body: JSON.stringify(payload),
-            });
-
-            if (!resp.ok) {
-              const text = await resp.text();
-              throw new Error(`Yunwu API error (${resp.status}): ${text.substring(0, 500)}`);
-            }
-
-            const data = await resp.json();
-
-            if (data.id) {
-              await db.updateVideoClip(clipId, { taskId: data.id, status: "generating" });
-              results.push({ panelIndex: panel.panelIndex, clipId, taskId: data.id, status: "generating" });
-              logInfo("video_gen", `Video clip submitted: panel #${panel.panelIndex}, task ${data.id}`, {
-                projectId: input.projectId,
-                panelIndex: panel.panelIndex,
-                details: { model: input.model, taskId: data.id },
-              });
-            } else {
-              const rawErr = data.message || data.error || data;
-              const errMsg = typeof rawErr === "string" ? rawErr : JSON.stringify(rawErr);
-              await db.updateVideoClip(clipId, { status: "failed", errorMessage: errMsg });
-              results.push({ panelIndex: panel.panelIndex, clipId, status: "failed" });
-              logError("video_gen", `Video clip submission failed: panel #${panel.panelIndex}: ${errMsg}`, {
-                projectId: input.projectId,
-                panelIndex: panel.panelIndex,
-                details: { model: input.model, error: errMsg },
-              });
-            }
-          } catch (e) {
-            const errMsg = e instanceof Error ? e.message : String(e);
-            await db.updateVideoClip(clipId, { status: "failed", errorMessage: errMsg });
-            results.push({ panelIndex: panel.panelIndex, clipId, status: "failed" });
-            logError("video_gen", `Video clip error: panel #${panel.panelIndex}: ${errMsg}`, {
-              projectId: input.projectId,
-              panelIndex: panel.panelIndex,
-              details: { error: errMsg, stack: e instanceof Error ? e.stack : undefined },
-            });
-          }
-
-          // Small delay between submissions
-          await new Promise(r => setTimeout(r, 1500));
+          clipIds.push({ clipId, panelIndex: panel.panelIndex, panelId: panel.id, prompt: prompt.promptText, keyframeUrl: panel.panelImageUrl ?? undefined });
         }
 
-        return { clips: results };
+        // Fire-and-forget: submit to Yunwu API in background
+        (async () => {
+          const yunwuUrl = process.env.YUNWU_API_URL || "https://yunwu.ai";
+          const yunwuKey = process.env.YUNWU_API_KEY;
+          if (!yunwuKey) {
+            for (const c of clipIds) {
+              await db.updateVideoClip(c.clipId, { status: "failed", errorMessage: "YUNWU_API_KEY not configured" });
+            }
+            return;
+          }
+
+          for (const c of clipIds) {
+            try {
+              const payload: any = {
+                model: input.model,
+                prompt: c.prompt,
+                enhance_prompt: true,
+                enable_upsample: true,
+                aspect_ratio: "16:9",
+              };
+              if (c.keyframeUrl) {
+                payload.images = [c.keyframeUrl];
+              }
+
+              const resp = await fetch(`${yunwuUrl}/v1/video/create`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${yunwuKey}`,
+                },
+                body: JSON.stringify(payload),
+              });
+
+              if (!resp.ok) {
+                const text = await resp.text();
+                throw new Error(`Yunwu API error (${resp.status}): ${text.substring(0, 500)}`);
+              }
+
+              const data = await resp.json();
+
+              if (data.id) {
+                await db.updateVideoClip(c.clipId, { taskId: data.id, status: "generating" });
+                logInfo("video_gen", `Video clip submitted: panel #${c.panelIndex}, task ${data.id}`, {
+                  projectId: input.projectId,
+                  panelIndex: c.panelIndex,
+                  details: { model: input.model, taskId: data.id },
+                });
+              } else {
+                const rawErr = data.message || data.error || data;
+                const errMsg = typeof rawErr === "string" ? rawErr : JSON.stringify(rawErr);
+                await db.updateVideoClip(c.clipId, { status: "failed", errorMessage: errMsg });
+                logError("video_gen", `Video clip submission failed: panel #${c.panelIndex}: ${errMsg}`, {
+                  projectId: input.projectId,
+                  panelIndex: c.panelIndex,
+                  details: { model: input.model, error: errMsg },
+                });
+              }
+            } catch (e) {
+              const errMsg = e instanceof Error ? e.message : String(e);
+              await db.updateVideoClip(c.clipId, { status: "failed", errorMessage: errMsg });
+              logError("video_gen", `Video clip error: panel #${c.panelIndex}: ${errMsg}`, {
+                projectId: input.projectId,
+                panelIndex: c.panelIndex,
+                details: { error: errMsg, stack: e instanceof Error ? e.stack : undefined },
+              });
+            }
+            // Small delay between submissions
+            await new Promise(r => setTimeout(r, 1500));
+          }
+        })().catch(err => {
+          logError("video_gen", `Background video generation failed: ${err.message}`, { projectId: input.projectId });
+        });
+
+        // Return immediately with pending clip records
+        return { clips: clipIds.map(c => ({ panelIndex: c.panelIndex, clipId: c.clipId, status: "pending" })) };
+      }),
+    clearFailedClips: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .mutation(async ({ input }) => {
+        const count = await db.deleteFailedClips(input.projectId);
+        return { deleted: count };
+      }),
+    clearAllClips: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .mutation(async ({ input }) => {
+        const count = await db.deleteAllClips(input.projectId);
+        return { deleted: count };
       }),
     pollClipStatus: protectedProcedure
       .input(z.object({ projectId: z.number() }))

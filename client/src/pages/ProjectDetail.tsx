@@ -135,11 +135,12 @@ export default function ProjectDetail() {
   const finalVideos = trpc.video.finalVideos.useQuery({ projectId }, { enabled: !!projectId });
   const [videoModel, setVideoModel] = useState("seedance-1.5-pro");
   const [isPolling, setIsPolling] = useState(false);
+  const [showFailedClips, setShowFailedClips] = useState(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const generateClipsMut = trpc.video.generateClips.useMutation({
     onSuccess: (result) => {
-      toast.success(`已提交 ${result.clips.length} 个视频生成任务`);
+      toast.success(`已提交 ${result.clips.length} 个视频生成任务，后台处理中...`);
       videoClips.refetch();
       setIsPolling(true);
     },
@@ -154,6 +155,22 @@ export default function ProjectDetail() {
         toast.success("所有视频clip已完成");
       }
     },
+  });
+
+  const clearFailedClipsMut = trpc.video.clearFailedClips.useMutation({
+    onSuccess: (result) => {
+      toast.success(`已清除 ${result.deleted} 个失败的clip`);
+      videoClips.refetch();
+    },
+    onError: (err: any) => toast.error(`清除失败: ${err.message}`),
+  });
+
+  const clearAllClipsMut = trpc.video.clearAllClips.useMutation({
+    onSuccess: (result) => {
+      toast.success(`已清除 ${result.deleted} 个clip`);
+      videoClips.refetch();
+    },
+    onError: (err: any) => toast.error(`清除失败: ${err.message}`),
   });
 
   const mergeClipsMut = trpc.video.mergeClips.useMutation({
@@ -173,14 +190,21 @@ export default function ProjectDetail() {
     onError: (err: any) => toast.error(`确认失败: ${err.message}`),
   });
 
-  // Auto-poll video clips
+  // Auto-poll video clips (also start polling if there are pending/generating clips on page load)
+  useEffect(() => {
+    if (videoClips.data?.some((c: any) => c.status === "pending" || c.status === "generating" || c.status === "upsampling")) {
+      if (!isPolling) setIsPolling(true);
+    }
+  }, [videoClips.data]);
+
   useEffect(() => {
     if (isPolling) {
       pollTimerRef.current = setInterval(() => {
         pollClipsMut.mutate({ projectId });
-      }, 30000);
-      // Immediate first poll
-      pollClipsMut.mutate({ projectId });
+      }, 15000);
+      // Immediate first poll after 3s delay
+      const t = setTimeout(() => pollClipsMut.mutate({ projectId }), 3000);
+      return () => { clearTimeout(t); if (pollTimerRef.current) clearInterval(pollTimerRef.current); };
     }
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
@@ -958,81 +982,129 @@ export default function ProjectDetail() {
             <CardContent className="space-y-6">
               {/* Clip Status Grid */}
               {videoClips.data && videoClips.data.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium">视频Clips ({videoClips.data.length})</h3>
-                    <div className="flex items-center gap-2">
-                      {isPolling && (
-                        <Badge variant="outline" className="animate-pulse">
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          轮询中...
-                        </Badge>
-                      )}
-                      <Button size="sm" variant="outline" onClick={() => pollClipsMut.mutate({ projectId })} disabled={pollClipsMut.isPending}>
-                        <RefreshCw className="mr-1 h-3 w-3" />
-                        刷新状态
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {videoClips.data.map((clip: any) => (
-                      <Card key={clip.id} className="overflow-hidden">
-                        <CardContent className="p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Panel #{clip.panelIndex}</span>
-                            <Badge variant={
-                              clip.status === "completed" ? "default" :
-                              clip.status === "failed" ? "destructive" :
-                              "secondary"
-                            }>
-                              {clip.status === "completed" ? "✓ 完成" :
-                               clip.status === "failed" ? "✗ 失败" :
-                               clip.status === "generating" ? "生成中..." :
-                               clip.status === "upsampling" ? "超分中..." :
-                               clip.status}
+                (() => {
+                  const allClips = videoClips.data as any[];
+                  const activeClips = allClips.filter((c: any) => c.status !== "failed");
+                  const failedClips = allClips.filter((c: any) => c.status === "failed");
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <h3 className="text-sm font-medium">视频Clips ({activeClips.length}活跃{failedClips.length > 0 ? ` / ${failedClips.length}失败` : ""})</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {isPolling && (
+                            <Badge variant="outline" className="animate-pulse">
+                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              轮询中...
                             </Badge>
-                          </div>
-                          {clip.clipUrl && (
-                            <video
-                              src={clip.clipUrl}
-                              controls
-                              className="w-full aspect-video rounded bg-black"
-                              preload="metadata"
-                            />
                           )}
-                          {clip.status === "failed" && clip.errorMessage && (
-                            <p className="text-xs text-destructive">{clip.errorMessage}</p>
+                          <Button size="sm" variant="outline" onClick={() => pollClipsMut.mutate({ projectId })} disabled={pollClipsMut.isPending}>
+                            <RefreshCw className="mr-1 h-3 w-3" />
+                            刷新状态
+                          </Button>
+                          {failedClips.length > 0 && (
+                            <Button size="sm" variant="outline" className="text-destructive border-destructive/30" onClick={() => clearFailedClipsMut.mutate({ projectId })} disabled={clearFailedClipsMut.isPending}>
+                              <Trash2 className="mr-1 h-3 w-3" />
+                              清除失败({failedClips.length})
+                            </Button>
                           )}
-                          {!clip.clipUrl && clip.status !== "failed" && (
-                            <div className="w-full aspect-video rounded bg-muted flex items-center justify-center">
-                              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                          <Button size="sm" variant="outline" className="text-muted-foreground" onClick={() => { if (confirm("确定清除所有Clips？")) clearAllClipsMut.mutate({ projectId }); }} disabled={clearAllClipsMut.isPending}>
+                            <Trash2 className="mr-1 h-3 w-3" />
+                            清除全部
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Active clips (non-failed) */}
+                      {activeClips.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {activeClips.map((clip: any) => (
+                            <Card key={clip.id} className="overflow-hidden">
+                              <CardContent className="p-3 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium">Panel #{clip.panelIndex}</span>
+                                  <Badge variant={
+                                    clip.status === "completed" ? "default" :
+                                    "secondary"
+                                  }>
+                                    {clip.status === "completed" ? "✓ 完成" :
+                                     clip.status === "generating" ? "生成中..." :
+                                     clip.status === "upsampling" ? "超分中..." :
+                                     clip.status === "pending" ? "排队中..." :
+                                     clip.status}
+                                  </Badge>
+                                </div>
+                                {clip.clipUrl && (
+                                  <video
+                                    src={clip.clipUrl}
+                                    controls
+                                    className="w-full aspect-video rounded bg-black"
+                                    preload="metadata"
+                                  />
+                                )}
+                                {!clip.clipUrl && (
+                                  <div className="w-full aspect-video rounded bg-muted flex items-center justify-center">
+                                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                  </div>
+                                )}
+                                <p className="text-xs text-muted-foreground truncate" title={clip.prompt}>
+                                  {clip.prompt?.substring(0, 80)}...
+                                </p>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Failed clips (collapsible) */}
+                      {failedClips.length > 0 && (
+                        <div className="border border-destructive/20 rounded-lg">
+                          <button
+                            className="w-full flex items-center justify-between p-3 text-sm text-destructive hover:bg-destructive/5 transition-colors"
+                            onClick={() => setShowFailedClips(!showFailedClips)}
+                          >
+                            <span className="flex items-center gap-2">
+                              <X className="h-4 w-4" />
+                              {failedClips.length} 个失败的Clip
+                            </span>
+                            <span className="text-xs">{showFailedClips ? "收起" : "展开查看"}</span>
+                          </button>
+                          {showFailedClips && (
+                            <div className="p-3 pt-0 space-y-2">
+                              {failedClips.map((clip: any) => (
+                                <div key={clip.id} className="p-2 rounded bg-destructive/5 border border-destructive/10">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-medium">Panel #{clip.panelIndex}</span>
+                                    <Badge variant="destructive" className="text-[10px] h-5">失败</Badge>
+                                  </div>
+                                  {clip.errorMessage && (
+                                    <p className="text-[11px] text-destructive/80 break-all line-clamp-3">{clip.errorMessage}</p>
+                                  )}
+                                </div>
+                              ))}
                             </div>
                           )}
-                          <p className="text-xs text-muted-foreground truncate" title={clip.prompt}>
-                            {clip.prompt?.substring(0, 80)}...
-                          </p>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                        </div>
+                      )}
 
-                  {/* Merge Button */}
-                  {videoClips.data.some((c: any) => c.status === "completed") && (
-                    <div className="flex items-center justify-center pt-4 border-t">
-                      <Button
-                        size="lg"
-                        onClick={() => mergeClipsMut.mutate({ projectId })}
-                        disabled={mergeClipsMut.isPending}
-                      >
-                        {mergeClipsMut.isPending ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />合并中...</>
-                        ) : (
-                          <><Film className="mr-2 h-4 w-4" />合并所有Clips为最终视频</>
-                        )}
-                      </Button>
+                      {/* Merge Button */}
+                      {activeClips.some((c: any) => c.status === "completed") && (
+                        <div className="flex items-center justify-center pt-4 border-t">
+                          <Button
+                            size="lg"
+                            onClick={() => mergeClipsMut.mutate({ projectId })}
+                            disabled={mergeClipsMut.isPending}
+                          >
+                            {mergeClipsMut.isPending ? (
+                              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />合并中...</>
+                            ) : (
+                              <><Film className="mr-2 h-4 w-4" />合并所有Clips为最终视频</>
+                            )}
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()
               ) : (
                 <p className="text-muted-foreground text-center py-8">
                   {panels?.length ? "点击“生成视频Clips”开始" : "请先完成Grid和Panel生成"}
