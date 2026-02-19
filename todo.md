@@ -382,3 +382,14 @@
 - [ ] 5. 用L3项目测试30s/45s分镜完整流程
 - [x] 6. 图片生成API超时+重试机制（5分钟超时，最多3次重试）
 - [x] 7. 支持45秒时长（schema+前后端+16帧/3×6布局）
+
+## Phase 21: Grid生成Bug修复 + L3测试 (2026-02-19)
+- [x] 修复imageGeneration.ts中urlToBase64Part不支持data URL（Grid模板是data URL）
+- [x] 修复grid.generate的try-catch范围覆盖参考图准备阶段（generateGridTemplateDataUrl等）
+- [x] 修复grid.regenerateFromPanels的try-catch范围覆盖参考图准备阶段
+- [x] 修复newFeatures.test.ts中generateGridTemplateDataUrl调用签名（旧位置参数→新对象参数）
+- [x] 42个测试全部通过
+- [ ] 推送到GitHub + Railway自动部署
+- [ ] 在Railway上测试Project 52的Grid生成
+- [ ] 测试Prompt分段导出（30s→2段）
+- [ ] 创建45s项目测试16帧/3×6布局

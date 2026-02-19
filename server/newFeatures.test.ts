@@ -4,20 +4,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 describe("gridTemplate", () => {
   it("generates a valid data URL for 2x3 grid", async () => {
     const { generateGridTemplateDataUrl } = await import("./gridTemplate");
-    const dataUrl = await generateGridTemplateDataUrl(2, 3, 1024, 768);
+    const dataUrl = await generateGridTemplateDataUrl({ rows: 2, cols: 3, totalPanels: 6, width: 1024, height: 768 });
     expect(dataUrl).toMatch(/^data:image\/png;base64,/);
     expect(dataUrl.length).toBeGreaterThan(100);
   });
 
   it("generates a valid data URL for 1x4 grid", async () => {
     const { generateGridTemplateDataUrl } = await import("./gridTemplate");
-    const dataUrl = await generateGridTemplateDataUrl(1, 4, 800, 400);
+    const dataUrl = await generateGridTemplateDataUrl({ rows: 1, cols: 4, totalPanels: 4, width: 800, height: 400 });
     expect(dataUrl).toMatch(/^data:image\/png;base64,/);
   });
 
   it("handles single cell grid", async () => {
     const { generateGridTemplateDataUrl } = await import("./gridTemplate");
-    const dataUrl = await generateGridTemplateDataUrl(1, 1, 512, 512);
+    const dataUrl = await generateGridTemplateDataUrl({ rows: 1, cols: 1, totalPanels: 1, width: 512, height: 512 });
     expect(dataUrl).toMatch(/^data:image\/png;base64,/);
   });
 });

@@ -1157,6 +1157,7 @@ STYLE:
         const cols = grid.cols;
         const totalPanels = grid.totalPanels;
 
+        try {
         // ========== Build reference images ==========
         const orderedImages: Array<{ url: string }> = [];
         const imageDescriptions: string[] = [];
@@ -1235,7 +1236,6 @@ ${panelLines}
 
 STYLE: Photorealistic cinematic quality matching the original grid exactly.`;
 
-        try {
           console.log(`[GridRegen] Generating new grid with ${modifiedIndices.length} modified panels: [${modifiedIndices.join(', ')}]`);
           const { url: newGridImageUrl } = await generateImage({
             prompt: regenPrompt,
