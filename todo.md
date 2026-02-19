@@ -276,4 +276,4 @@
 - [x] 验证Railway部署: HTTP 200 OK
 
 ## Bug Fix: 提取面板报错
-- [ ] 排查并修复"提取面板"按钮点击后报错的问题
+- [x] 排查并修复"提取面板"按钮点击后报错的问题 → storagePut在Railway无BUILT_IN_FORGE_API_KEY，改用uploadHelper（ToAPIs优先回退）
