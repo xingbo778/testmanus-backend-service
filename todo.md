@@ -345,3 +345,8 @@
 - [x] 更新videoGenerator.ts支持两种API格式（Volc+VEO自动路由）
 - [x] 前端模型选择更新（默认Seedance 1.5 Pro）
 - [x] pollClipStatus支持Volc查询端点（根据taskId前缀cgt-自动路由）
+
+## Prompt一键导出功能
+- [x] 分析Prompt数据结构和前端页面
+- [x] 前端添加"导出Prompt"下拉菜单（JSON/CSV/TXT）
+- [x] 42个测试全部通过

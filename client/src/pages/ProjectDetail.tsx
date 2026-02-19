@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   ArrowLeft, Play, RefreshCw, Wand2, CheckCircle,
   Image as ImageIcon, Pencil, Eye, Loader2, History, RotateCcw,
-  Clock, Film, Camera, FileText, Sparkles, Plus, Trash2, Save, X
+  Clock, Film, Camera, FileText, Sparkles, Plus, Trash2, Save, X, Download
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
@@ -891,13 +891,94 @@ export default function ProjectDetail() {
           <Card>
             <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <CardTitle className="text-base">视频生成Prompt</CardTitle>
-              <Button size="sm"
-                onClick={() => setConfirmRegenDialog({ step: "Prompt", action: () => generatePrompts.mutate({ projectId }) })}
-                disabled={generatePrompts.isPending || !grid}
-              >
-                {generatePrompts.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                {prompts?.length ? "重新生成" : "生成Prompt"}
-              </Button>
+              <div className="flex items-center gap-2">
+                {prompts && prompts.length > 0 && (
+                  <Select onValueChange={(format) => {
+                    if (!prompts || !panels) return;
+                    const exportData = prompts.map((p: any, idx: number) => {
+                      const matchingPanel = panels.find((pan: any) => pan.id === p.panelId);
+                      const displayIndex = matchingPanel?.panelIndex ?? (idx + 1);
+                      return {
+                        panelIndex: displayIndex,
+                        promptText: p.promptText || "",
+                        negativePrompt: p.negativePrompt || "",
+                        model: p.model || "auto",
+                        controlStrategy: p.controlStrategy || "first_frame",
+                        shotType: p.shotType || "",
+                        cameraAngle: p.cameraAngle || "",
+                        subject: p.subject || "",
+                        action: p.action || "",
+                        cameraMovement: p.cameraMovement || "",
+                        lighting: p.lighting || "",
+                        texture: p.texture || "",
+                        effects: p.effects || "",
+                        transition: p.transition || "",
+                        firstFrameUrl: p.firstFrameUrl || "",
+                      };
+                    });
+                    let content = "";
+                    let filename = "";
+                    let mimeType = "";
+                    if (format === "json") {
+                      content = JSON.stringify(exportData, null, 2);
+                      filename = `prompts_${project.title}_${new Date().toISOString().slice(0,10)}.json`;
+                      mimeType = "application/json";
+                    } else if (format === "csv") {
+                      const headers = Object.keys(exportData[0]);
+                      const csvRows = [headers.join(",")];
+                      exportData.forEach((row: any) => {
+                        csvRows.push(headers.map(h => {
+                          const val = String(row[h] || "").replace(/"/g, '""');
+                          return val.includes(",") || val.includes('"') || val.includes("\n") ? `"${val}"` : val;
+                        }).join(","));
+                      });
+                      content = csvRows.join("\n");
+                      filename = `prompts_${project.title}_${new Date().toISOString().slice(0,10)}.csv`;
+                      mimeType = "text/csv";
+                    } else if (format === "txt") {
+                      content = exportData.map((d: any) => {
+                        const lines = [`=== Panel #${d.panelIndex} ===`];
+                        lines.push(`Prompt: ${d.promptText}`);
+                        if (d.negativePrompt) lines.push(`Negative: ${d.negativePrompt}`);
+                        lines.push(`Model: ${d.model} | Strategy: ${d.controlStrategy}`);
+                        const meta = [d.shotType, d.cameraAngle, d.cameraMovement, d.lighting, d.transition].filter(Boolean);
+                        if (meta.length) lines.push(`Meta: ${meta.join(" | ")}`);
+                        if (d.firstFrameUrl) lines.push(`First Frame: ${d.firstFrameUrl}`);
+                        return lines.join("\n");
+                      }).join("\n\n");
+                      filename = `prompts_${project.title}_${new Date().toISOString().slice(0,10)}.txt`;
+                      mimeType = "text/plain";
+                    }
+                    const blob = new Blob([content], { type: mimeType });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = filename;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success(`已导出 ${exportData.length} 条Prompt (${format.toUpperCase()})`);
+                  }}>
+                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                      <div className="flex items-center gap-1">
+                        <Download className="h-3.5 w-3.5" />
+                        <span>导出Prompt</span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="json">导出 JSON</SelectItem>
+                      <SelectItem value="csv">导出 CSV</SelectItem>
+                      <SelectItem value="txt">导出 TXT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                <Button size="sm"
+                  onClick={() => setConfirmRegenDialog({ step: "Prompt", action: () => generatePrompts.mutate({ projectId }) })}
+                  disabled={generatePrompts.isPending || !grid}
+                >
+                  {generatePrompts.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                  {prompts?.length ? "重新生成" : "生成Prompt"}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {prompts && prompts.length > 0 ? (
