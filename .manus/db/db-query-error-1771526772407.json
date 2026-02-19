@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, name, parent_id, level FROM categories WHERE level = 3 LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT id, name, parent_id, level FROM categories WHERE level = 3 LIMIT 20;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1146 (42S02) at line 1: Table 'esbpidbdg5kldsjkami9y6.categories' doesn't exist"
+  ]
+}
