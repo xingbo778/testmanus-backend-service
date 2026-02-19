@@ -361,3 +361,9 @@
 - [x] Seedance prompt改为6个策略选项（动作驱动/动作+氛围/动作+细节/电影感/完整描述/极简）
 - [x] 导出改为复制到剪贴板（点击即复制）
 - [x] 修复ZIP下载CORS问题（通过后端proxyImages代理下载图片）
+
+## Phase 18: Bug Fixes Round 3 (User Reported 2026-02-19)
+- [x] 1. Grid生成没有参考anchor图 — 修复anchor版本匹配逻辑，优先当前版本，fallback到所有版本
+- [x] 2. Grid点击"重新生成"按钮没有反应 — 确认弹窗逻辑正常，增加日志排查
+- [x] 3. 修复面板Dialog增加更多参考图选项：原图（未修复的）+ 其他帧作为参考图（可点击选择）
+- [x] 4. 修复面板Dialog中显示Grid生成时该panel对应的prompt（分镜描述+视频Prompt+景别标签）

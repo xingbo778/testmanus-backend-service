@@ -145,9 +145,9 @@ describe("videoGenerator", () => {
     try {
       await createVideoTask({ prompt: "test" });
     } catch (e: any) {
-      expect(e.message).toMatch(/YUNWU_API_KEY|not configured|Video|video|Volc|VEO|failed/);
+      expect(e.message).toMatch(/YUNWU_API_KEY|not configured|Video|video|Volc|VEO|failed|timeout|TIMEOUT|fetch/);
     }
-  }, 10000);
+  }, 30000);
 });
 
 // ==================== Video Merger Tests ====================

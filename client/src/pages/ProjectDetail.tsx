@@ -57,6 +57,9 @@ export default function ProjectDetail() {
   // Anchor editing state
   const [anchorEditDialog, setAnchorEditDialog] = useState<{ anchor: any; customPrompt: string } | null>(null);
 
+  // Fix panel reference image selection
+  const [selectedRefImages, setSelectedRefImages] = useState<string[]>([]);
+
   // Mutations
   const generateScript = trpc.script.generate.useMutation({
     onSuccess: () => { toast.success("脚本生成成功"); refetch(); versionHistory.refetch(); },
@@ -874,11 +877,11 @@ export default function ProjectDetail() {
           )}
 
           {/* Fix Dialog */}
-          <Dialog open={fixDialogOpen} onOpenChange={setFixDialogOpen}>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <Dialog open={fixDialogOpen} onOpenChange={(open) => { setFixDialogOpen(open); if (!open) setSelectedRefImages([]); }}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>修复面板 #{selectedPanel}</DialogTitle>
-                <DialogDescription>选择修复方式并提供修复指引</DialogDescription>
+                <DialogDescription>选择修复方式、参考图并提供修复指引</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 {/* Show current panel image - with mask canvas for inpaint mode */}
@@ -902,20 +905,91 @@ export default function ProjectDetail() {
                     </div>
                   );
                 })()}
-                {/* Anchor references */}
-                {anchors && anchors.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Anchor参考图（修复时自动引用）</Label>
-                    <div className="flex gap-2 overflow-x-auto">
-                      {anchors.filter((a: any) => a.imageUrl).map((a: any) => (
-                        <div key={a.id} className="shrink-0 text-center">
-                          <img src={a.imageUrl} alt={a.name} className="h-16 w-16 object-cover rounded border" />
-                          <p className="text-[10px] mt-0.5">{a.name}</p>
-                        </div>
-                      ))}
+
+                {/* Panel Prompt from Grid generation */}
+                {selectedPanel !== null && (() => {
+                  const panel = panels?.find((p: any) => p.panelIndex === selectedPanel);
+                  const panelPrompt = prompts?.find((p: any) => {
+                    const matchPanel = panels?.find((pan: any) => pan.id === p.panelId);
+                    return matchPanel?.panelIndex === selectedPanel;
+                  });
+                  if (!panel?.description && !panelPrompt?.promptText) return null;
+                  return (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">面板描述 & Prompt</Label>
+                      <div className="bg-muted/30 rounded-lg p-3 space-y-2 text-xs">
+                        {panel?.description && (
+                          <div>
+                            <span className="font-medium text-muted-foreground">分镜描述：</span>
+                            <span>{panel.description}</span>
+                          </div>
+                        )}
+                        {panelPrompt?.promptText && (
+                          <div>
+                            <span className="font-medium text-muted-foreground">视频Prompt：</span>
+                            <span className="text-primary/80">{panelPrompt.promptText}</span>
+                          </div>
+                        )}
+                        {panel?.shotType && (
+                          <div className="flex gap-2">
+                            <Badge variant="outline" className="text-[10px]">{panel.shotType}</Badge>
+                            {panel.cameraMovement && <Badge variant="outline" className="text-[10px]">{panel.cameraMovement}</Badge>}
+                            {panel.duration && <Badge variant="outline" className="text-[10px]">{panel.duration}s</Badge>}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
+
+                {/* Reference Images Section - Anchors + Original Panel + Other Frames */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">参考图（点击选择/取消，选中的图会作为修复参考）</Label>
+                  
+                  {/* Anchor references */}
+                  {anchors && anchors.filter((a: any) => a.imageUrl).length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground font-medium">Anchor参考图（自动引用）</p>
+                      <div className="flex gap-2 overflow-x-auto">
+                        {anchors.filter((a: any) => a.imageUrl).map((a: any) => (
+                          <div key={a.id} className="shrink-0 text-center">
+                            <img src={a.imageUrl} alt={a.name} className="h-16 w-16 object-cover rounded border border-primary/30" />
+                            <p className="text-[10px] mt-0.5">{a.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Other frames as reference (clickable to select) */}
+                  {panels && panels.filter((p: any) => p.panelImageUrl && p.panelIndex !== selectedPanel).length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground font-medium">其他帧（点击选择作为参考）</p>
+                      <div className="flex gap-2 overflow-x-auto">
+                        {panels.filter((p: any) => p.panelImageUrl && p.panelIndex !== selectedPanel).map((p: any) => {
+                          const isSelected = selectedRefImages.includes(p.panelImageUrl);
+                          return (
+                            <div key={p.id} className="shrink-0 text-center cursor-pointer" onClick={() => {
+                              setSelectedRefImages(prev => 
+                                isSelected ? prev.filter(url => url !== p.panelImageUrl) : [...prev, p.panelImageUrl]
+                              );
+                            }}>
+                              <img src={p.panelImageUrl} alt={`Panel ${p.panelIndex}`} 
+                                className={`h-16 w-24 object-cover rounded border-2 transition-all ${
+                                  isSelected ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/40"
+                                }`} />
+                              <p className="text-[10px] mt-0.5">#{p.panelIndex} {p.shotType || ""}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {selectedRefImages.length > 0 && (
+                    <p className="text-[10px] text-primary">已选择 {selectedRefImages.length} 张参考图</p>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label>问题描述</Label>
                   <Textarea placeholder="描述这个面板的问题..." value={issueText} onChange={(e) => setIssueText(e.target.value)} />
@@ -942,7 +1016,7 @@ export default function ProjectDetail() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setFixDialogOpen(false)}>取消</Button>
+                <Button variant="outline" onClick={() => { setFixDialogOpen(false); setSelectedRefImages([]); }}>取消</Button>
                 <Button
                   onClick={() => {
                     if (selectedPanel === null) return;
@@ -953,6 +1027,7 @@ export default function ProjectDetail() {
                         fixType: fixType === "reference" ? "reference_based" : fixType,
                         modifiedDescription: fixPrompt || undefined,
                         maskDataUrl: fixType === "inpaint" ? maskDataUrl || undefined : undefined,
+                        referenceImageUrls: selectedRefImages.length > 0 ? selectedRefImages : undefined,
                       });
                     }
                   }}

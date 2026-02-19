@@ -940,7 +940,15 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         // Delete old panels for this project+version before regenerating
         await db.deletePanelsForProject(input.projectId, script.version);
 
-        const anchorsList = await db.getAnchors(input.projectId);
+        // Get anchors - try current version first, then fall back to all versions
+        let anchorsList = await db.getAnchors(input.projectId, script.version);
+        if (anchorsList.length === 0) {
+          // Fall back to all anchors if none found for current version
+          anchorsList = await db.getAnchors(input.projectId);
+          console.log(`[GridGen] No anchors for version ${script.version}, using all ${anchorsList.length} anchors`);
+        } else {
+          console.log(`[GridGen] Found ${anchorsList.length} anchors for version ${script.version}`);
+        }
         const frames = script.frames as Array<{ index: number; shotType: string; duration: number; description: string; cameraMovement: string }>;
 
         const totalPanels = frames.length;
@@ -957,6 +965,7 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         // Separate character and scene anchors that have images
         const charAnchors = anchorsList.filter(a => a.anchorType === 'character' && a.imageUrl && a.imageUrl.startsWith('http'));
         const sceneAnchors = anchorsList.filter(a => a.anchorType === 'scene' && a.imageUrl && a.imageUrl.startsWith('http'));
+        console.log(`[GridGen] Anchor refs: ${charAnchors.length} characters, ${sceneAnchors.length} scenes`);
 
         // Build ordered image list: [char1, char2, ..., scene1, scene2, ..., gridTemplate]
         // Each image gets a clear number and description in the prompt
@@ -1252,6 +1261,7 @@ STYLE:
         fixType: z.enum(["regenerate", "inpaint", "reference_based"]),
         modifiedDescription: z.string().optional(),
         referenceImageUrl: z.string().optional(),
+        referenceImageUrls: z.array(z.string()).optional(), // multiple reference images (original panel, other frames, etc.)
         maskDataUrl: z.string().optional(), // base64 data URL of the mask image (white=fix, black=keep)
       }))
       .mutation(async ({ input }) => {
@@ -1272,13 +1282,21 @@ STYLE:
         let newImageUrl: string | undefined;
         const prompt = input.modifiedDescription || panel.description || "";
 
-        // Build reference images: anchor images + original panel image + user-provided reference
+        // Build reference images: anchor images + original panel image + user-provided references
         const referenceImages: Array<{ url: string; mimeType?: string }> = [...anchorRefImages];
         if (panel.panelImageUrl && panel.panelImageUrl.startsWith("http")) {
           referenceImages.push({ url: panel.panelImageUrl });
         }
         if (input.referenceImageUrl && input.referenceImageUrl.startsWith("http")) {
           referenceImages.push({ url: input.referenceImageUrl });
+        }
+        // Add multiple reference images (other frames, etc.)
+        if (input.referenceImageUrls) {
+          for (const refUrl of input.referenceImageUrls) {
+            if (refUrl.startsWith("http") && !referenceImages.some(r => r.url === refUrl)) {
+              referenceImages.push({ url: refUrl });
+            }
+          }
         }
         // Add mask as reference image if provided (for inpaint mode)
         if (input.maskDataUrl && input.fixType === "inpaint") {
