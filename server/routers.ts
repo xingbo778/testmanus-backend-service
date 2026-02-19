@@ -1142,7 +1142,6 @@ STYLE:
             rows: grid.rows,
             cols: grid.cols,
             totalPanels: grid.totalPanels,
-            mode: "ai",
             panelDescriptions,
           });
 
@@ -1201,7 +1200,6 @@ STYLE:
           rows: grid.rows,
           cols: grid.cols,
           panelIndex: panel.panelIndex,
-          mode: "ai",
           panelDescription: panel.description || undefined,
         });
 

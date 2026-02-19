@@ -1,13 +1,13 @@
 /**
  * Extract individual panel images from a grid image.
  * 
- * Two modes:
- * 1. "crop" (legacy) - Simple Sharp crop with padding. Fast but may include borders.
- * 2. "ai" (default) - Crop a rough region then use Gemini (Nano Banana Pro) to
- *    redraw/clean the panel, removing borders, numbers, and annotations.
+ * Uses smart cropping with Sharp:
+ * 1. Calculate cell boundaries from grid layout (rows × cols)
+ * 2. Apply generous padding to avoid border lines
+ * 3. Use Sharp's trim() to auto-detect and remove remaining solid-color borders
+ * 4. Process all panels in parallel for speed
  */
 import sharp from "sharp";
-import { generateImage } from "./_core/imageGeneration";
 import { logInfo, logWarn } from "./appLogger";
 
 interface ExtractPanelOptions {
@@ -15,9 +15,9 @@ interface ExtractPanelOptions {
   rows: number;               // Number of rows in the grid
   cols: number;               // Number of columns in the grid
   panelIndex: number;         // 1-based panel index (left-to-right, top-to-bottom)
-  padding?: number;           // Padding in pixels to trim from edges (default: 2)
-  mode?: "crop" | "ai";       // Extraction mode (default: "ai")
-  panelDescription?: string;  // Optional description of the panel content for AI mode
+  padding?: number;           // Padding in pixels to trim from edges (default: 10)
+  panelDescription?: string;  // Optional (unused, kept for API compat)
+  mode?: "crop" | "ai";       // Ignored - always uses smart crop now
 }
 
 interface ExtractAllPanelsOptions {
@@ -26,8 +26,8 @@ interface ExtractAllPanelsOptions {
   cols: number;
   totalPanels: number;
   padding?: number;
-  mode?: "crop" | "ai";
-  panelDescriptions?: string[];  // Optional descriptions for each panel (index 0 = panel 1)
+  panelDescriptions?: string[];
+  mode?: "crop" | "ai";       // Ignored - always uses smart crop now
 }
 
 /**
@@ -41,10 +41,16 @@ async function downloadImage(url: string): Promise<Buffer> {
 }
 
 /**
- * Crop a single panel from a grid image using Sharp.
- * Returns a PNG buffer of the cropped panel.
+ * Smart crop: extract a panel from the grid, then trim solid-color borders.
+ * 
+ * Strategy:
+ * 1. Calculate the cell region for this panel
+ * 2. Inset by `padding` pixels on all sides to skip border lines
+ * 3. Extract that region
+ * 4. Use Sharp trim() to auto-remove any remaining uniform-color edges
+ *    (handles cases where the border is thicker than expected)
  */
-async function cropPanel(
+async function smartCropPanel(
   imageBuffer: Buffer,
   imgWidth: number,
   imgHeight: number,
@@ -59,11 +65,48 @@ async function cropPanel(
   const panelRow = Math.floor((panelIndex - 1) / cols);
   const panelCol = (panelIndex - 1) % cols;
 
+  // Calculate crop region with padding inset
   const left = Math.max(0, panelCol * cellWidth + padding);
   const top = Math.max(0, panelRow * cellHeight + padding);
-  const width = Math.min(cellWidth - padding * 2, imgWidth - left);
-  const height = Math.min(cellHeight - padding * 2, imgHeight - top);
+  const right = Math.min(imgWidth, (panelCol + 1) * cellWidth - padding);
+  const bottom = Math.min(imgHeight, (panelRow + 1) * cellHeight - padding);
+  const width = right - left;
+  const height = bottom - top;
 
+  if (width <= 0 || height <= 0) {
+    throw new Error(`Invalid crop dimensions for panel ${panelIndex}: ${width}x${height}`);
+  }
+
+  // Step 1: Extract the padded region
+  let cropped = sharp(imageBuffer)
+    .extract({ left, top, width, height });
+
+  // Step 2: Try to auto-trim remaining border artifacts
+  // trim() removes uniform-color borders; threshold controls sensitivity
+  try {
+    const trimmed = await cropped
+      .trim({ threshold: 30 })  // 30 = tolerance for near-black/near-white borders
+      .png()
+      .toBuffer();
+
+    // Verify the trimmed image isn't too small (trim can be too aggressive)
+    const trimMeta = await sharp(trimmed).metadata();
+    if (trimMeta.width && trimMeta.height &&
+        trimMeta.width > width * 0.5 && trimMeta.height > height * 0.5) {
+      return trimmed;
+    }
+    // If trim removed too much, fall back to the padded crop
+    logWarn("panel_extract", `Trim was too aggressive for panel ${panelIndex}, using padded crop`, {
+      details: { panelIndex, trimmedSize: `${trimMeta.width}x${trimMeta.height}`, originalSize: `${width}x${height}` },
+    }).catch(() => {});
+  } catch (e) {
+    // trim() can fail on some images; fall back to padded crop
+    logWarn("panel_extract", `Trim failed for panel ${panelIndex}, using padded crop: ${e}`, {
+      details: { panelIndex },
+    }).catch(() => {});
+  }
+
+  // Fallback: return the padded crop without trim
   return sharp(imageBuffer)
     .extract({ left, top, width, height })
     .png()
@@ -71,58 +114,12 @@ async function cropPanel(
 }
 
 /**
- * Use AI (Gemini / Nano Banana Pro) to redraw a cropped panel,
- * removing borders, panel numbers, and annotations while preserving
- * the core visual content.
- */
-async function aiRedrawPanel(
-  croppedBuffer: Buffer,
-  panelDescription?: string
-): Promise<Buffer> {
-  const b64 = croppedBuffer.toString("base64");
-  const mimeType = "image/png";
-
-  const descHint = panelDescription
-    ? `\nThe panel depicts: ${panelDescription}`
-    : "";
-
-  const prompt = `You are given a single panel cropped from a storyboard grid image. The cropped image may contain:
-- Black border lines on the edges
-- Panel number labels (like "1", "2", etc.)
-- Shot type annotations (like "MS", "CU", "WS")
-- Duration labels (like "3s", "5s")
-
-Your task: Redraw this panel as a CLEAN, standalone image.
-- REMOVE all border lines, numbers, labels, and text annotations
-- KEEP the exact same scene, characters, composition, colors, lighting, and art style
-- The output should look like a single clean frame/shot, not a panel from a grid
-- Maintain the same aspect ratio and resolution
-- Do NOT add any new elements or change the scene content${descHint}
-
-Output only the cleaned image, no text.`;
-
-  const result = await generateImage({
-    prompt,
-    originalImages: [{ b64Json: b64, mimeType }],
-  });
-
-  if (!result.url) {
-    throw new Error("AI redraw returned no image URL");
-  }
-
-  // Download the AI-generated image and return as buffer
-  const redrawBuffer = await downloadImage(result.url);
-  return redrawBuffer;
-}
-
-/**
  * Extract a single panel from a grid image.
  * Returns a PNG buffer of the extracted panel.
  */
 export async function extractPanel(opts: ExtractPanelOptions): Promise<Buffer> {
-  const { gridImageUrl, rows, cols, panelIndex, padding = 2, mode = "ai", panelDescription } = opts;
+  const { gridImageUrl, rows, cols, panelIndex, padding = 10 } = opts;
 
-  // Download the grid image
   const imageBuffer = await downloadImage(gridImageUrl);
   const metadata = await sharp(imageBuffer).metadata();
 
@@ -130,39 +127,19 @@ export async function extractPanel(opts: ExtractPanelOptions): Promise<Buffer> {
     throw new Error("Could not read image dimensions");
   }
 
-  // Step 1: Always crop first
-  const croppedBuffer = await cropPanel(
+  return smartCropPanel(
     imageBuffer, metadata.width, metadata.height,
     rows, cols, panelIndex, padding
   );
-
-  // Step 2: If AI mode, redraw the cropped panel
-  if (mode === "ai") {
-    try {
-      const aiBuffer = await aiRedrawPanel(croppedBuffer, panelDescription);
-      logInfo("panel_extract", `AI redraw successful for panel ${panelIndex}`, {
-        details: { panelIndex, mode: "ai" },
-      }).catch(() => {});
-      return aiBuffer;
-    } catch (e) {
-      // Fallback to crop mode if AI fails
-      const errMsg = e instanceof Error ? e.message : String(e);
-      logWarn("panel_extract", `AI redraw failed for panel ${panelIndex}, falling back to crop: ${errMsg}`, {
-        details: { panelIndex, error: errMsg },
-      }).catch(() => {});
-      return croppedBuffer;
-    }
-  }
-
-  return croppedBuffer;
 }
 
 /**
  * Extract all panels from a grid image.
+ * Processes all panels in parallel for speed.
  * Returns an array of { panelIndex, buffer } objects.
  */
 export async function extractAllPanels(opts: ExtractAllPanelsOptions): Promise<Array<{ panelIndex: number; buffer: Buffer }>> {
-  const { gridImageUrl, rows, cols, totalPanels, padding = 2, mode = "ai", panelDescriptions } = opts;
+  const { gridImageUrl, rows, cols, totalPanels, padding = 10 } = opts;
 
   // Download the grid image once
   const imageBuffer = await downloadImage(gridImageUrl);
@@ -175,35 +152,23 @@ export async function extractAllPanels(opts: ExtractAllPanelsOptions): Promise<A
   const imgWidth = metadata.width;
   const imgHeight = metadata.height;
 
-  const results: Array<{ panelIndex: number; buffer: Buffer }> = [];
-
-  for (let i = 1; i <= totalPanels; i++) {
-    // Step 1: Crop
-    const croppedBuffer = await cropPanel(
-      imageBuffer, imgWidth, imgHeight,
-      rows, cols, i, padding
-    );
-
-    // Step 2: AI redraw if enabled
-    if (mode === "ai") {
-      try {
-        const desc = panelDescriptions?.[i - 1];
-        const aiBuffer = await aiRedrawPanel(croppedBuffer, desc);
-        results.push({ panelIndex: i, buffer: aiBuffer });
-        logInfo("panel_extract", `AI redraw successful for panel ${i}/${totalPanels}`, {
-          details: { panelIndex: i, mode: "ai" },
+  // Process all panels in parallel
+  const promises = Array.from({ length: totalPanels }, (_, i) => {
+    const panelIndex = i + 1;
+    return smartCropPanel(imageBuffer, imgWidth, imgHeight, rows, cols, panelIndex, padding)
+      .then(buffer => {
+        logInfo("panel_extract", `Smart crop successful for panel ${panelIndex}/${totalPanels}`, {
+          details: { panelIndex, mode: "smart_crop" },
         }).catch(() => {});
-        continue;
-      } catch (e) {
-        const errMsg = e instanceof Error ? e.message : String(e);
-        logWarn("panel_extract", `AI redraw failed for panel ${i}, using crop fallback: ${errMsg}`, {
-          details: { panelIndex: i, error: errMsg },
+        return { panelIndex, buffer };
+      })
+      .catch(err => {
+        logWarn("panel_extract", `Failed to extract panel ${panelIndex}: ${err}`, {
+          details: { panelIndex, error: String(err) },
         }).catch(() => {});
-      }
-    }
+        throw err;
+      });
+  });
 
-    results.push({ panelIndex: i, buffer: croppedBuffer });
-  }
-
-  return results;
+  return Promise.all(promises);
 }
