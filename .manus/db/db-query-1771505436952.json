@@ -1,0 +1,9 @@
+{
+  "query": "SELECT l3.id as l3Id, l3.name as l3Name, l2.id as l2Id, l2.name as l2Name, l1.id as l1Id, l1.name as l1Name FROM categories_l3 l3 JOIN categories_l2 l2 ON l3.l2Id = l2.id JOIN categories_l1 l1 ON l2.l1Id = l1.id LIMIT 80",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT l3.id as l3Id, l3.name as l3Name, l2.id as l2Id, l2.name as l2Name, l1.id as l1Id, l1.name as l1Name FROM categories_l3 l3 JOIN categories_l2 l2 ON l3.l2Id = l2.id JOIN categories_l1 l1 ON l2.l1Id = l1.id LIMIT 80",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1515
+}

@@ -1,0 +1,43 @@
+{
+  "query": "SELECT * FROM anchors WHERE projectId = 2 LIMIT 5",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT * FROM anchors WHERE projectId = 2 LIMIT 5",
+  "rows": [
+    {
+      "id": "3",
+      "projectId": "2",
+      "version": "2",
+      "anchorType": "character",
+      "name": "Haruto",
+      "description": "17岁，身高178cm，身材偏瘦。黑色略显凌乱的短发，眼神深邃但透着羞涩。五官立体，皮肤白皙。穿着整洁的高中深蓝色西装校服，系着红色领带。",
+      "prompt": "A half-body portrait of Haruto, 17 years old, East Asian, black messy hair, deep shy eyes, lean build, wearing a dark blue Japanese high school blazer and red tie. The character is centered in the frame, facing slightly to the right at a 3/4 angle. Shot against a pure white studio background (#FFFFFF) with soft, even lighting. Professional studio photography, shot on 85mm f/1.4 lens. Soft key light from the upper left, subtle fill light from the right. Natural skin texture, clean catchlights in the eyes. High detail, 8K resolution, photorealistic.",
+      "imageUrl": "NULL",
+      "createdAt": "2026-02-19 13:08:18"
+    },
+    {
+      "id": "4",
+      "projectId": "2",
+      "version": "2",
+      "anchorType": "character",
+      "name": "Aoi",
+      "description": "17岁，身高162cm，气质温柔。长及腰际的栗色直发，齐刘海。圆润的眼睛，带有柔和的笑意。穿着高中校服裙，外面套着一件米色针织开衫。",
+      "prompt": "A half-body portrait of Aoi, 17 years old, East Asian, long chestnut brown straight hair with bangs, soft round eyes, gentle smile, wearing a beige school cardigan over a white shirt and ribbon. The character is centered in the frame, facing slightly to the left at a 3/4 angle. Shot against a pure white studio background (#FFFFFF) with soft, even lighting. Professional studio photography, shot on 85mm f/1.4 lens. Soft key light from the upper left, subtle fill light from the right. Natural skin texture, clean catchlights in the eyes. High detail, 8K resolution, photorealistic.",
+      "imageUrl": "NULL",
+      "createdAt": "2026-02-19 13:10:20"
+    },
+    {
+      "id": "5",
+      "projectId": "2",
+      "version": "2",
+      "anchorType": "scene",
+      "name": "Cherry Blossom Hill",
+      "description": "山丘顶端有一棵巨大的古老樱花树，树冠如云。周围是绿油油的草地，点缀着飘落的粉色瓣。背景可以俯瞰整座城市的远景。黄昏时分，夕阳将一切染成金橘色。",
+      "prompt": "A wide establishing shot of a massive ancient cherry blossom tree on top of a grassy hill, pink flowers in full bloom, soft grass covered in fallen petals. Background shows a distant suburban town under a sunset sky with orange and purple hues. Golden hour lighting, long shadows, romantic and cinematic atmosphere. Shot on 35mm wide-angle lens. High detail, 8K resolution, photorealistic. No people in the scene, focus on environment and atmosphere.",
+      "imageUrl": "NULL",
+      "createdAt": "2026-02-19 13:12:21"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tprojectId\tversion\tanchorType\tname\tdescription\tprompt\timageUrl\tcreatedAt\n3\t2\t2\tcharacter\tHaruto\t17岁，身高178cm，身材偏瘦。黑色略显凌乱的短发，眼神深邃但透着羞涩。五官立体，皮肤白皙。穿着整洁的高中深蓝色西装校服，系着红色领带。\tA half-body portrait of Haruto, 17 years old, East Asian, black messy hair, deep shy eyes, lean build, wearing a dark blue Japanese high school blazer and red tie. The character is centered in the frame, facing slightly to the right at a 3/4 angle. Shot against a pure white studio background (#FFFFFF) with soft, even lighting. Professional studio photography, shot on 85mm f/1.4 lens. Soft key light from the upper left, subtle fill light from the right. Natural skin texture, clean catchlights in the eyes. High detail, 8K resolution, photorealistic.\tNULL\t2026-02-19 13:08:18\n4\t2\t2\tcharacter\tAoi\t17岁，身高162cm，气质温柔。长及腰际的栗色直发，齐刘海。圆润的眼睛，带有柔和的笑意。穿着高中校服裙，外面套着一件米色针织开衫。\tA half-body portrait of Aoi, 17 years old, East Asian, long chestnut brown straight hair with bangs, soft round eyes, gentle smile, wearing a beige school cardigan over a white shirt and ribbon. The character is centered in the frame, facing slightly to the left at a 3/4 angle. Shot against a pure white studio background (#FFFFFF) with soft, even lighting. Professional studio photography, shot on 85mm f/1.4 lens. Soft key light from the upper left, subtle fill light from the right. Natural skin texture, clean catchlights in the eyes. High detail, 8K resolution, photorealistic.\tNULL\t2026-02-19 13:10:20\n5\t2\t2\tscene\tCherry Blossom Hill\t山丘顶端有一棵巨大的古老樱花树，树冠如云。周围是绿油油的草地，点缀着飘落的粉色瓣。背景可以俯瞰整座城市的远景。黄昏时分，夕阳将一切染成金橘色。\tA wide establishing shot of a massive ancient cherry blossom tree on top of a grassy hill, pink flowers in full bloom, soft grass covered in fallen petals. Background shows a distant suburban town under a sunset sky with orange and purple hues. Golden hour lighting, long shadows, romantic and cinematic atmosphere. Shot on 35mm wide-angle lens. High detail, 8K resolution, photorealistic. No people in the scene, focus on environment and atmosphere.\tNULL\t2026-02-19 13:12:21\n",
+  "stderr": "",
+  "execution_time_ms": 1535
+}

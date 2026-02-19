@@ -44,7 +44,7 @@ export default function Browse() {
   // Create project dialog
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newDuration, setNewDuration] = useState<"15" | "30">("15");
+  const [newDuration, setNewDuration] = useState<"15" | "30" | "45">("15");
   const [selectedL1, setSelectedL1] = useState(l1Id || "");
   const [selectedL2, setSelectedL2] = useState(l2Id || "");
   const [selectedL3, setSelectedL3] = useState(l3Id || "");
@@ -179,11 +179,12 @@ export default function Browse() {
                 )}
                 <div className="space-y-2">
                   <Label>视频时长</Label>
-                  <Select value={newDuration} onValueChange={(v) => setNewDuration(v as "15" | "30")}>
+                  <Select value={newDuration} onValueChange={(v) => setNewDuration(v as "15" | "30" | "45")}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="15">15秒（6-8帧）</SelectItem>
                       <SelectItem value="30">30秒（10-15帧）</SelectItem>
+                      <SelectItem value="45">45秒（15-22帧）</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

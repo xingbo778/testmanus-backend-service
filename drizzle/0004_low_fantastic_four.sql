@@ -1,0 +1,1 @@
+ALTER TABLE `projects` MODIFY COLUMN `duration` enum('15','30','45') NOT NULL DEFAULT '15';

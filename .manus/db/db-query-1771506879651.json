@@ -1,0 +1,37 @@
+{
+  "query": "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'anchors' ORDER BY ORDINAL_POSITION",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'anchors' ORDER BY ORDINAL_POSITION",
+  "rows": [
+    {
+      "COLUMN_NAME": "id"
+    },
+    {
+      "COLUMN_NAME": "projectId"
+    },
+    {
+      "COLUMN_NAME": "version"
+    },
+    {
+      "COLUMN_NAME": "anchorType"
+    },
+    {
+      "COLUMN_NAME": "name"
+    },
+    {
+      "COLUMN_NAME": "description"
+    },
+    {
+      "COLUMN_NAME": "prompt"
+    },
+    {
+      "COLUMN_NAME": "imageUrl"
+    },
+    {
+      "COLUMN_NAME": "createdAt"
+    }
+  ],
+  "messages": [],
+  "stdout": "COLUMN_NAME\nid\nprojectId\nversion\nanchorType\nname\ndescription\nprompt\nimageUrl\ncreatedAt\n",
+  "stderr": "",
+  "execution_time_ms": 1515
+}

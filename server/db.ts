@@ -100,7 +100,7 @@ export async function seedCategories(data: {
 // ============================================================
 // Project helpers
 // ============================================================
-export async function createProject(data: { title: string; l1Id: string; l2Id: string; l3Id: string; duration: "15" | "30"; createdBy?: number }) {
+export async function createProject(data: { title: string; l1Id: string; l2Id: string; l3Id: string; duration: "15" | "30" | "45"; createdBy?: number }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(projects).values(data);

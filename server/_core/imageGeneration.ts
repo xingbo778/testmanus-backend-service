@@ -199,18 +199,48 @@ export async function generateImage(
       });
     }
 
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        max_tokens: 8192,
-      }),
+    const requestBody = JSON.stringify({
+      model,
+      messages,
+      max_tokens: 8192,
     });
+
+    // Retry up to 2 times with 5-minute timeout each
+    const MAX_RETRIES = 2;
+    const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    let lastError: Error | null = null;
+    let response: Response | null = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        console.log(`[ImageGen] Retry attempt ${attempt}/${MAX_RETRIES}...`);
+      }
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+        response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${apiKey}`,
+          },
+          body: requestBody,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        break; // success
+      } catch (e) {
+        lastError = e instanceof Error ? e : new Error(String(e));
+        console.warn(`[ImageGen] Attempt ${attempt + 1} failed: ${lastError.message}`);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 3000)); // wait 3s before retry
+        }
+      }
+    }
+
+    if (!response) {
+      throw lastError || new Error("Image generation failed after retries");
+    }
 
     if (!response.ok) {
       const detail = await response.text().catch(() => "");

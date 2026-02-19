@@ -1,0 +1,31 @@
+{
+  "query": "SELECT id, name, anchorType, version, LEFT(imageUrl, 150) as imgUrl FROM anchors WHERE projectId = 2",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT id, name, anchorType, version, LEFT(imageUrl, 150) as imgUrl FROM anchors WHERE projectId = 2",
+  "rows": [
+    {
+      "id": "3",
+      "name": "Haruto",
+      "anchorType": "character",
+      "version": "2",
+      "imgUrl": "NULL"
+    },
+    {
+      "id": "4",
+      "name": "Aoi",
+      "anchorType": "character",
+      "version": "2",
+      "imgUrl": "NULL"
+    },
+    {
+      "id": "5",
+      "name": "Cherry Blossom Hill",
+      "anchorType": "scene",
+      "version": "2",
+      "imgUrl": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tanchorType\tversion\timgUrl\n3\tHaruto\tcharacter\t2\tNULL\n4\tAoi\tcharacter\t2\tNULL\n5\tCherry Blossom Hill\tscene\t2\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 1614
+}

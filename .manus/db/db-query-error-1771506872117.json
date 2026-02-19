@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, project_id, name, anchor_type, version, LEFT(image_url, 120) as img_url, LEFT(prompt, 50) as prompt_text FROM anchors WHERE project_id = 2",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT id, project_id, name, anchor_type, version, LEFT(image_url, 120) as img_url, LEFT(prompt, 50) as prompt_text FROM anchors WHERE project_id = 2",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'project_id' in 'where clause'"
+  ]
+}

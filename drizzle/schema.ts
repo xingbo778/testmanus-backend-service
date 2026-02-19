@@ -67,7 +67,7 @@ export const projects = mysqlTable("projects", {
   l1Id: varchar("l1Id", { length: 32 }).notNull(),
   l2Id: varchar("l2Id", { length: 64 }).notNull(),
   l3Id: varchar("l3Id", { length: 96 }).notNull(),
-  duration: mysqlEnum("duration", ["15", "30"]).default("15").notNull(),
+  duration: mysqlEnum("duration", ["15", "30", "45"]).default("15").notNull(),
   status: mysqlEnum("status", ["draft", "scripted", "grid_generated", "reviewing", "confirmed"]).default("draft").notNull(),
   currentVersion: int("currentVersion").default(1).notNull(),
   createdBy: int("createdBy"),

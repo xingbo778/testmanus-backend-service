@@ -319,7 +319,7 @@ export const appRouter = router({
         l1Id: z.string(),
         l2Id: z.string(),
         l3Id: z.string(),
-        duration: z.enum(["15", "30"]),
+        duration: z.enum(["15", "30", "45"]),
       }))
       .mutation(async ({ input, ctx }) => {
         const id = await db.createProject({ ...input, createdBy: ctx.user.id });
@@ -425,8 +425,8 @@ export const appRouter = router({
         console.log(`[ScriptGen] Injected ${totalRulesInjected} rules from ${prioritizedChapters.length} chapters for scene type: ${project.l2Id}`);
 
         const totalDuration = parseInt(project.duration);
-        const frameCount = totalDuration === 15 ? "6-8" : "10-15";
-        const gridLayout = totalDuration === 15 ? "2×3 or 2×4" : "3×4 or 3×5";
+        const frameCount = totalDuration === 15 ? "6-8" : totalDuration === 30 ? "10-15" : "15-22";
+        const gridLayout = totalDuration === 15 ? "2×3 or 2×4" : totalDuration === 30 ? "3×4 or 3×5" : "4×5 or 4×6";
 
         const systemPrompt = `你是一个专业的分镜脚本设计师，精通电影分镜、摄影构图和视觉叙事。根据给定的场景类型和专业规则手册，生成高质量的结构化分镜脚本。
 
@@ -835,6 +835,7 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
             });
             results.push({ id: anchorId, type: "character", name: char.name, imageUrl: url, prompt: char.anchorPrompt });
           } catch (e) {
+            console.error(`[AnchorGen] Failed to generate image for character "${char.name}":`, e instanceof Error ? e.message : e);
             const anchorId = await db.saveAnchor({
               projectId: input.projectId,
               version: script.version,
@@ -862,6 +863,7 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
             });
             results.push({ id: anchorId, type: "scene", name: scene.name, imageUrl: url, prompt: scene.anchorPrompt });
           } catch (e) {
+            console.error(`[AnchorGen] Failed to generate image for scene "${scene.name}":`, e instanceof Error ? e.message : e);
             const anchorId = await db.saveAnchor({
               projectId: input.projectId,
               version: script.version,
@@ -956,7 +958,9 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         if (totalPanels <= 6) { rows = 2; cols = 3; }
         else if (totalPanels <= 8) { rows = 2; cols = 4; }
         else if (totalPanels <= 12) { rows = 3; cols = 4; }
-        else { rows = 3; cols = 5; }
+        else if (totalPanels <= 15) { rows = 3; cols = 5; }
+        else if (totalPanels <= 20) { rows = 4; cols = 5; }
+        else { rows = 4; cols = 6; }
 
         // ========== Build ordered reference images with explicit numbering ==========
         const characters = (script.characters as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
