@@ -963,6 +963,8 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         else { rows = 4; cols = 6; }
 
         // ========== Build ordered reference images with explicit numbering ==========
+        let gridPrompt = '';
+        try {
         const characters = (script.characters as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
         const scenes = (script.scenes as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
 
@@ -1013,7 +1015,7 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         // Panel descriptions with character names highlighted
         const panelLines = frames.map(f => `Panel ${f.index} [${f.shotType}] (${f.duration}s, camera: ${f.cameraMovement}): ${f.description}`).join('\n');
 
-        const gridPrompt = input.customPrompt || `I am providing ${orderedImages.length} reference images. Here is what each image shows:
+        gridPrompt = input.customPrompt || `I am providing ${orderedImages.length} reference images. Here is what each image shows:
 
 ${imageDescriptions.join('\n')}
 
@@ -1042,7 +1044,6 @@ STYLE:
 - Cinematic lighting matching each panel's mood
 - Natural skin textures, realistic environments, atmospheric depth`;
 
-        try {
           console.log(`[GridGen] Generating grid with ${orderedImages.length} reference images`);
           const { url: gridImageUrl } = await generateImage({
             prompt: gridPrompt,
@@ -1080,8 +1081,9 @@ STYLE:
           });
 
           return { gridId, gridImageUrl, rows, cols, totalPanels };
-        } catch (e) {
-          // Even if image generation fails, save the grid structure
+        } catch (e: any) {
+          // Even if image generation or preparation fails, save the grid structure
+          console.error(`[GridGen] Grid generation failed:`, e?.message || e);
           const gridId = await db.saveGrid({
             projectId: input.projectId,
             version: script.version,

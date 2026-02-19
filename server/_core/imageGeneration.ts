@@ -155,9 +155,23 @@ function extractBase64FromContent(content: string): { b64Data: string; mimeType:
  * Convert a URL image to base64 inline_data for Gemini native format
  */
 async function urlToBase64Part(url: string, mimeType?: string): Promise<{ inline_data: { mime_type: string; data: string } }> {
+  // Handle data URLs directly (e.g., data:image/png;base64,...)
+  if (url.startsWith('data:')) {
+    const match = url.match(/^data:(image\/[a-z+]+);base64,(.+)$/i);
+    if (match) {
+      return {
+        inline_data: {
+          mime_type: mimeType || match[1],
+          data: match[2],
+        },
+      };
+    }
+    throw new Error(`Invalid data URL format`);
+  }
+
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to fetch image from ${url}: ${response.status}`);
+    throw new Error(`Failed to fetch image from ${url.substring(0, 100)}: ${response.status}`);
   }
   const buffer = await response.arrayBuffer();
   const b64 = Buffer.from(buffer).toString("base64");
