@@ -1,0 +1,70 @@
+{
+  "query": "SHOW TABLES;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SHOW TABLES;",
+  "rows": [
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "anchors"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "app_logs"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "categories_l1"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "categories_l2"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "categories_l3"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "experience_records"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "export_records"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "final_videos"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "grids"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "panels"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "projects"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "prompts"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "references_table"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "rule_chapters"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "scripts"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "system_prompts"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "user_rules"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "users"
+    },
+    {
+      "Tables_in_esBPidbdG5KLDsJkAMi9y6": "video_clips"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_esBPidbdG5KLDsJkAMi9y6\n__drizzle_migrations\nanchors\napp_logs\ncategories_l1\ncategories_l2\ncategories_l3\nexperience_records\nexport_records\nfinal_videos\ngrids\npanels\nprojects\nprompts\nreferences_table\nrule_chapters\nscripts\nsystem_prompts\nuser_rules\nusers\nvideo_clips\n",
+  "stderr": "",
+  "execution_time_ms": 1530
+}

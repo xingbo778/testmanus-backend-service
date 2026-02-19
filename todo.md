@@ -367,3 +367,16 @@
 - [x] 2. Grid点击"重新生成"按钮没有反应 — 确认弹窗逻辑正常，增加日志排查
 - [x] 3. 修复面板Dialog增加更多参考图选项：原图（未修复的）+ 其他帧作为参考图（可点击选择）
 - [x] 4. 修复面板Dialog中显示Grid生成时该panel对应的prompt（分镜描述+视频Prompt+景别标签）
+
+## Phase 19: Grid重新合成 + 修复风格一致性 (2026-02-19)
+- [ ] 1. panel.fix增强：将原始Grid图作为参考图传入，强化风格一致性prompt
+- [ ] 2. 新增grid.regenerateFromPanels路由：原始Grid+修改后panel作为参考图，prompt指定只修改某几个panel，其他保持不变
+- [ ] 3. 前端新增"重新合成Grid"按钮，自动检测哪些panel被修改过
+- [ ] 4. 修复后的panel风格与原始Grid保持一致
+
+## Phase 20: Grid重新合成按钮 + Prompt分段导出 + L3测试 (2026-02-19)
+- [ ] 1. 前端添加"重新合成Grid"按钮（自动检测已修改panel）
+- [ ] 2. 添加regenerateFromPanels mutation到前端
+- [ ] 3. Prompt分段导出：按Seedance 15s限制自动分段，每段≤15s
+- [ ] 4. 分段导出UI：显示分段信息，每段独立复制
+- [ ] 5. 用L3项目测试30s/45s分镜完整流程

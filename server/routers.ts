@@ -1114,6 +1114,176 @@ STYLE:
       .query(async ({ input }) => {
         return db.getLatestGrid(input.projectId);
       }),
+    // Regenerate Grid from modified panels: uses original grid + modified panels as reference
+    regenerateFromPanels: protectedProcedure
+      .input(z.object({
+        projectId: z.number(),
+        modifiedPanelIndices: z.array(z.number()).optional(), // auto-detect if not provided
+      }))
+      .mutation(async ({ input }) => {
+        const project = await db.getProjectById(input.projectId);
+        if (!project) throw new Error("Project not found");
+
+        const script = await db.getLatestScript(input.projectId);
+        if (!script) throw new Error("No script found");
+
+        const grid = await db.getLatestGrid(input.projectId);
+        if (!grid) throw new Error("No grid found");
+        if (!grid.gridImageUrl) throw new Error("Grid has no image");
+
+        const panelsList = await db.getPanels(input.projectId, grid.version);
+        const frames = script.frames as Array<{ index: number; shotType: string; duration: number; description: string; cameraMovement: string }>;
+
+        // Get anchors
+        let anchorsList = await db.getAnchors(input.projectId, script.version);
+        if (anchorsList.length === 0) anchorsList = await db.getAnchors(input.projectId);
+
+        // Detect which panels have been modified (status = 'fixed' or have fixHistory)
+        const modifiedIndices = input.modifiedPanelIndices || panelsList
+          .filter(p => p.status === 'fixed' || ((p.fixHistory as any[])?.length > 0))
+          .map(p => p.panelIndex);
+
+        if (modifiedIndices.length === 0) {
+          throw new Error("没有检测到已修改的面板，请先修复面板后再重新合成Grid");
+        }
+
+        const rows = grid.rows;
+        const cols = grid.cols;
+        const totalPanels = grid.totalPanels;
+
+        // ========== Build reference images ==========
+        const orderedImages: Array<{ url: string }> = [];
+        const imageDescriptions: string[] = [];
+        let imgIdx = 1;
+
+        // 1) Original Grid image - PRIMARY style reference
+        orderedImages.push({ url: grid.gridImageUrl });
+        imageDescriptions.push(`Image #${imgIdx}: ORIGINAL STORYBOARD GRID (${rows}x${cols}). This is the PRIMARY STYLE REFERENCE. The new grid MUST match this exact visual style, color grading, lighting quality, and artistic approach.`);
+        imgIdx++;
+
+        // 2) Character anchor images
+        const charAnchors = anchorsList.filter(a => a.anchorType === 'character' && a.imageUrl?.startsWith('http'));
+        for (const ca of charAnchors) {
+          orderedImages.push({ url: ca.imageUrl! });
+          imageDescriptions.push(`Image #${imgIdx}: CHARACTER "${ca.name}" reference. ${ca.prompt || ca.description || ''}`);
+          imgIdx++;
+        }
+
+        // 3) Scene anchor images
+        const sceneAnchors = anchorsList.filter(a => a.anchorType === 'scene' && a.imageUrl?.startsWith('http'));
+        for (const sa of sceneAnchors) {
+          orderedImages.push({ url: sa.imageUrl! });
+          imageDescriptions.push(`Image #${imgIdx}: SCENE "${sa.name}" reference. ${sa.prompt || sa.description || ''}`);
+          imgIdx++;
+        }
+
+        // 4) Modified panel images as content reference
+        const modifiedPanelImages: Array<{ index: number; imgNum: number }> = [];
+        for (const pi of modifiedIndices) {
+          const panel = panelsList.find(p => p.panelIndex === pi);
+          if (panel?.panelImageUrl?.startsWith('http')) {
+            orderedImages.push({ url: panel.panelImageUrl });
+            modifiedPanelImages.push({ index: pi, imgNum: imgIdx });
+            imageDescriptions.push(`Image #${imgIdx}: MODIFIED PANEL #${pi} - this is the UPDATED content for panel position ${pi}. Use this exact image content for panel ${pi} in the new grid.`);
+            imgIdx++;
+          }
+        }
+
+        // 5) Grid layout template
+        const gridTemplateDataUrl = await generateGridTemplateDataUrl({ rows, cols, totalPanels });
+        orderedImages.push({ url: gridTemplateDataUrl });
+        imageDescriptions.push(`Image #${imgIdx}: GRID LAYOUT TEMPLATE. ${rows}x${cols} uniform grid layout to follow.`);
+
+        console.log(`[GridRegen] ${orderedImages.length} ref images: 1 original grid, ${charAnchors.length} chars, ${sceneAnchors.length} scenes, ${modifiedPanelImages.length} modified panels, 1 template`);
+
+        // ========== Build prompt ==========
+        const characters = (script.characters as Array<{ name: string; description: string }>) ?? [];
+        const scenes = (script.scenes as Array<{ name: string; description: string }>) ?? [];
+        const panelLines = frames.map(f => `Panel ${f.index} [${f.shotType}] (${f.duration}s, ${f.cameraMovement}): ${f.description}`).join('\n');
+
+        const modifiedPanelRefs = modifiedPanelImages.map(mp => `- Panel #${mp.index}: Use the content from Image #${mp.imgNum} (the modified version)`).join('\n');
+        const unchangedIndices = frames.map(f => f.index).filter(i => !modifiedIndices.includes(i));
+        const unchangedList = unchangedIndices.join(', ');
+
+        const regenPrompt = `I am providing ${orderedImages.length} reference images. Here is what each image shows:
+
+${imageDescriptions.join('\n')}
+
+Your task: Regenerate the ${rows}x${cols} storyboard grid with SELECTIVE PANEL UPDATES.
+
+CRITICAL RULES:
+1. STYLE CONSISTENCY: The new grid MUST be visually IDENTICAL in style to Image #1 (the original grid). Same color grading, same lighting, same camera quality, same artistic approach.
+2. UNCHANGED PANELS (${unchangedList}): These panels must look EXACTLY the same as in the original grid (Image #1). Same composition, same characters, same everything.
+3. MODIFIED PANELS: Only these panels should be updated with new content:
+${modifiedPanelRefs}
+4. The modified panels must MATCH the style of the unchanged panels - same color temperature, same post-processing, same level of photorealism.
+5. Layout: ${rows}x${cols} uniform grid, white borders, panels numbered 1-${totalPanels} left-to-right top-to-bottom.
+6. NO text, NO titles, NO captions.
+
+CHARACTER CONSISTENCY:
+${characters.map(c => `- "${c.name}": ${c.description}`).join('\n')}
+Same face, same clothing, same proportions across ALL panels.
+
+PANEL-BY-PANEL BREAKDOWN:
+${panelLines}
+
+STYLE: Photorealistic cinematic quality matching the original grid exactly.`;
+
+        try {
+          console.log(`[GridRegen] Generating new grid with ${modifiedIndices.length} modified panels: [${modifiedIndices.join(', ')}]`);
+          const { url: newGridImageUrl } = await generateImage({
+            prompt: regenPrompt,
+            originalImages: orderedImages,
+          });
+
+          // Save as new grid version
+          const newVersion = (grid.version || 1) + 1;
+          const gridId = await db.saveGrid({
+            projectId: input.projectId,
+            version: newVersion,
+            rows,
+            cols,
+            totalPanels,
+            gridImageUrl: newGridImageUrl,
+            generationPrompt: regenPrompt,
+          });
+
+          // Copy panels to new version, keeping modified panel images
+          const newPanelData = frames.map(f => {
+            const existingPanel = panelsList.find(p => p.panelIndex === f.index);
+            return {
+              gridId,
+              projectId: input.projectId,
+              version: newVersion,
+              panelIndex: f.index,
+              shotType: f.shotType,
+              duration: String(f.duration),
+              description: existingPanel?.description || f.description,
+              cameraMovement: f.cameraMovement,
+              panelImageUrl: existingPanel?.panelImageUrl || undefined,
+              status: existingPanel?.status || 'pending',
+            };
+          });
+          await db.savePanels(newPanelData);
+
+          // Update script version
+          await db.updateProject(input.projectId, { currentVersion: newVersion });
+
+          logInfo("grid_regen", `Grid regenerated with ${modifiedIndices.length} modified panels: [${modifiedIndices.join(', ')}]`, {
+            projectId: input.projectId,
+            details: { gridId, newVersion, modifiedIndices, totalRefs: orderedImages.length },
+          });
+
+          return { gridId, gridImageUrl: newGridImageUrl, rows, cols, totalPanels, modifiedPanels: modifiedIndices, version: newVersion };
+        } catch (e) {
+          const errMsg = e instanceof Error ? e.message : String(e);
+          logError("grid_regen", `Grid regeneration failed: ${errMsg}`, {
+            projectId: input.projectId,
+            details: { modifiedIndices, error: errMsg },
+          });
+          throw new Error(`Grid重新合成失败: ${errMsg}`);
+        }
+      }),
   }),
 
   // ============================================================
@@ -1277,20 +1447,34 @@ STYLE:
         const anchorsList = await db.getAnchors(panel.projectId);
         const anchorRefImages = anchorsList
           .filter(a => a.imageUrl && a.imageUrl.startsWith("http"))
-          .map(a => ({ url: a.imageUrl! }));
+          .map(a => ({ url: a.imageUrl!, label: a.name || 'anchor' }));
+
+        // Get original Grid image as style reference
+        const grid = await db.getLatestGrid(panel.projectId);
+        const gridImageUrl = grid?.gridImageUrl;
 
         let newImageUrl: string | undefined;
         const prompt = input.modifiedDescription || panel.description || "";
 
-        // Build reference images: anchor images + original panel image + user-provided references
-        const referenceImages: Array<{ url: string; mimeType?: string }> = [...anchorRefImages];
+        // Build reference images: GRID FIRST (style ref) + anchors + original panel + user refs
+        const referenceImages: Array<{ url: string; mimeType?: string }> = [];
+        // 1) Original Grid image as primary style reference
+        if (gridImageUrl && gridImageUrl.startsWith("http")) {
+          referenceImages.push({ url: gridImageUrl });
+        }
+        // 2) Anchor images for character/scene consistency
+        for (const ar of anchorRefImages) {
+          referenceImages.push({ url: ar.url });
+        }
+        // 3) Original panel image
         if (panel.panelImageUrl && panel.panelImageUrl.startsWith("http")) {
           referenceImages.push({ url: panel.panelImageUrl });
         }
+        // 4) Single user-provided reference
         if (input.referenceImageUrl && input.referenceImageUrl.startsWith("http")) {
           referenceImages.push({ url: input.referenceImageUrl });
         }
-        // Add multiple reference images (other frames, etc.)
+        // 5) Multiple user-selected reference images (other frames, etc.)
         if (input.referenceImageUrls) {
           for (const refUrl of input.referenceImageUrls) {
             if (refUrl.startsWith("http") && !referenceImages.some(r => r.url === refUrl)) {
@@ -1298,17 +1482,36 @@ STYLE:
             }
           }
         }
-        // Add mask as reference image if provided (for inpaint mode)
+        // 6) Mask for inpaint mode
         if (input.maskDataUrl && input.fixType === "inpaint") {
           referenceImages.push({ url: input.maskDataUrl, mimeType: "image/png" });
         }
 
-        // Build enhanced prompt based on fix type
+        console.log(`[PanelFix] Panel #${panel.panelIndex}: ${referenceImages.length} ref images (grid: ${!!gridImageUrl}, anchors: ${anchorRefImages.length}, userRefs: ${(input.referenceImageUrls?.length || 0)})`);
+
+        // Build anchor description for prompt
+        const anchorDesc = anchorRefImages.map(a => a.label).join(', ');
+
+        // Build enhanced prompt based on fix type - with strong style consistency emphasis
         let enhancedPrompt: string;
         if (input.fixType === "inpaint" && input.maskDataUrl) {
-          enhancedPrompt = `Edit this storyboard panel image. The white areas in the mask image indicate the regions that need to be modified. Fix those regions according to this description: ${prompt}\n\nIMPORTANT: Keep all non-masked areas exactly the same. Maintain character consistency and art style. The original panel image and mask image are provided as reference.`;
+          enhancedPrompt = `Edit this storyboard panel image. The white areas in the mask image indicate the regions that need to be modified. Fix those regions according to this description: ${prompt}
+
+CRITICAL STYLE REQUIREMENTS:
+- The FIRST reference image is the ORIGINAL STORYBOARD GRID - you MUST match its exact visual style, color grading, lighting, and artistic quality
+- Maintain IDENTICAL art style: same color palette, same lighting mood, same level of photorealism
+- Character reference images (${anchorDesc}) show the exact appearance of characters - match them precisely
+- Keep all non-masked areas exactly the same
+- The result must look like it belongs in the same storyboard as the grid image`;
         } else {
-          enhancedPrompt = `Regenerate this storyboard panel with the following description: ${prompt}\n\nIMPORTANT: Maintain character consistency with the reference images provided. Keep the same art style and visual quality as the original storyboard.`;
+          enhancedPrompt = `Regenerate this storyboard panel with the following description: ${prompt}
+
+CRITICAL STYLE REQUIREMENTS:
+- The FIRST reference image is the ORIGINAL STORYBOARD GRID - you MUST match its exact visual style, color grading, lighting, and artistic quality
+- Your output must look like it was generated as part of that same grid - same camera quality, same color temperature, same post-processing
+- Character reference images (${anchorDesc}) show the exact appearance of characters - match their face, hair, clothing, body proportions precisely
+- Maintain the same photorealistic cinematic quality (ARRI Alexa / RED camera look)
+- The result must be visually indistinguishable in style from the other panels in the grid`;
         }
 
         try {

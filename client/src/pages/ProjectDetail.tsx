@@ -81,6 +81,14 @@ export default function ProjectDetail() {
     onError: (err: any) => toast.error(`Grid生成失败: ${err.message}`),
   });
 
+  const regenerateGridFromPanels = trpc.grid.regenerateFromPanels.useMutation({
+    onSuccess: (result: any) => { toast.success(`Grid重新合成成功！已更新 ${result.modifiedPanels?.length || 0} 个面板`); refetch(); versionHistory.refetch(); },
+    onError: (err: any) => toast.error(`Grid重新合成失败: ${err.message}`),
+  });
+
+  // Segmented export dialog
+  const [segmentedExportDialog, setSegmentedExportDialog] = useState<{ segments: Array<{ index: number; startPanel: number; endPanel: number; totalDuration: number; panels: any[]; text: string }>; strategy: string } | null>(null);
+
   const generatePrompts = trpc.prompt.generate.useMutation({
     onSuccess: () => { toast.success("Prompt生成成功"); refetch(); versionHistory.refetch(); },
     onError: (err: any) => toast.error(`Prompt生成失败: ${err.message}`),
@@ -808,6 +816,22 @@ export default function ProjectDetail() {
                     提取面板
                   </Button>
                 )}
+                {grid && panels && (() => {
+                  const modifiedPanels = panels.filter((p: any) => p.status === 'fixed' || ((p.fixHistory as any[])?.length > 0));
+                  if (modifiedPanels.length === 0) return null;
+                  return (
+                    <Button size="sm" variant="secondary"
+                      onClick={() => setConfirmRegenDialog({
+                        step: `Grid（基于 ${modifiedPanels.length} 个已修改面板重新合成）`,
+                        action: () => regenerateGridFromPanels.mutate({ projectId }),
+                      })}
+                      disabled={regenerateGridFromPanels.isPending}
+                    >
+                      {regenerateGridFromPanels.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                      重新合成Grid ({modifiedPanels.length}个已修改)
+                    </Button>
+                  );
+                })()}
                 <Button size="sm"
                   onClick={() => setConfirmRegenDialog({ step: "Grid", action: () => generateGrid.mutate({ projectId }) })}
                   disabled={generateGrid.isPending || !script}
@@ -1054,6 +1078,7 @@ export default function ProjectDetail() {
                     const exportData = prompts.map((p: any, idx: number) => {
                       const matchingPanel = panels.find((pan: any) => pan.id === p.panelId);
                       const displayIndex = matchingPanel?.panelIndex ?? (idx + 1);
+                      const matchingFrame = scriptFrames.find((f: any) => f.index === displayIndex);
                       return {
                         panelIndex: displayIndex,
                         promptText: p.promptText || "",
@@ -1067,80 +1092,122 @@ export default function ProjectDetail() {
                         texture: p.texture || "",
                         effects: p.effects || "",
                         transition: p.transition || "",
+                        duration: matchingPanel?.duration || matchingFrame?.duration || 2,
                       };
-                    });
+                    }).sort((a: any, b: any) => a.panelIndex - b.panelIndex);
                     const anchorRefs = anchors?.filter((a: any) => a.imageUrl).map((a: any, i: number) => `@图片${i + 2}(${a.name})`).join("、") || "";
                     const gridRef = `@图片1`;
                     const gridSize = `${grid?.rows || 2}×${grid?.cols || 3}`;
-                    let text = "";
-                    if (strategy === "s1") {
-                      // 策略1：极简意图（让模型自由发挥）
-                      text = `参考${gridRef}的${gridSize}宫格分镜图，制作成连续的视频，注意分镜编排。`;
-                      if (anchorRefs) text += `\n角色参考：${anchorRefs}。`;
-                    } else if (strategy === "s2") {
-                      // 策略2：官方R2V格式
-                      text = `参考${gridRef}的分镜脚本，借鉴其中的分镜、景别、运镜、画面和文案。`;
-                      if (anchorRefs) text += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
-                      text += `\n制作${exportData.length * 2}秒短片。`;
-                    } else if (strategy === "s3") {
-                      // 策略3：动作驱动（图管画面，词管动作）
-                      text = `参考${gridRef}的${gridSize}宫格分镜图，按从左到右、从上到下的顺序，依次还原每个分镜的画面内容。`;
-                      if (anchorRefs) text += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
-                      text += `\n分镜详情：`;
-                      exportData.forEach((d: any) => {
-                        const actionDesc = d.action || d.promptText.slice(0, 60);
-                        const cam = d.cameraMovement && d.cameraMovement !== "固定" ? `，${d.cameraMovement}` : "";
-                        text += `\n镜头${d.panelIndex}：${actionDesc}${cam}`;
+                    const totalDuration = exportData.reduce((sum: number, d: any) => sum + (parseFloat(d.duration) || 2), 0);
+
+                    // Helper: build prompt text for a subset of panels
+                    const buildPromptForPanels = (panelData: any[], segIdx?: number, totalSegs?: number) => {
+                      let text = "";
+                      const segLabel = totalSegs && totalSegs > 1 ? `（第${segIdx}/${totalSegs}段）` : "";
+                      if (strategy === "s1") {
+                        text = `参考${gridRef}的${gridSize}宫格分镜图${segLabel}，制作成连续的视频，注意分镜编排。`;
+                        if (totalSegs && totalSegs > 1) text += `\n本段包含镜头${panelData[0].panelIndex}-${panelData[panelData.length-1].panelIndex}。`;
+                        if (anchorRefs) text += `\n角色参考：${anchorRefs}。`;
+                      } else if (strategy === "s2") {
+                        text = `参考${gridRef}的分镜脚本${segLabel}，借鉴其中的分镜、景别、运镜、画面和文案。`;
+                        if (anchorRefs) text += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
+                        const segDuration = panelData.reduce((s: number, d: any) => s + (parseFloat(d.duration) || 2), 0);
+                        text += `\n制作${segDuration}秒短片。`;
+                        if (totalSegs && totalSegs > 1) text += `镜头范围：${panelData[0].panelIndex}-${panelData[panelData.length-1].panelIndex}。`;
+                      } else if (strategy === "s3") {
+                        text = `参考${gridRef}的${gridSize}宫格分镜图${segLabel}，按从左到右、从上到下的顺序，依次还原每个分镜的画面内容。`;
+                        if (anchorRefs) text += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
+                        text += `\n分镜详情：`;
+                        panelData.forEach((d: any) => {
+                          const actionDesc = d.action || d.promptText.slice(0, 60);
+                          const cam = d.cameraMovement && d.cameraMovement !== "固定" ? `，${d.cameraMovement}` : "";
+                          text += `\n镜头${d.panelIndex}：${actionDesc}${cam}`;
+                        });
+                      } else if (strategy === "s4") {
+                        text = `参考${gridRef}的${gridSize}宫格分镜图${segLabel}，按从左到右、从上到下的顺序，依次还原每个分镜的画面内容。`;
+                        if (anchorRefs) text += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
+                        text += `\n分镜详情：`;
+                        panelData.forEach((d: any) => {
+                          const parts = [
+                            d.subject || "",
+                            d.action || "",
+                            [d.shotType, d.cameraMovement, d.cameraAngle].filter(Boolean).join(", "),
+                            d.lighting || "",
+                            d.texture || d.effects || "",
+                          ].filter(Boolean);
+                          text += `\n镜头${d.panelIndex}：${parts.join("。")}`;
+                        });
+                        text += `\nCinematic, 4K, realistic lighting.`;
+                      } else if (strategy === "s5") {
+                        text = `参考${gridRef}的${gridSize}宫格分镜图${segLabel}，按从左到右、从上到下的顺序，依次还原每个分镜的画面内容。`;
+                        if (anchorRefs) text += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
+                        text += `\n分镜详情：`;
+                        panelData.forEach((d: any) => {
+                          const shotTag = [d.shotType, d.cameraAngle].filter(Boolean).join(", ");
+                          const camTag = d.cameraMovement || "";
+                          text += `\n镜头${d.panelIndex}：${shotTag ? shotTag + ", " : ""}${d.promptText}${camTag ? `（${camTag}）` : ""}`;
+                        });
+                        text += `\nHigh contrast, cinematic texture, smooth and seamless transitions, vivid characters.`;
+                      } else if (strategy === "s6") {
+                        text = `参考${gridRef}的${gridSize}宫格分镜图${segLabel}。`;
+                        if (anchorRefs) text += `角色参考：${anchorRefs}。`;
+                        const narrative = panelData.map((d: any) => {
+                          return d.action || d.promptText.split("。")[0];
+                        }).join("；");
+                        text += `\n${narrative}。`;
+                        text += `\n高对比度，电影质感，丝滑转场。`;
+                      }
+                      return text;
+                    };
+
+                    // Check if we need segmentation (total > 15s)
+                    if (totalDuration <= 15) {
+                      // Single segment - copy directly
+                      const text = buildPromptForPanels(exportData);
+                      navigator.clipboard.writeText(text).then(() => {
+                        toast.success(`已复制「${["极简意图","官方R2V","动作驱动","五要素结构","完整分镜","叙事连贯"][parseInt(strategy.slice(1))-1]}」策略到剪贴板 (${totalDuration}s)`);
+                      }).catch(() => {
+                        const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+                        toast.success(`已复制到剪贴板`);
                       });
-                    } else if (strategy === "s4") {
-                      // 策略4：五要素结构（Subject→Action→Camera→Style→Constraints）
-                      text = `参考${gridRef}的${gridSize}宫格分镜图，按从左到右、从上到下的顺序，依次还原每个分镜的画面内容。`;
-                      if (anchorRefs) text += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
-                      text += `\n分镜详情：`;
-                      exportData.forEach((d: any) => {
-                        const parts = [
-                          d.subject || "",
-                          d.action || "",
-                          [d.shotType, d.cameraMovement, d.cameraAngle].filter(Boolean).join(", "),
-                          d.lighting || "",
-                          d.texture || d.effects || "",
-                        ].filter(Boolean);
-                        text += `\n镜头${d.panelIndex}：${parts.join("。")}`;
-                      });
-                      text += `\nCinematic, 4K, realistic lighting.`;
-                    } else if (strategy === "s5") {
-                      // 策略5：完整分镜描述（用户参考格式）
-                      text = `参考${gridRef}的${gridSize}宫格分镜图，按从左到右、从上到下的顺序，依次还原每个分镜的画面内容。`;
-                      if (anchorRefs) text += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
-                      text += `\n分镜详情：`;
-                      exportData.forEach((d: any) => {
-                        const shotTag = [d.shotType, d.cameraAngle].filter(Boolean).join(", ");
-                        const camTag = d.cameraMovement || "";
-                        text += `\n镜头${d.panelIndex}：${shotTag ? shotTag + ", " : ""}${d.promptText}${camTag ? `（${camTag}）` : ""}`;
-                      });
-                      text += `\nHigh contrast, cinematic texture, smooth and seamless transitions, vivid characters.`;
-                    } else if (strategy === "s6") {
-                      // 策略6：叙事连贯体（自然语言讲故事）
-                      text = `参考${gridRef}的${gridSize}宫格分镜图。`;
-                      if (anchorRefs) text += `角色参考：${anchorRefs}。`;
-                      const narrative = exportData.map((d: any) => {
-                        return d.action || d.promptText.split("。")[0];
-                      }).join("；");
-                      text += `\n${narrative}。`;
-                      text += `\n高对比度，电影质感，丝滑转场。`;
+                    } else {
+                      // Split into segments of <=15s each
+                      const segments: Array<{ index: number; startPanel: number; endPanel: number; totalDuration: number; panels: any[]; text: string }> = [];
+                      let currentSegment: any[] = [];
+                      let currentDuration = 0;
+                      let segIdx = 1;
+
+                      // First pass: group panels into segments
+                      const tempSegments: any[][] = [];
+                      for (const d of exportData) {
+                        const dur = parseFloat(d.duration) || 2;
+                        if (currentDuration + dur > 15 && currentSegment.length > 0) {
+                          tempSegments.push([...currentSegment]);
+                          currentSegment = [d];
+                          currentDuration = dur;
+                        } else {
+                          currentSegment.push(d);
+                          currentDuration += dur;
+                        }
+                      }
+                      if (currentSegment.length > 0) tempSegments.push(currentSegment);
+
+                      const totalSegs = tempSegments.length;
+                      for (const seg of tempSegments) {
+                        const segDur = seg.reduce((s: number, d: any) => s + (parseFloat(d.duration) || 2), 0);
+                        segments.push({
+                          index: segIdx,
+                          startPanel: seg[0].panelIndex,
+                          endPanel: seg[seg.length - 1].panelIndex,
+                          totalDuration: segDur,
+                          panels: seg,
+                          text: buildPromptForPanels(seg, segIdx, totalSegs),
+                        });
+                        segIdx++;
+                      }
+
+                      setSegmentedExportDialog({ segments, strategy: ["极简意图","官方R2V","动作驱动","五要素结构","完整分镜","叙事连贯"][parseInt(strategy.slice(1))-1] });
                     }
-                    navigator.clipboard.writeText(text).then(() => {
-                      toast.success(`已复制「${["极简意图","官方R2V","动作驱动","五要素结构","完整分镜","叙事连贯"][parseInt(strategy.slice(1))-1]}」策略到剪贴板`);
-                    }).catch(() => {
-                      // Fallback
-                      const ta = document.createElement("textarea");
-                      ta.value = text;
-                      document.body.appendChild(ta);
-                      ta.select();
-                      document.execCommand("copy");
-                      document.body.removeChild(ta);
-                      toast.success(`已复制到剪贴板`);
-                    });
                   }}>
                     <SelectTrigger className="w-[160px] h-8 text-xs">
                       <div className="flex items-center gap-1">
@@ -1845,6 +1912,64 @@ export default function ProjectDetail() {
               {regenerateOneAnchor.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               重新生成
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================== Segmented Export Dialog ==================== */}
+      <Dialog open={!!segmentedExportDialog} onOpenChange={(open) => !open && setSegmentedExportDialog(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>分段导出 Seedance Prompt</DialogTitle>
+            <DialogDescription>
+              总时长超过15s，Seedance最多支持15s，已自动分成 {segmentedExportDialog?.segments.length} 段。
+              策略：{segmentedExportDialog?.strategy}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {segmentedExportDialog?.segments.map((seg) => (
+              <div key={seg.index} className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="default" className="text-sm">第 {seg.index} 段</Badge>
+                    <span className="text-sm text-muted-foreground">
+                      镜头 {seg.startPanel}-{seg.endPanel} · {seg.panels.length}个镜头 · {seg.totalDuration}s
+                    </span>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    navigator.clipboard.writeText(seg.text).then(() => {
+                      toast.success(`已复制第 ${seg.index} 段 Prompt (${seg.totalDuration}s)`);
+                    }).catch(() => {
+                      const ta = document.createElement("textarea"); ta.value = seg.text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+                      toast.success(`已复制第 ${seg.index} 段`);
+                    });
+                  }}>
+                    <Sparkles className="h-3.5 w-3.5 mr-1" />
+                    复制本段
+                  </Button>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-3 text-xs font-mono whitespace-pre-wrap max-h-[200px] overflow-y-auto">
+                  {seg.text}
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {seg.panels.map((p: any) => (
+                    <Badge key={p.panelIndex} variant="outline" className="text-[10px]">
+                      #{p.panelIndex} [{p.shotType}] {p.duration}s
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => {
+              if (!segmentedExportDialog) return;
+              const allText = segmentedExportDialog.segments.map(s => `=== 第 ${s.index} 段 (镜头${s.startPanel}-${s.endPanel}, ${s.totalDuration}s) ===\n${s.text}`).join('\n\n');
+              navigator.clipboard.writeText(allText).then(() => toast.success("已复制所有段")).catch(() => toast.error("复制失败"));
+            }}>
+              复制所有段
+            </Button>
+            <Button onClick={() => setSegmentedExportDialog(null)}>关闭</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
