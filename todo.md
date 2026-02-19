@@ -350,3 +350,9 @@
 - [x] 分析Prompt数据结构和前端页面
 - [x] 前端添加"导出Prompt"下拉菜单（JSON/CSV/TXT）
 - [x] 42个测试全部通过
+
+## Seedance 2.0 格式导出 + 一键下载
+- [x] 搜索Seedance 2.0基于N宫格生成视频的prompt写法（@引用语法+分镜图模板）
+- [x] 导出Prompt时新增“Seedance格式”选项
+- [x] 一键下载N宫格图+Anchor+面板图（JSZip打包ZIP）
+- [x] 42个测试全部通过

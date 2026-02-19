@@ -716,6 +716,82 @@ export default function ProjectDetail() {
                     <span className="text-xs">查看Prompt</span>
                   </Button>
                 )}
+                {/* 一键下载 Grid + Anchor */}
+                {(grid?.gridImageUrl || (anchors && anchors.some((a: any) => a.imageUrl))) && (
+                  <Button size="sm" variant="outline"
+                    onClick={async () => {
+                      try {
+                        toast.info("正在打包下载...");
+                        // Collect all image URLs
+                        const files: { name: string; url: string }[] = [];
+                        if (grid?.gridImageUrl) {
+                          files.push({ name: `grid_${grid.rows}x${grid.cols}.png`, url: grid.gridImageUrl });
+                        }
+                        if (anchors) {
+                          anchors.filter((a: any) => a.imageUrl).forEach((a: any) => {
+                            const safeName = (a.name || "anchor").replace(/[^a-zA-Z0-9\u4e00-\u9fff_-]/g, "_");
+                            files.push({ name: `anchor_${safeName}.png`, url: a.imageUrl });
+                          });
+                        }
+                        // Also include extracted panel images
+                        if (panels) {
+                          panels.filter((p: any) => p.panelImageUrl).forEach((p: any) => {
+                            files.push({ name: `panel_${p.panelIndex}.png`, url: p.panelImageUrl });
+                          });
+                        }
+                        if (files.length === 0) { toast.error("没有可下载的图片"); return; }
+                        // If only one file, download directly
+                        if (files.length === 1) {
+                          const a = document.createElement("a");
+                          a.href = files[0].url;
+                          a.download = files[0].name;
+                          a.target = "_blank";
+                          a.click();
+                          toast.success("下载已开始");
+                          return;
+                        }
+                        // Multiple files: use JSZip if available, otherwise download individually
+                        try {
+                          const JSZip = (await import("jszip")).default;
+                          const zip = new JSZip();
+                          const folder = zip.folder(`${project.title}_assets`) || zip;
+                          await Promise.all(files.map(async (f) => {
+                            try {
+                              const resp = await fetch(f.url);
+                              const blob = await resp.blob();
+                              folder.file(f.name, blob);
+                            } catch { /* skip failed downloads */ }
+                          }));
+                          const zipBlob = await zip.generateAsync({ type: "blob" });
+                          const url = URL.createObjectURL(zipBlob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `${project.title}_grid_anchors_${new Date().toISOString().slice(0,10)}.zip`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                          toast.success(`已打包 ${files.length} 个文件`);
+                        } catch {
+                          // Fallback: download files individually
+                          files.forEach((f, i) => {
+                            setTimeout(() => {
+                              const a = document.createElement("a");
+                              a.href = f.url;
+                              a.download = f.name;
+                              a.target = "_blank";
+                              a.click();
+                            }, i * 500);
+                          });
+                          toast.success(`正在逐个下载 ${files.length} 个文件`);
+                        }
+                      } catch (err: any) {
+                        toast.error(`下载失败: ${err.message}`);
+                      }
+                    }}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    下载素材
+                  </Button>
+                )}
                 {grid && panels && panels.length > 0 && (
                   <Button size="sm" variant="outline"
                     onClick={() => extractPanelsMut.mutate({ projectId })}
@@ -948,6 +1024,50 @@ export default function ProjectDetail() {
                       }).join("\n\n");
                       filename = `prompts_${project.title}_${new Date().toISOString().slice(0,10)}.txt`;
                       mimeType = "text/plain";
+                    } else if (format === "seedance") {
+                      // Seedance 2.0 格式：@引用语法 + 连贯分镜prompt
+                      const lines: string[] = [];
+                      lines.push(`# Seedance 2.0 视频生成 Prompt`);
+                      lines.push(`# 项目: ${project.title}`);
+                      lines.push(`# 生成时间: ${new Date().toLocaleString("zh-CN")}`);
+                      lines.push(``);
+                      lines.push(`## 素材说明`);
+                      lines.push(`@图片1 = N宫格分镜图 (Grid)${grid?.gridImageUrl ? ` [${grid.gridImageUrl}]` : ""}`);
+                      if (anchors && anchors.length > 0) {
+                        anchors.filter((a: any) => a.imageUrl).forEach((a: any, i: number) => {
+                          lines.push(`@图片${i + 2} = ${a.name} (Anchor)${a.imageUrl ? ` [${a.imageUrl}]` : ""}`);
+                        });
+                      }
+                      lines.push(``);
+                      lines.push(`## Seedance Prompt（可直接复制到即梦/Seedance使用）`);
+                      lines.push(`---`);
+                      // 生成连贯的Seedance prompt
+                      const anchorRefs = anchors?.filter((a: any) => a.imageUrl).map((a: any, i: number) => `@图片${i + 2}(${a.name})`).join("、") || "";
+                      let seedPrompt = `参考@图片1的${grid?.rows || 2}×${grid?.cols || 3}宫格分镜图，按从左到右、从上到下的顺序，依次还原每个分镜的画面内容。`;
+                      if (anchorRefs) seedPrompt += `\n角色参考：${anchorRefs}，保持角色外观、服装、场景的一致性。`;
+                      seedPrompt += `\n\n分镜详情：`;
+                      exportData.forEach((d: any) => {
+                        const shotInfo = [d.shotType, d.cameraMovement].filter(Boolean).join("，");
+                        seedPrompt += `\n镜头${d.panelIndex}：${d.promptText}${shotInfo ? `（${shotInfo}）` : ""}`;
+                      });
+                      seedPrompt += `\n\n每个镜头之间丝滑衔接，保持画面风格统一。`;
+                      seedPrompt += `\n整体风格：电影级画质，高清细腻。时长${exportData.length * 2}秒。`;
+                      lines.push(seedPrompt);
+                      lines.push(`---`);
+                      lines.push(``);
+                      lines.push(`## 各镜头独立Prompt（用于逐镜头生成）`);
+                      exportData.forEach((d: any) => {
+                        lines.push(``);
+                        lines.push(`### 镜头 ${d.panelIndex}`);
+                        lines.push(`- Prompt: ${d.promptText}`);
+                        if (d.negativePrompt) lines.push(`- Negative: ${d.negativePrompt}`);
+                        const meta = [d.shotType && `景别: ${d.shotType}`, d.cameraAngle && `角度: ${d.cameraAngle}`, d.cameraMovement && `运镜: ${d.cameraMovement}`, d.lighting && `光线: ${d.lighting}`, d.transition && `转场: ${d.transition}`].filter(Boolean);
+                        if (meta.length) lines.push(`- ${meta.join(" | ")}`);
+                        if (d.firstFrameUrl) lines.push(`- 首帧参考: ${d.firstFrameUrl}`);
+                      });
+                      content = lines.join("\n");
+                      filename = `seedance_prompt_${project.title}_${new Date().toISOString().slice(0,10)}.md`;
+                      mimeType = "text/markdown";
                     }
                     const blob = new Blob([content], { type: mimeType });
                     const url = URL.createObjectURL(blob);
@@ -965,6 +1085,7 @@ export default function ProjectDetail() {
                       </div>
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="seedance">导出 Seedance 格式</SelectItem>
                       <SelectItem value="json">导出 JSON</SelectItem>
                       <SelectItem value="csv">导出 CSV</SelectItem>
                       <SelectItem value="txt">导出 TXT</SelectItem>
