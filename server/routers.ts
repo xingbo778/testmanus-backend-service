@@ -9,6 +9,7 @@ import { RULE_CHAPTERS_SEED } from "./seed-rules";
 import { invokeLLM } from "./_core/llm";
 import { generateImage } from "./_core/imageGeneration";
 import { storagePut } from "./storage";
+import { uploadFile } from "./uploadHelper";
 import { generateGridTemplateDataUrl } from "./gridTemplate";
 import { DEFAULT_SYSTEM_PROMPTS } from "./seed-prompts";
 import { logInfo, logError, logWarn } from "./appLogger";
@@ -1135,8 +1136,13 @@ STYLE:
           });
 
           for (const { panelIndex, buffer } of extracted) {
-            const key = `projects/${input.projectId}/panels/panel-${panelIndex}-${Date.now()}.png`;
-            const { url } = await storagePut(key, buffer, "image/png");
+            const fileName = `panel-${panelIndex}-${Date.now()}.png`;
+            const url = await uploadFile({
+              buffer,
+              mimeType: "image/png",
+              fileName,
+              s3Key: `projects/${input.projectId}/panels/${fileName}`,
+            });
 
             // Update panel record
             const panel = panelsList.find(p => p.panelIndex === panelIndex);
@@ -1181,8 +1187,13 @@ STYLE:
           panelIndex: panel.panelIndex,
         });
 
-        const key = `projects/${panel.projectId}/panels/panel-${panel.panelIndex}-${Date.now()}.png`;
-        const { url } = await storagePut(key, buffer, "image/png");
+        const fileName = `panel-${panel.panelIndex}-${Date.now()}.png`;
+        const url = await uploadFile({
+          buffer,
+          mimeType: "image/png",
+          fileName,
+          s3Key: `projects/${panel.projectId}/panels/${fileName}`,
+        });
         await db.updatePanel(panel.id, { panelImageUrl: url });
 
         return { panelIndex: panel.panelIndex, imageUrl: url };

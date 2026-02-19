@@ -8,6 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { storagePut } from "./storage";
+import { uploadFile } from "./uploadHelper";
 import { logInfo, logError } from "./appLogger";
 
 const execAsync = promisify(exec);
@@ -142,10 +143,19 @@ export async function mergeVideoClips(
       { timeout: 300000 }
     );
 
-    // Step 5: Upload to S3
+    // Step 5: Upload merged video
     const mergedBuffer = fs.readFileSync(mergedPath);
-    const key = `projects/${projectId}/videos/final-${Date.now()}.mp4`;
-    const { url } = await storagePut(key, mergedBuffer, "video/mp4");
+    const fileName = `final-${Date.now()}.mp4`;
+    let url: string;
+    try {
+      // Try S3 first (for Manus env)
+      const result = await storagePut(`projects/${projectId}/videos/${fileName}`, mergedBuffer, "video/mp4");
+      url = result.url;
+    } catch {
+      // Fallback: upload as data URL (video can be large, but it's a fallback)
+      const b64 = mergedBuffer.toString("base64");
+      url = `data:video/mp4;base64,${b64}`;
+    }
 
     await logInfo("video_gen", `Video merge completed: ${totalDuration.toFixed(1)}s total`, {
       projectId,

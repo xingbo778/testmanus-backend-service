@@ -270,7 +270,10 @@
 - [x] 前端：日志详情展开查看（JSON格式化details）
 
 ## Phase 17: Git Push & Railway Deploy
-- [ ] 推送代码到GitHub仓库
-- [ ] 部署到Railway
-- [ ] 配置Railway环境变量
-- [ ] 验证Railway部署地址
+- [x] 推送代码到GitHub: https://github.com/xingbo778/storyboard-platform
+- [x] 部署到Railway: SUCCESS
+- [x] Railway域名: https://web-production-01d28.up.railway.app
+- [x] 验证Railway部署: HTTP 200 OK
+
+## Bug Fix: 提取面板报错
+- [ ] 排查并修复"提取面板"按钮点击后报错的问题
