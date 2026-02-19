@@ -133,7 +133,7 @@ export default function ProjectDetail() {
   // Video mutations
   const videoClips = trpc.video.clips.useQuery({ projectId }, { enabled: !!projectId });
   const finalVideos = trpc.video.finalVideos.useQuery({ projectId }, { enabled: !!projectId });
-  const [videoModel, setVideoModel] = useState("veo3.1-fast");
+  const [videoModel, setVideoModel] = useState("doubao-seedance-1-5-pro-251215");
   const [isPolling, setIsPolling] = useState(false);
   const [showFailedClips, setShowFailedClips] = useState(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -964,9 +964,11 @@ export default function ProjectDetail() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="doubao-seedance-1-5-pro-251215">Seedance 1.5 Pro</SelectItem>
                       <SelectItem value="veo3.1-fast">VEO 3.1 Fast</SelectItem>
-                       <SelectItem value="seedance-1.5-pro">Seedance 1.5 Pro</SelectItem>
-                       <SelectItem value="kling-v2-6">Kling v2.6</SelectItem>
+                      <SelectItem value="veo3.1">VEO 3.1</SelectItem>
+                      <SelectItem value="veo3-fast">VEO 3.0 Fast</SelectItem>
+                      <SelectItem value="veo3">VEO 3.0</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button

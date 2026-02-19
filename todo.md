@@ -330,7 +330,18 @@
 - [x] videoUrl在completed状态下为NONE（实际上clipUrl有值，是查询方式问题）
 
 ## 分镜面板提取改进（截取→AI重绘）
-- [ ] 分析当前截取方式的边框问题
-- [ ] 研究nano banana pro模型能力和slides模式的图像生成API
-- [ ] 用AI图像生成替代简单截取，避免截到边框
-- [ ] 测试新的面板提取效果
+- [x] 分析当前截取方式的边框问题
+- [x] 研究nano banana pro模型能力（Gemini 3 Pro Image Preview）
+- [x] 用AI图像生成替代简单截取，避免截到边框
+- [x] panelExtractor.ts支持crop和ai两种模式，默认ai模式
+
+## Seedance 1.5 Pro API调用修复
+- [x] 模型名称错误：应为 doubao-seedance-1-5-pro-251215（不是 seedance-1.5-pro）
+- [x] API端点错误：应为 /volc/v1/contents/generations/tasks（不是 /v1/video/create）
+- [x] 请求体格式不同：content数组+ratio+duration+watermark（不是prompt+images+aspect_ratio）
+- [x] 查询端点不同：GET /volc/v1/contents/generations/tasks/{id}（不是 /v1/video/query?id=）
+- [x] 状态值不同：succeeded/failed（不是 completed/failed）
+- [x] 测试图生视频模式的参数格式（first_frame_image字段）
+- [x] 更新videoGenerator.ts支持两种API格式（Volc+VEO自动路由）
+- [x] 前端模型选择更新（默认Seedance 1.5 Pro）
+- [x] pollClipStatus支持Volc查询端点（根据taskId前缀cgt-自动路由）

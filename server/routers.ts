@@ -1874,7 +1874,7 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
     generateClips: protectedProcedure
       .input(z.object({
         projectId: z.number(),
-        model: z.string().default("veo3.1-fast"),
+        model: z.string().default("doubao-seedance-1-5-pro-251215"),
       }))
       .mutation(async ({ input }) => {
         // Get latest grid version to filter panels and prompts
@@ -1962,27 +1962,59 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
             return;
           }
 
+          // Detect API family: Volc (Seedance) vs VEO
+          const isVolc = input.model.startsWith("doubao-") || input.model.includes("seedance");
+
           for (const c of clipIds) {
             try {
-              const payload: any = {
-                model: input.model,
-                prompt: c.prompt,
-                enhance_prompt: true,
-                enable_upsample: true,
-                aspect_ratio: "16:9",
-              };
-              if (c.keyframeUrl) {
-                payload.images = [c.keyframeUrl];
-              }
+              let resp: Response;
 
-              const resp = await fetch(`${yunwuUrl}/v1/video/create`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${yunwuKey}`,
-                },
-                body: JSON.stringify(payload),
-              });
+              if (isVolc) {
+                // ── Volc API (Seedance) ──
+                const volcPayload: any = {
+                  model: input.model,
+                  content: [
+                    { type: "text", text: c.prompt },
+                  ],
+                  ratio: "16:9",
+                  duration: 4,
+                  watermark: false,
+                };
+                if (c.keyframeUrl) {
+                  volcPayload.first_frame_image = c.keyframeUrl;
+                }
+
+                resp = await fetch(`${yunwuUrl}/volc/v1/contents/generations/tasks`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": `Bearer ${yunwuKey}`,
+                  },
+                  body: JSON.stringify(volcPayload),
+                });
+              } else {
+                // ── VEO API ──
+                const veoPayload: any = {
+                  model: input.model,
+                  prompt: c.prompt,
+                  enhance_prompt: true,
+                  enable_upsample: true,
+                  aspect_ratio: "16:9",
+                };
+                if (c.keyframeUrl) {
+                  veoPayload.images = [c.keyframeUrl];
+                }
+
+                resp = await fetch(`${yunwuUrl}/v1/video/create`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${yunwuKey}`,
+                  },
+                  body: JSON.stringify(veoPayload),
+                });
+              }
 
               if (!resp.ok) {
                 const text = await resp.text();
@@ -1996,7 +2028,7 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
                 logInfo("video_gen", `Video clip submitted: panel #${c.panelIndex}, task ${data.id}`, {
                   projectId: input.projectId,
                   panelIndex: c.panelIndex,
-                  details: { model: input.model, taskId: data.id },
+                  details: { model: input.model, taskId: data.id, apiFamily: isVolc ? "volc" : "veo" },
                 });
               } else {
                 const rawErr = data.message || data.error || data;
@@ -2054,20 +2086,41 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
         for (const clip of pendingClips) {
           if (!clip.taskId) continue;
           try {
-            const resp = await fetch(`${yunwuUrl}/v1/video/query?id=${encodeURIComponent(clip.taskId)}`, {
-              headers: { "Authorization": `Bearer ${yunwuKey}` },
-            });
+            // Auto-detect API family from task ID format
+            const isVolcTask = clip.taskId.startsWith("cgt-");
+            let resp: Response;
+
+            if (isVolcTask) {
+              // Volc API query
+              resp = await fetch(`${yunwuUrl}/volc/v1/contents/generations/tasks/${encodeURIComponent(clip.taskId)}`, {
+                headers: { "Authorization": `Bearer ${yunwuKey}`, "Accept": "application/json" },
+              });
+            } else {
+              // VEO API query
+              resp = await fetch(`${yunwuUrl}/v1/video/query?id=${encodeURIComponent(clip.taskId)}`, {
+                headers: { "Authorization": `Bearer ${yunwuKey}` },
+              });
+            }
             const data = await resp.json();
 
-            if (data.status === "completed") {
-              const videoUrl = data.video_url || data.url;
+            // Normalize status: Volc uses "succeeded", VEO uses "completed"
+            const rawStatus = (data.status || "").toLowerCase();
+            const isCompleted = rawStatus === "completed" || rawStatus === "succeeded";
+            const isFailed = rawStatus === "failed" || rawStatus === "error";
+
+            if (isCompleted) {
+              // Extract video URL: Volc nests under content.video_url, VEO uses video_url directly
+              let videoUrl = data.video_url || data.url;
+              if (!videoUrl && data.content && typeof data.content === "object") {
+                videoUrl = data.content.video_url;
+              }
               await db.updateVideoClip(clip.id, { status: "completed", clipUrl: videoUrl });
               updates.push({ clipId: clip.id, panelIndex: clip.panelIndex, status: "completed", clipUrl: videoUrl });
               logInfo("video_gen", `Video clip completed: panel #${clip.panelIndex}`, {
                 projectId: input.projectId,
                 panelIndex: clip.panelIndex,
               });
-            } else if (data.status === "failed") {
+            } else if (isFailed) {
               const rawErr = data.error || data.message || "Unknown error";
               const errMsg = typeof rawErr === "string" ? rawErr : JSON.stringify(rawErr);
               await db.updateVideoClip(clip.id, { status: "failed", errorMessage: errMsg });
@@ -2077,11 +2130,12 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
                 panelIndex: clip.panelIndex,
               });
             } else {
-              // Still in progress
-              if (data.status === "video_upsampling" && clip.status !== "upsampling") {
+              // Still in progress (running, submitted, video_upsampling, etc.)
+              const normalizedProgress = rawStatus === "running" || rawStatus === "submitted" ? "generating" : data.status;
+              if (rawStatus === "video_upsampling" && clip.status !== "upsampling") {
                 await db.updateVideoClip(clip.id, { status: "upsampling" });
               }
-              updates.push({ clipId: clip.id, panelIndex: clip.panelIndex, status: data.status || clip.status });
+              updates.push({ clipId: clip.id, panelIndex: clip.panelIndex, status: normalizedProgress || clip.status });
             }
           } catch (e) {
             // Query failed, skip
