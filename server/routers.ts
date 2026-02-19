@@ -1124,7 +1124,9 @@ STYLE:
         if (!grid) throw new Error("No grid found");
         if (!grid.gridImageUrl) throw new Error("Grid has no image");
 
-        const panelsList = await db.getPanels(input.projectId);
+        // IMPORTANT: filter panels by grid.version so we update the correct version
+        const panelsList = await db.getPanels(input.projectId, grid.version);
+        console.log(`[PanelExtract] Found ${panelsList.length} panels for project ${input.projectId} version ${grid.version}`);
         const results: Array<{ panelIndex: number; imageUrl: string }> = [];
 
         try {
@@ -1144,17 +1146,22 @@ STYLE:
               s3Key: `projects/${input.projectId}/panels/${fileName}`,
             });
 
-            // Update panel record
+            console.log(`[PanelExtract] Panel ${panelIndex} uploaded: ${url.substring(0, 80)}...`);
+
+            // Update panel record - match by panelIndex within the correct version
             const panel = panelsList.find(p => p.panelIndex === panelIndex);
             if (panel) {
               await db.updatePanel(panel.id, { panelImageUrl: url });
+              console.log(`[PanelExtract] Updated panel id=${panel.id} panelIndex=${panelIndex} with image URL`);
+            } else {
+              console.warn(`[PanelExtract] No panel record found for panelIndex=${panelIndex} in version ${grid.version}`);
             }
             results.push({ panelIndex, imageUrl: url });
           }
 
           logInfo("panel_extract", `Extracted ${results.length} panels from grid`, {
             projectId: input.projectId,
-            details: { gridId: grid.id, rows: grid.rows, cols: grid.cols, totalPanels: grid.totalPanels },
+            details: { gridId: grid.id, gridVersion: grid.version, rows: grid.rows, cols: grid.cols, totalPanels: grid.totalPanels, updatedPanelIds: panelsList.map(p => p.id) },
           }).catch(() => {});
         } catch (e) {
           logError("panel_extract", `Panel extraction failed: ${e instanceof Error ? e.message : String(e)}`, {
