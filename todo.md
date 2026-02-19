@@ -328,3 +328,9 @@
 - [x] Prompt过长可能导致模型理解困难（已精简：有keyframe时只保留动作描述）
 - [x] keyframe图质量对视频生成影响大（已修复：panelIndex匹配确保正确传入）
 - [x] videoUrl在completed状态下为NONE（实际上clipUrl有值，是查询方式问题）
+
+## 分镜面板提取改进（截取→AI重绘）
+- [ ] 分析当前截取方式的边框问题
+- [ ] 研究nano banana pro模型能力和slides模式的图像生成API
+- [ ] 用AI图像生成替代简单截取，避免截到边框
+- [ ] 测试新的面板提取效果

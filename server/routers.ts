@@ -1129,12 +1129,21 @@ STYLE:
         console.log(`[PanelExtract] Found ${panelsList.length} panels for project ${input.projectId} version ${grid.version}`);
         const results: Array<{ panelIndex: number; imageUrl: string }> = [];
 
+        // Collect panel descriptions for AI redraw
+        const panelDescriptions: string[] = [];
+        for (let i = 1; i <= grid.totalPanels; i++) {
+          const p = panelsList.find(pp => pp.panelIndex === i);
+          panelDescriptions.push(p?.description || "");
+        }
+
         try {
           const extracted = await extractAllPanels({
             gridImageUrl: grid.gridImageUrl,
             rows: grid.rows,
             cols: grid.cols,
             totalPanels: grid.totalPanels,
+            mode: "ai",
+            panelDescriptions,
           });
 
           for (const { panelIndex, buffer } of extracted) {
@@ -1192,6 +1201,8 @@ STYLE:
           rows: grid.rows,
           cols: grid.cols,
           panelIndex: panel.panelIndex,
+          mode: "ai",
+          panelDescription: panel.description || undefined,
         });
 
         const fileName = `panel-${panel.panelIndex}-${Date.now()}.png`;

@@ -1,0 +1,9 @@
+{
+  "query": "SELECT p.id, p.title, p.status, g.id as grid_id, g.version, g.rows, g.cols, g.totalPanels, LEFT(g.gridImageUrl, 80) as grid_url FROM projects p LEFT JOIN grids g ON p.id = g.projectId ORDER BY p.id LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT p.id, p.title, p.status, g.id as grid_id, g.version, g.rows, g.cols, g.totalPanels, LEFT(g.gridImageUrl, 80) as grid_url FROM projects p LEFT JOIN grids g ON p.id = g.projectId ORDER BY p.id LIMIT 10;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1548
+}
