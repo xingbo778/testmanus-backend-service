@@ -283,9 +283,9 @@
 - [x] Railway缺少app_logs表导致logInfo报错 -> 已push schema + 改为fire-and-forget
 
 ## Bug Fix: 面板提取图片不显示
-- [ ] toast显示提取了6个但面板卡片中图片未显示
-- [ ] 排查uploadFile是否返回有效URL
-- [ ] 排查db.updatePanel是否成功写入panelImageUrl
-- [ ] 排查前端panel.list查询是否返回panelImageUrl
-- [ ] 本地测试验证修复
-- [ ] Railway测试验证修复
+- [x] toast显示提取了6个但面板卡片中图片未显示（根因：extractAll未传version参数，导致更新了旧版本面板）
+- [x] 排查uploadFile是否返回有效URL
+- [x] 排查db.updatePanel是否成功写入panelImageUrl
+- [x] 排查前端panel.list查询是否返回panelImageUrl
+- [x] 本地测试验证修复
+- [x] Railway测试验证修复
