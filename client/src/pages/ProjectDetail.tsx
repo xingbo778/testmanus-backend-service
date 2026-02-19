@@ -126,7 +126,7 @@ export default function ProjectDetail() {
 
   // Panel extraction
   const extractPanelsMut = trpc.panel.extractAll.useMutation({
-    onSuccess: (result: any) => { toast.success(`已提取 ${result.extracted} 个面板图片`); refetch(); },
+    onSuccess: (result: any) => { toast.success(`已提取 ${result.panels?.length ?? 0} 个面板图片`); refetch(); },
     onError: (err: any) => toast.error(`提取失败: ${err.message}`),
   });
 

@@ -577,7 +577,7 @@ ${input.additionalContext ? `补充说明：${input.additionalContext}` : ""}
 
         await db.updateProject(input.projectId, { status: "scripted", currentVersion: version });
 
-        await logInfo("script_gen", `Script generated: ${parsed.frames?.length ?? 0} frames, ${parsed.characters?.length ?? 0} characters`, {
+        logInfo("script_gen", `Script generated: ${parsed.frames?.length ?? 0} frames, ${parsed.characters?.length ?? 0} characters`, {
           projectId: input.projectId,
           details: { version, frameCount: parsed.frames?.length, characterCount: parsed.characters?.length, rulesInjected: totalRulesInjected },
         });
@@ -875,7 +875,7 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         }
 
         const successCount = results.filter(r => r.imageUrl).length;
-        await logInfo("anchor_gen", `Anchors generated: ${successCount}/${results.length} with images`, {
+        logInfo("anchor_gen", `Anchors generated: ${successCount}/${results.length} with images`, {
           projectId: input.projectId,
           details: { total: results.length, withImages: successCount, types: results.map(r => r.type) },
         });
@@ -1061,7 +1061,7 @@ STYLE:
 
           await db.updateProject(input.projectId, { status: "grid_generated" });
 
-          await logInfo("grid_gen", `Grid generated: ${rows}x${cols} (${totalPanels} panels) with image`, {
+          logInfo("grid_gen", `Grid generated: ${rows}x${cols} (${totalPanels} panels) with image`, {
             projectId: input.projectId,
             details: { gridId, rows, cols, totalPanels },
           });
@@ -1092,7 +1092,7 @@ STYLE:
 
           await db.updateProject(input.projectId, { status: "grid_generated" });
 
-          await logError("grid_gen", `Grid image generation failed: ${e instanceof Error ? e.message : String(e)}`, {
+          logError("grid_gen", `Grid image generation failed: ${e instanceof Error ? e.message : String(e)}`, {
             projectId: input.projectId,
             details: { gridId, rows, cols, totalPanels, error: e instanceof Error ? e.stack : String(e) },
           });
@@ -1152,15 +1152,15 @@ STYLE:
             results.push({ panelIndex, imageUrl: url });
           }
 
-          await logInfo("panel_extract", `Extracted ${results.length} panels from grid`, {
+          logInfo("panel_extract", `Extracted ${results.length} panels from grid`, {
             projectId: input.projectId,
             details: { gridId: grid.id, rows: grid.rows, cols: grid.cols, totalPanels: grid.totalPanels },
-          });
+          }).catch(() => {});
         } catch (e) {
-          await logError("panel_extract", `Panel extraction failed: ${e instanceof Error ? e.message : String(e)}`, {
+          logError("panel_extract", `Panel extraction failed: ${e instanceof Error ? e.message : String(e)}`, {
             projectId: input.projectId,
             details: { error: e instanceof Error ? e.stack : String(e) },
-          });
+          }).catch(() => {});
           throw e;
         }
 
@@ -1285,7 +1285,7 @@ STYLE:
           newImageUrl = url;
         } catch (e) {
           const errMsg = e instanceof Error ? e.message : String(e);
-          await logError("panel_fix", `Panel #${panel.panelIndex} image generation failed: ${errMsg}`, {
+          logError("panel_fix", `Panel #${panel.panelIndex} image generation failed: ${errMsg}`, {
             projectId: panel.projectId,
             panelIndex: panel.panelIndex,
             details: { fixType: input.fixType, hasMask: !!input.maskDataUrl, error: errMsg },
@@ -1324,7 +1324,7 @@ STYLE:
           fixDescription: `${input.fixType}: ${input.modifiedDescription || "no description"}`,
         });
 
-        await logInfo("panel_fix", `Panel #${panel.panelIndex} fix (${input.fixType}): ${newImageUrl ? 'success' : 'failed'}`, {
+        logInfo("panel_fix", `Panel #${panel.panelIndex} fix (${input.fixType}): ${newImageUrl ? 'success' : 'failed'}`, {
           projectId: panel.projectId,
           panelIndex: panel.panelIndex,
           details: { fixType: input.fixType, hasNewImage: !!newImageUrl, panelId: input.panelId },
@@ -1499,7 +1499,7 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
 
         await db.savePrompts(promptData);
 
-        await logInfo("prompt_gen", `Prompts generated: ${parsed.prompts.length} prompts for ${frames.length} frames`, {
+        logInfo("prompt_gen", `Prompts generated: ${parsed.prompts.length} prompts for ${frames.length} frames`, {
           projectId: input.projectId,
           details: { promptCount: parsed.prompts.length, models: Array.from(new Set(parsed.prompts.map((p: any) => p.model))) },
         });
@@ -1910,7 +1910,7 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
             if (data.id) {
               await db.updateVideoClip(clipId, { taskId: data.id, status: "generating" });
               results.push({ panelIndex: panel.panelIndex, clipId, taskId: data.id, status: "generating" });
-              await logInfo("video_gen", `Video clip submitted: panel #${panel.panelIndex}, task ${data.id}`, {
+              logInfo("video_gen", `Video clip submitted: panel #${panel.panelIndex}, task ${data.id}`, {
                 projectId: input.projectId,
                 panelIndex: panel.panelIndex,
                 details: { model: input.model, taskId: data.id },
@@ -1919,7 +1919,7 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
               const errMsg = data.message || data.error || JSON.stringify(data);
               await db.updateVideoClip(clipId, { status: "failed", errorMessage: errMsg });
               results.push({ panelIndex: panel.panelIndex, clipId, status: "failed" });
-              await logError("video_gen", `Video clip submission failed: panel #${panel.panelIndex}: ${errMsg}`, {
+              logError("video_gen", `Video clip submission failed: panel #${panel.panelIndex}: ${errMsg}`, {
                 projectId: input.projectId,
                 panelIndex: panel.panelIndex,
                 details: { model: input.model, error: errMsg },
@@ -1929,7 +1929,7 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
             const errMsg = e instanceof Error ? e.message : String(e);
             await db.updateVideoClip(clipId, { status: "failed", errorMessage: errMsg });
             results.push({ panelIndex: panel.panelIndex, clipId, status: "failed" });
-            await logError("video_gen", `Video clip error: panel #${panel.panelIndex}: ${errMsg}`, {
+            logError("video_gen", `Video clip error: panel #${panel.panelIndex}: ${errMsg}`, {
               projectId: input.projectId,
               panelIndex: panel.panelIndex,
               details: { error: errMsg, stack: e instanceof Error ? e.stack : undefined },
@@ -1966,7 +1966,7 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
               const videoUrl = data.video_url || data.url;
               await db.updateVideoClip(clip.id, { status: "completed", clipUrl: videoUrl });
               updates.push({ clipId: clip.id, panelIndex: clip.panelIndex, status: "completed", clipUrl: videoUrl });
-              await logInfo("video_gen", `Video clip completed: panel #${clip.panelIndex}`, {
+              logInfo("video_gen", `Video clip completed: panel #${clip.panelIndex}`, {
                 projectId: input.projectId,
                 panelIndex: clip.panelIndex,
               });
@@ -1974,7 +1974,7 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
               const errMsg = data.error || data.message || "Unknown error";
               await db.updateVideoClip(clip.id, { status: "failed", errorMessage: errMsg });
               updates.push({ clipId: clip.id, panelIndex: clip.panelIndex, status: "failed" });
-              await logError("video_gen", `Video clip failed: panel #${clip.panelIndex}: ${errMsg}`, {
+              logError("video_gen", `Video clip failed: panel #${clip.panelIndex}: ${errMsg}`, {
                 projectId: input.projectId,
                 panelIndex: clip.panelIndex,
               });
@@ -2043,7 +2043,7 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
         const latest = finalVids[0];
         await db.updateFinalVideo(latest.id, { confirmedAt: new Date() });
         await db.updateProject(input.projectId, { status: "confirmed" });
-        await logInfo("video_gen", `Final video confirmed for project`, { projectId: input.projectId });
+        logInfo("video_gen", `Final video confirmed for project`, { projectId: input.projectId });
         return { success: true };
       }),
   }),
