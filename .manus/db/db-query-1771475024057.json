@@ -1,0 +1,9 @@
+{
+  "query": "SELECT version, projectId, COUNT(*) as cnt FROM prompts WHERE projectId = 1 GROUP BY version, projectId;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT version, projectId, COUNT(*) as cnt FROM prompts WHERE projectId = 1 GROUP BY version, projectId;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1516
+}

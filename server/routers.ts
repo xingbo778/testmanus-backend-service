@@ -1871,21 +1871,42 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
         const gridVersion = latestGrid?.version;
         
         const panelsList = await db.getPanels(input.projectId, gridVersion);
-        const promptsList = await db.getPrompts(input.projectId, gridVersion);
+        // Get ALL prompts for this project (prompts.panelId may point to older version panel ids)
+        const allPrompts = await db.getPrompts(input.projectId);
+        // Also get ALL panels to build panelId -> panelIndex mapping
+        const allPanels = await db.getPanels(input.projectId);
         if (!panelsList.length) throw new Error("No panels found");
-        if (!promptsList.length) throw new Error("No prompts found");
+        if (!allPrompts.length) throw new Error("No prompts found");
+
+        // Build panelId -> panelIndex mapping from all panels
+        const panelIdToIndex = new Map<number, number>();
+        for (const p of allPanels) {
+          panelIdToIndex.set(p.id, p.panelIndex);
+        }
+        
+        // Build panelIndex -> prompts mapping (use latest version prompt for each panelIndex)
+        const promptsByPanelIndex = new Map<number, typeof allPrompts>();
+        for (const pr of allPrompts) {
+          const idx = panelIdToIndex.get(pr.panelId);
+          if (idx === undefined) continue;
+          if (!promptsByPanelIndex.has(idx)) promptsByPanelIndex.set(idx, []);
+          promptsByPanelIndex.get(idx)!.push(pr);
+        }
+        // Sort each group by version desc, pick latest
+        promptsByPanelIndex.forEach((prs, _idx) => {
+          prs.sort((a: { version: number }, b: { version: number }) => b.version - a.version);
+        });
 
         // For each panel, pick ONE prompt (deduplicate):
-        // Priority: prompt with matching panelId that has keyframe available
         const clipIds: Array<{ clipId: number; panelIndex: number; panelId: number; prompt: string; keyframeUrl?: string; hasKeyframe: boolean }> = [];
-        const seenPanelIds = new Set<number>();
+        const seenPanelIndexes = new Set<number>();
         
         for (const panel of panelsList) {
-          if (seenPanelIds.has(panel.id)) continue;
-          seenPanelIds.add(panel.id);
+          if (seenPanelIndexes.has(panel.panelIndex)) continue;
+          seenPanelIndexes.add(panel.panelIndex);
           
-          // Find all prompts for this panel
-          const panelPrompts = promptsList.filter(p => p.panelId === panel.id);
+          // Find prompts for this panelIndex (matched via panelId->panelIndex mapping)
+          const panelPrompts = promptsByPanelIndex.get(panel.panelIndex) || [];
           if (!panelPrompts.length) continue;
           
           // Pick the best prompt (prefer latest one)
