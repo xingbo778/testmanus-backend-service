@@ -1866,26 +1866,57 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
         model: z.string().default("veo3.1-fast"),
       }))
       .mutation(async ({ input }) => {
-        const panelsList = await db.getPanels(input.projectId);
-        const promptsList = await db.getPrompts(input.projectId);
+        // Get latest grid version to filter panels and prompts
+        const latestGrid = await db.getLatestGrid(input.projectId);
+        const gridVersion = latestGrid?.version;
+        
+        const panelsList = await db.getPanels(input.projectId, gridVersion);
+        const promptsList = await db.getPrompts(input.projectId, gridVersion);
         if (!panelsList.length) throw new Error("No panels found");
         if (!promptsList.length) throw new Error("No prompts found");
 
-        // Create clip records immediately (pending status)
-        const clipIds: Array<{ clipId: number; panelIndex: number; panelId: number; prompt: string; keyframeUrl?: string }> = [];
+        // For each panel, pick ONE prompt (deduplicate):
+        // Priority: prompt with matching panelId that has keyframe available
+        const clipIds: Array<{ clipId: number; panelIndex: number; panelId: number; prompt: string; keyframeUrl?: string; hasKeyframe: boolean }> = [];
+        const seenPanelIds = new Set<number>();
+        
         for (const panel of panelsList) {
-          const prompt = promptsList.find(p => p.panelId === panel.id);
-          if (!prompt) continue;
+          if (seenPanelIds.has(panel.id)) continue;
+          seenPanelIds.add(panel.id);
+          
+          // Find all prompts for this panel
+          const panelPrompts = promptsList.filter(p => p.panelId === panel.id);
+          if (!panelPrompts.length) continue;
+          
+          // Pick the best prompt (prefer latest one)
+          const bestPrompt = panelPrompts[panelPrompts.length - 1];
+          const hasKeyframe = !!panel.panelImageUrl;
+          
+          // For image-to-video: simplify prompt to focus on motion/action only
+          // The keyframe already contains scene/character appearance info
+          let finalPrompt = bestPrompt.promptText;
+          if (hasKeyframe && finalPrompt.length > 200) {
+            // Extract action/motion part: use the action field if available, otherwise truncate
+            const actionPart = bestPrompt.action || '';
+            const cameraPart = bestPrompt.cameraMovement || '';
+            if (actionPart) {
+              finalPrompt = `${actionPart}${cameraPart ? '. Camera: ' + cameraPart : ''}. Cinematic lighting, smooth motion.`;
+            } else {
+              // Truncate long prompt for image-to-video (model works better with shorter prompts when keyframe is provided)
+              finalPrompt = finalPrompt.substring(0, 200);
+            }
+          }
+          
           const clipId = await db.createVideoClip({
             panelId: panel.id,
             projectId: input.projectId,
             version: panel.version,
             panelIndex: panel.panelIndex,
             model: input.model,
-            prompt: prompt.promptText,
-            keyframeUrl: panel.panelImageUrl ?? undefined,
+            prompt: finalPrompt,
+            keyframeUrl: hasKeyframe ? panel.panelImageUrl! : undefined,
           });
-          clipIds.push({ clipId, panelIndex: panel.panelIndex, panelId: panel.id, prompt: prompt.promptText, keyframeUrl: panel.panelImageUrl ?? undefined });
+          clipIds.push({ clipId, panelIndex: panel.panelIndex, panelId: panel.id, prompt: finalPrompt, keyframeUrl: hasKeyframe ? panel.panelImageUrl! : undefined, hasKeyframe });
         }
 
         // Fire-and-forget: submit to Yunwu API in background

@@ -310,8 +310,21 @@
 - [x] 确保seed-prompts在Railway部署时自动执行（autoSeedOnStartup）
 
 ## Bug Fix: 视频生成改进
-- [ ] kling-v2-6模型不可用（503），默认改用seedance-1.5-pro
-- [ ] 添加"清除失败clips"按钮和API
-- [ ] 失败clips折叠显示，不占太多空间
-- [ ] 视频生成改为异步：前端提交后立即返回，后台异步处理
-- [ ] 旧的[object Object]错误clips也需要能清除
+- [x] kling-v2-6模型不可用（503），默认改用veo3.1-fast
+- [x] 添加"清除失败clips"按钮和API
+- [x] 失败clips折叠显示，不占太多空间
+- [x] 视频生成改为异步：前端提交后立即返回，后台异步处理- [x] 旧的[object Object]错误 clips也需要能清除
+
+## 视频生成质量分析与改进
+- [ ] 检查生成的视频内容质量（播放视频、查看prompt）
+- [ ] 分析prompt传入方式是否正确（keyframe图+prompt文本）
+- [ ] 分析模型参数是否最优
+- [ ] 提出改进方案
+
+## 视频生成质量改进（用户反馈）
+- [ ] Panel #6生成的视频场景和参考分镜差别很大
+- [ ] Panel #4有两个clip，其中一个和剧情无关
+- [ ] 每个Panel不应生成2个clip（去重：优先image-to-video）
+- [ ] Prompt过长可能导致模型理解困难
+- [ ] keyframe图质量对视频生成影响大，需要确保传入正确
+- [ ] videoUrl在completed状态下为NONE，需要检查poll逻辑
