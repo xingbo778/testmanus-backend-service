@@ -8,8 +8,8 @@ import { logInfo, logError, logWarn } from "./appLogger";
 const YUNWU_BASE = ENV.yunwuApiUrl || "https://yunwu.ai";
 const YUNWU_KEY = ENV.yunwuApiKey;
 
-const PRIMARY_MODEL = "seedance-1.5-pro";
-const FALLBACK_MODEL = "kling-v2-6";
+const PRIMARY_MODEL = "veo3.1-fast";
+const FALLBACK_MODEL = "seedance-1.5-pro";
 
 interface CreateVideoOptions {
   prompt: string;

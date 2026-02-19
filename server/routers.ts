@@ -1863,7 +1863,7 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
     generateClips: protectedProcedure
       .input(z.object({
         projectId: z.number(),
-        model: z.string().default("seedance-1.5-pro"),
+        model: z.string().default("veo3.1-fast"),
       }))
       .mutation(async ({ input }) => {
         const panelsList = await db.getPanels(input.projectId);
