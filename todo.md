@@ -279,5 +279,5 @@
 - [x] 排查并修复"提取面板"按钮点击后报错的问题 → storagePut在Railway无BUILT_IN_FORGE_API_KEY，改用uploadHelper（ToAPIs优先回退）
 
 ## Bug Fix: 提取面板功能问题
-- [ ] toast显示"已提取 undefined 个面板图片"——返回值字段名不匹配
-- [ ] 面板#1没有显示提取的图片——图片URL未正确存储或前端未读取
+- [x] toast显示"已提取 undefined 个面板图片" -> 修复为result.panels?.length
+- [x] Railway缺少app_logs表导致logInfo报错 -> 已push schema + 改为fire-and-forget
