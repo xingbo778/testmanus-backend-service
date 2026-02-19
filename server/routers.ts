@@ -1912,6 +1912,12 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
               },
               body: JSON.stringify(payload),
             });
+
+            if (!resp.ok) {
+              const text = await resp.text();
+              throw new Error(`Yunwu API error (${resp.status}): ${text.substring(0, 500)}`);
+            }
+
             const data = await resp.json();
 
             if (data.id) {
@@ -1923,7 +1929,8 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
                 details: { model: input.model, taskId: data.id },
               });
             } else {
-              const errMsg = data.message || data.error || JSON.stringify(data);
+              const rawErr = data.message || data.error || data;
+              const errMsg = typeof rawErr === "string" ? rawErr : JSON.stringify(rawErr);
               await db.updateVideoClip(clipId, { status: "failed", errorMessage: errMsg });
               results.push({ panelIndex: panel.panelIndex, clipId, status: "failed" });
               logError("video_gen", `Video clip submission failed: panel #${panel.panelIndex}: ${errMsg}`, {
@@ -1978,7 +1985,8 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
                 panelIndex: clip.panelIndex,
               });
             } else if (data.status === "failed") {
-              const errMsg = data.error || data.message || "Unknown error";
+              const rawErr = data.error || data.message || "Unknown error";
+              const errMsg = typeof rawErr === "string" ? rawErr : JSON.stringify(rawErr);
               await db.updateVideoClip(clip.id, { status: "failed", errorMessage: errMsg });
               updates.push({ clipId: clip.id, panelIndex: clip.panelIndex, status: "failed" });
               logError("video_gen", `Video clip failed: panel #${clip.panelIndex}: ${errMsg}`, {

@@ -10,6 +10,25 @@ interface MaskCanvasProps {
   height?: number;
 }
 
+/**
+ * Proxy external image URLs through our backend to avoid CORS issues.
+ * Only proxy non-same-origin URLs.
+ */
+function getProxiedUrl(url: string): string {
+  if (!url) return url;
+  // Data URLs and relative paths don't need proxy
+  if (url.startsWith("data:") || url.startsWith("/") || url.startsWith("blob:")) return url;
+  // Check if same origin
+  try {
+    const imgOrigin = new URL(url).origin;
+    if (imgOrigin === window.location.origin) return url;
+  } catch {
+    return url;
+  }
+  // Proxy through our backend
+  return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+}
+
 export default function MaskCanvas({ imageUrl, onMaskChange, width = 512, height = 320 }: MaskCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -18,18 +37,25 @@ export default function MaskCanvas({ imageUrl, onMaskChange, width = 512, height
   const [brushSize, setBrushSize] = useState(30);
   const [tool, setTool] = useState<"brush" | "eraser">("brush");
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
-  // Load image
+  // Load image via proxy to avoid CORS
   useEffect(() => {
+    setImageLoaded(false);
+    setImageError(false);
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
       imgRef.current = img;
       setImageLoaded(true);
-      drawImage();
+      setImageError(false);
     };
-    img.src = imageUrl;
+    img.onerror = () => {
+      console.warn("MaskCanvas: image load failed for", imageUrl);
+      setImageError(true);
+    };
+    img.src = getProxiedUrl(imageUrl);
   }, [imageUrl]);
 
   const drawImage = useCallback(() => {
@@ -254,9 +280,14 @@ export default function MaskCanvas({ imageUrl, onMaskChange, width = 512, height
           onTouchMove={handleMove}
           onTouchEnd={handleEnd}
         />
-        {!imageLoaded && (
+        {!imageLoaded && !imageError && (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
             加载图片中...
+          </div>
+        )}
+        {imageError && (
+          <div className="absolute inset-0 flex items-center justify-center text-destructive text-sm">
+            图片加载失败
           </div>
         )}
       </div>

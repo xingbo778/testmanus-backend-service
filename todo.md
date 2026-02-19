@@ -289,3 +289,22 @@
 - [x] 排查前端panel.list查询是否返回panelImageUrl
 - [x] 本地测试验证修复
 - [x] Railway测试验证修复
+
+## Bug Fix: 修复面板Dialog中MaskCanvas图片加载失败
+- [ ] MaskCanvas组件中面板图片一直显示"加载图片中..."无法加载
+- [ ] 排查图片URL和CORS问题
+- [ ] 修复并在Railway验证
+
+## Bug Fix: 视频生成失败 - errorMessage序列化问题
+- [ ] errorMessage是[object Object]导致DB update失败，需要序列化为字符串
+- [ ] 排查视频生成API调用的实际错误原因
+- [ ] 修复并在Railway验证
+
+## Bug Fix: MaskCanvas图片CORS加载失败
+- [ ] ToAPIs图片无CORS头，MaskCanvas设置crossOrigin="anonymous"导致加载失败
+- [ ] 添加后端图片代理端点或改用其他方案
+- [ ] 修复并在Railway验证
+
+## Bug Fix: Prompt管理页面为空
+- [ ] Railway数据库system_prompts表为空，需要seed初始化
+- [ ] 确保seed-prompts在Railway部署时自动执行或通过API触发
