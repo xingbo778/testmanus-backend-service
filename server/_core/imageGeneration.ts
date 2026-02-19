@@ -1,6 +1,6 @@
 /**
- * Image generation helper - uses Yunwu API with gemini-3-pro-image-preview
- * via chat/completions endpoint (returns base64 in markdown).
+ * Image generation helper - uses Yunwu API with Gemini native format (v1beta)
+ * for image generation. Falls back to Manus Forge API.
  * Integrates ToAPIs upload for converting base64 responses to URLs.
  */
 import { ENV } from "./env";
@@ -151,6 +151,25 @@ function extractBase64FromContent(content: string): { b64Data: string; mimeType:
   return null;
 }
 
+/**
+ * Convert a URL image to base64 inline_data for Gemini native format
+ */
+async function urlToBase64Part(url: string, mimeType?: string): Promise<{ inline_data: { mime_type: string; data: string } }> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch image from ${url}: ${response.status}`);
+  }
+  const buffer = await response.arrayBuffer();
+  const b64 = Buffer.from(buffer).toString("base64");
+  const detectedMime = mimeType || response.headers.get("content-type") || "image/png";
+  return {
+    inline_data: {
+      mime_type: detectedMime,
+      data: b64,
+    },
+  };
+}
+
 export async function generateImage(
   options: GenerateImageOptions
 ): Promise<GenerateImageResponse> {
@@ -162,47 +181,59 @@ export async function generateImage(
   const yunwuMode = !!(ENV.yunwuApiKey && ENV.yunwuApiKey.trim().length > 0);
 
   if (yunwuMode) {
-    const model = options.model || "gemini-3-pro-image-preview";
-    const apiUrl = `${ENV.yunwuApiUrl.replace(/\/$/, "")}/v1/chat/completions`;
+    // Use Yunwu native Gemini format (v1beta)
+    const model = options.model || "gemini-2.5-flash-image-preview";
+    const baseUrl = ENV.yunwuApiUrl.replace(/\/$/, "");
+    const apiUrl = `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    console.log(`[ImageGen] Using model: ${model} via chat completions`);
+    console.log(`[ImageGen] Using Yunwu native format, model: ${model}`);
 
-    // Build messages - for image generation via chat completions
-    const messages: Array<{ role: string; content: string | Array<any> }> = [];
+    // Build contents parts
+    const parts: Array<any> = [];
 
-    // If we have original images for editing, include them
+    // If we have original images for editing, include them as inline_data
     if (options.originalImages && options.originalImages.length > 0) {
-      const contentParts: Array<any> = [];
       for (const img of options.originalImages) {
-        if (img.url) {
-          contentParts.push({
-            type: "image_url",
-            image_url: { url: img.url },
-          });
-        } else if (img.b64Json) {
-          const mime = img.mimeType || "image/png";
-          contentParts.push({
-            type: "image_url",
-            image_url: { url: `data:${mime};base64,${img.b64Json}` },
-          });
+        try {
+          if (img.url) {
+            const inlinePart = await urlToBase64Part(img.url, img.mimeType);
+            parts.push(inlinePart);
+          } else if (img.b64Json) {
+            parts.push({
+              inline_data: {
+                mime_type: img.mimeType || "image/png",
+                data: img.b64Json,
+              },
+            });
+          }
+        } catch (e) {
+          console.warn(`[ImageGen] Failed to convert reference image: ${e}`);
         }
       }
-      contentParts.push({
-        type: "text",
-        text: options.prompt,
-      });
-      messages.push({ role: "user", content: contentParts });
-    } else {
-      messages.push({
-        role: "user",
-        content: `Generate an image based on the following description. Only output the image, no text explanation.\n\n${options.prompt}`,
-      });
     }
 
+    // Add text prompt
+    parts.push({
+      text: options.prompt,
+    });
+
     const requestBody = JSON.stringify({
-      model,
-      messages,
-      max_tokens: 8192,
+      contents: [
+        {
+          role: "user",
+          parts,
+        },
+      ],
+      generationConfig: {
+        responseModalities: ["TEXT", "IMAGE"],
+      },
+      safetySettings: [
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "OFF" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "OFF" },
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "OFF" },
+        { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_NONE" },
+      ],
     });
 
     // Retry up to 2 times with 5-minute timeout each
@@ -221,8 +252,7 @@ export async function generateImage(
         response = await fetch(apiUrl, {
           method: "POST",
           headers: {
-            "content-type": "application/json",
-            authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
           },
           body: requestBody,
           signal: controller.signal,
@@ -249,36 +279,63 @@ export async function generateImage(
       );
     }
 
+    // Parse Gemini native response format
+    // Note: Yunwu API returns camelCase (inlineData, mimeType) not snake_case
     const result = (await response.json()) as {
-      choices: Array<{
-        message: {
-          content: string;
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            text?: string;
+            inline_data?: { mime_type: string; data: string };
+            inlineData?: { mimeType: string; data: string };
+          }>;
         };
       }>;
     };
 
-    if (!result.choices || result.choices.length === 0) {
-      throw new Error("No choices returned from image generation API");
+    if (!result.candidates || result.candidates.length === 0) {
+      throw new Error("No candidates returned from Gemini image generation");
     }
 
-    const content = result.choices[0].message.content;
-    const extracted = extractBase64FromContent(content);
-
-    if (extracted) {
-      console.log(`[ImageGen] Extracted base64 image (${extracted.b64Data.length} chars), uploading...`);
-      const url = await resolveBase64Image(extracted.b64Data, extracted.mimeType);
-      return { url };
+    const candidate = result.candidates[0];
+    if (!candidate.content?.parts) {
+      throw new Error("No parts in Gemini response candidate");
     }
 
-    // If no base64 found, check if content contains a URL directly
-    const urlMatch = content.match(/https?:\/\/[^\s\)]+\.(png|jpg|jpeg|webp|gif)/i);
-    if (urlMatch) {
-      console.log(`[ImageGen] Found direct URL in response: ${urlMatch[0]}`);
-      return { url: urlMatch[0] };
+    // Find the image part (inline_data or inlineData - API may return either format)
+    for (const part of candidate.content.parts) {
+      const inlineData = part.inline_data || part.inlineData;
+      if (inlineData) {
+        const mimeType = (inlineData as any).mime_type || (inlineData as any).mimeType || "image/png";
+        const data = inlineData.data;
+        console.log(`[ImageGen] Got inline image (${data.length} chars, ${mimeType}), uploading...`);
+        const url = await resolveBase64Image(data, mimeType);
+        return { url };
+      }
     }
 
-    console.error(`[ImageGen] Could not extract image from response content (length: ${content.length})`);
-    throw new Error("Could not extract image from model response");
+    // No inline_data found, check text parts for embedded base64
+    for (const part of candidate.content.parts) {
+      if (part.text) {
+        const extracted = extractBase64FromContent(part.text);
+        if (extracted) {
+          console.log(`[ImageGen] Extracted base64 from text part (${extracted.b64Data.length} chars), uploading...`);
+          const url = await resolveBase64Image(extracted.b64Data, extracted.mimeType);
+          return { url };
+        }
+
+        // Check for direct URL
+        const urlMatch = part.text.match(/https?:\/\/[^\s\)]+\.(png|jpg|jpeg|webp|gif)/i);
+        if (urlMatch) {
+          console.log(`[ImageGen] Found direct URL in text: ${urlMatch[0]}`);
+          return { url: urlMatch[0] };
+        }
+      }
+    }
+
+    console.error(`[ImageGen] Could not extract image from Gemini response. Parts:`, 
+      candidate.content.parts.map(p => ({ hasText: !!p.text, hasInlineData: !!p.inline_data })));
+    throw new Error("Could not extract image from Gemini response");
   } else {
     // Manus Forge API (original implementation)
     if (!ENV.forgeApiUrl) {
