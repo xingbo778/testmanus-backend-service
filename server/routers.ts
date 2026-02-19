@@ -14,6 +14,7 @@ import { generateGridTemplateDataUrl } from "./gridTemplate";
 import { DEFAULT_SYSTEM_PROMPTS } from "./seed-prompts";
 import { logInfo, logError, logWarn } from "./appLogger";
 import { extractPanel, extractAllPanels } from "./panelExtractor";
+import { generateAllGridPages, splitFramesIntoPages, type Frame } from "./gridUtils";
 
 export const appRouter = router({
   system: systemRouter,
@@ -319,7 +320,7 @@ export const appRouter = router({
         l1Id: z.string(),
         l2Id: z.string(),
         l3Id: z.string(),
-        duration: z.enum(["15", "30", "45"]),
+        duration: z.enum(["15", "30", "45", "60", "90", "120"]),
       }))
       .mutation(async ({ input, ctx }) => {
         const id = await db.createProject({ ...input, createdBy: ctx.user.id });
@@ -345,11 +346,19 @@ export const appRouter = router({
         const currentVersion = script?.version ?? project.currentVersion;
         // Filter by current version to avoid duplicates
         const anchorsList = await db.getAnchors(input.id, currentVersion);
-        const grid = await db.getLatestGrid(input.id);
-        const panelsList = grid ? await db.getPanels(input.id, grid.version) : [];
+        // Get all grid pages (multi-grid support)
+        const gridPages = await db.getGridPages(input.id);
+        // Backward compatibility: grid = first page or single grid
+        const grid = gridPages.length > 0 ? gridPages[0] : await db.getLatestGrid(input.id);
+        const panelsList = await db.getPanels(input.id, grid?.version);
         const promptsList = await db.getPrompts(input.id, currentVersion);
         const referencesList = await db.getReferences(input.id);
-        return { project, script, anchors: anchorsList, grid, panels: panelsList, prompts: promptsList, references: referencesList };
+        return {
+          project, script, anchors: anchorsList,
+          grid, // backward compat: first page
+          gridPages: gridPages.length > 0 ? gridPages : (grid ? [grid] : []), // all pages
+          panels: panelsList, prompts: promptsList, references: referencesList,
+        };
       }),
     update: protectedProcedure
       .input(z.object({
@@ -425,8 +434,19 @@ export const appRouter = router({
         console.log(`[ScriptGen] Injected ${totalRulesInjected} rules from ${prioritizedChapters.length} chapters for scene type: ${project.l2Id}`);
 
         const totalDuration = parseInt(project.duration);
-        const frameCount = totalDuration === 15 ? "6-8" : totalDuration === 30 ? "10-15" : "15-22";
-        const gridLayout = totalDuration === 15 ? "2×3 or 2×4" : totalDuration === 30 ? "3×4 or 3×5" : "4×5 or 4×6";
+        const frameCountMap: Record<number, string> = {
+          15: "6-8", 30: "10-15", 45: "15-22", 60: "20-30", 90: "30-45", 120: "40-60"
+        };
+        const gridLayoutMap: Record<number, string> = {
+          15: "2×3 or 2×4 (1 page)",
+          30: "3×4 (1-2 pages)",
+          45: "3×4 (2 pages)",
+          60: "3×4 (2-3 pages)",
+          90: "3×4 (3-4 pages)",
+          120: "3×4 (4-5 pages)",
+        };
+        const frameCount = frameCountMap[totalDuration] || "15-22";
+        const gridLayout = gridLayoutMap[totalDuration] || "3×4 (multi-page)";
 
         const systemPrompt = `你是一个专业的分镜脚本设计师，精通电影分镜、摄影构图和视觉叙事。根据给定的场景类型和专业规则手册，生成高质量的结构化分镜脚本。
 
@@ -939,186 +959,66 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         const script = await db.getLatestScript(input.projectId);
         if (!script) throw new Error("No script found");
 
-        // Delete old panels for this project+version before regenerating
-        await db.deletePanelsForProject(input.projectId, script.version);
-
         // Get anchors - try current version first, then fall back to all versions
         let anchorsList = await db.getAnchors(input.projectId, script.version);
         if (anchorsList.length === 0) {
-          // Fall back to all anchors if none found for current version
           anchorsList = await db.getAnchors(input.projectId);
           console.log(`[GridGen] No anchors for version ${script.version}, using all ${anchorsList.length} anchors`);
         } else {
           console.log(`[GridGen] Found ${anchorsList.length} anchors for version ${script.version}`);
         }
-        const frames = script.frames as Array<{ index: number; shotType: string; duration: number; description: string; cameraMovement: string }>;
 
-        const totalPanels = frames.length;
-        let rows: number, cols: number;
-        if (totalPanels <= 6) { rows = 2; cols = 3; }
-        else if (totalPanels <= 8) { rows = 2; cols = 4; }
-        else if (totalPanels <= 12) { rows = 3; cols = 4; }
-        else if (totalPanels <= 15) { rows = 3; cols = 5; }
-        else if (totalPanels <= 20) { rows = 4; cols = 5; }
-        else { rows = 4; cols = 6; }
-
-        // ========== Build ordered reference images with explicit numbering ==========
-        let gridPrompt = '';
-        try {
+        const frames = script.frames as Frame[];
         const characters = (script.characters as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
         const scenes = (script.scenes as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
 
-        // Separate character and scene anchors that have images
-        const charAnchors = anchorsList.filter(a => a.anchorType === 'character' && a.imageUrl && a.imageUrl.startsWith('http'));
-        const sceneAnchors = anchorsList.filter(a => a.anchorType === 'scene' && a.imageUrl && a.imageUrl.startsWith('http'));
-        console.log(`[GridGen] Anchor refs: ${charAnchors.length} characters, ${sceneAnchors.length} scenes`);
+        // Use multi-grid generation
+        const results = await generateAllGridPages({
+          projectId: input.projectId,
+          scriptVersion: script.version,
+          frames,
+          anchorsList: anchorsList as any,
+          characters,
+          scenes,
+          customPrompt: input.customPrompt,
+        });
 
-        // Build ordered image list: [char1, char2, ..., scene1, scene2, ..., gridTemplate]
-        // Each image gets a clear number and description in the prompt
-        const orderedImages: Array<{ url: string }> = [];
-        const imageDescriptions: string[] = [];
-        let imgIdx = 1;
+        await db.updateProject(input.projectId, { status: "grid_generated" });
 
-        // 1) Character anchor images
-        for (const ca of charAnchors) {
-          orderedImages.push({ url: ca.imageUrl! });
-          imageDescriptions.push(`Image #${imgIdx}: CHARACTER "${ca.name}" reference photo. ${ca.prompt || ca.description || ''}`);
-          imgIdx++;
-        }
+        const totalPages = results.length;
+        const hasErrors = results.some(r => r.error);
+        const totalPanels = frames.length;
 
-        // 2) Scene anchor images
-        for (const sa of sceneAnchors) {
-          orderedImages.push({ url: sa.imageUrl! });
-          imageDescriptions.push(`Image #${imgIdx}: SCENE "${sa.name}" reference photo. ${sa.prompt || sa.description || ''}`);
-          imgIdx++;
-        }
+        logInfo("grid_gen", `Multi-grid generation complete: ${totalPages} page(s), ${totalPanels} total panels${hasErrors ? ' (some pages had errors)' : ''}`, {
+          projectId: input.projectId,
+          details: { totalPages, totalPanels, results: results.map(r => ({ pageIndex: r.pageIndex, gridId: r.gridId, hasImage: !!r.gridImageUrl, error: r.error })) },
+        });
 
-        // 3) Grid layout template image (generated by Sharp, small data URL)
-        const gridTemplateDataUrl = await generateGridTemplateDataUrl({ rows, cols, totalPanels });
-        orderedImages.push({ url: gridTemplateDataUrl });
-        imageDescriptions.push(`Image #${imgIdx}: GRID LAYOUT TEMPLATE. This shows the exact ${rows}x${cols} uniform grid layout you MUST follow. Every panel must be the SAME SIZE as shown in this template.`);
-
-        console.log(`[GridGen] Prepared ${orderedImages.length} reference images: ${charAnchors.length} chars, ${sceneAnchors.length} scenes, 1 grid template`);
-
-        // ========== Build prompt with explicit image-to-content mapping ==========
-        // Build character appearance descriptions from anchor prompts (detailed physical features)
-        const charAppearanceLines = charAnchors.map(ca => {
-          const charData = characters.find(c => c.name === ca.name);
-          return `- "${ca.name}": ${ca.prompt || charData?.description || ca.description || 'See reference image'}`;
-        }).join('\n');
-
-        const sceneAppearanceLines = sceneAnchors.map(sa => {
-          const sceneData = scenes.find(s => s.name === sa.name);
-          return `- "${sa.name}": ${sa.prompt || sceneData?.description || sa.description || 'See reference image'}`;
-        }).join('\n');
-
-        // Panel descriptions with character names highlighted
-        const panelLines = frames.map(f => `Panel ${f.index} [${f.shotType}] (${f.duration}s, camera: ${f.cameraMovement}): ${f.description}`).join('\n');
-
-        gridPrompt = input.customPrompt || `I am providing ${orderedImages.length} reference images. Here is what each image shows:
-
-${imageDescriptions.join('\n')}
-
-Your task: Create a professional ${rows}x${cols} cinematic storyboard grid with exactly ${totalPanels} panels.
-
-CRITICAL LAYOUT RULE:
-- Follow the GRID LAYOUT TEMPLATE (Image #${imgIdx}) EXACTLY - all panels must be the SAME SIZE
-- ${rows} rows x ${cols} columns, uniform white borders between panels
-- Panels numbered 1-${totalPanels}, reading left-to-right, top-to-bottom
-- NO text, NO titles, NO captions anywhere
-
-CHARACTER CONSISTENCY (CRITICAL):
-The characters in EVERY panel MUST look EXACTLY like the people in the character reference images:
-${charAppearanceLines || characters.map(c => `- "${c.name}": ${c.description}`).join('\n')}
-Same face, same ethnicity, same hair, same clothing, same body proportions across ALL panels.
-
-SCENE REFERENCE:
-${sceneAppearanceLines || scenes.map(s => `- "${s.name}": ${s.description}`).join('\n')}
-
-PANEL-BY-PANEL BREAKDOWN:
-${panelLines}
-
-STYLE:
-- Photorealistic cinematic quality (ARRI Alexa / RED camera look)
-- Consistent character appearance across ALL panels
-- Cinematic lighting matching each panel's mood
-- Natural skin textures, realistic environments, atmospheric depth`;
-
-          console.log(`[GridGen] Generating grid with ${orderedImages.length} reference images`);
-          const { url: gridImageUrl } = await generateImage({
-            prompt: gridPrompt,
-            originalImages: orderedImages,
-          });
-
-          const gridId = await db.saveGrid({
-            projectId: input.projectId,
-            version: script.version,
-            rows,
-            cols,
-            totalPanels,
-            gridImageUrl,
-            generationPrompt: gridPrompt,
-          });
-
-          // Create panel records
-          const panelData = frames.map(f => ({
-            gridId,
-            projectId: input.projectId,
-            version: script.version,
-            panelIndex: f.index,
-            shotType: f.shotType,
-            duration: String(f.duration),
-            description: f.description,
-            cameraMovement: f.cameraMovement,
-          }));
-          await db.savePanels(panelData);
-
-          await db.updateProject(input.projectId, { status: "grid_generated" });
-
-          logInfo("grid_gen", `Grid generated: ${rows}x${cols} (${totalPanels} panels) with image`, {
-            projectId: input.projectId,
-            details: { gridId, rows, cols, totalPanels },
-          });
-
-          return { gridId, gridImageUrl, rows, cols, totalPanels };
-        } catch (e: any) {
-          // Even if image generation or preparation fails, save the grid structure
-          console.error(`[GridGen] Grid generation failed:`, e?.message || e);
-          const gridId = await db.saveGrid({
-            projectId: input.projectId,
-            version: script.version,
-            rows,
-            cols,
-            totalPanels,
-            generationPrompt: gridPrompt,
-          });
-
-          const panelData = frames.map(f => ({
-            gridId,
-            projectId: input.projectId,
-            version: script.version,
-            panelIndex: f.index,
-            shotType: f.shotType,
-            duration: String(f.duration),
-            description: f.description,
-            cameraMovement: f.cameraMovement,
-          }));
-          await db.savePanels(panelData);
-
-          await db.updateProject(input.projectId, { status: "grid_generated" });
-
-          logError("grid_gen", `Grid image generation failed: ${e instanceof Error ? e.message : String(e)}`, {
-            projectId: input.projectId,
-            details: { gridId, rows, cols, totalPanels, error: e instanceof Error ? e.stack : String(e) },
-          });
-
-          return { gridId, gridImageUrl: null, rows, cols, totalPanels, error: "Image generation failed, grid structure saved" };
-        }
+        // Return backward-compatible format (first page as primary) + all pages
+        const firstPage = results[0];
+        return {
+          gridId: firstPage?.gridId,
+          gridImageUrl: firstPage?.gridImageUrl,
+          rows: firstPage?.rows,
+          cols: firstPage?.cols,
+          totalPanels,
+          pages: results,
+          totalPages,
+          error: hasErrors ? 'Some grid pages had generation errors' : undefined,
+        };
       }),
+    // Get all grid pages for a project
     get: publicProcedure
       .input(z.object({ projectId: z.number() }))
       .query(async ({ input }) => {
-        return db.getLatestGrid(input.projectId);
+        const pages = await db.getGridPages(input.projectId);
+        if (pages.length === 0) {
+          // Backward compatibility: try getLatestGrid
+          const single = await db.getLatestGrid(input.projectId);
+          if (single) return { pages: [single], totalPages: 1 };
+          return null;
+        }
+        return { pages, totalPages: pages.length };
       }),
     // Regenerate Grid from modified panels: uses original grid + modified panels as reference
     regenerateFromPanels: protectedProcedure

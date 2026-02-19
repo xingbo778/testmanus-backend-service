@@ -67,7 +67,7 @@ export const projects = mysqlTable("projects", {
   l1Id: varchar("l1Id", { length: 32 }).notNull(),
   l2Id: varchar("l2Id", { length: 64 }).notNull(),
   l3Id: varchar("l3Id", { length: 96 }).notNull(),
-  duration: mysqlEnum("duration", ["15", "30", "45"]).default("15").notNull(),
+  duration: mysqlEnum("duration", ["15", "30", "45", "60", "90", "120"]).default("15").notNull(),
   status: mysqlEnum("status", ["draft", "scripted", "grid_generated", "reviewing", "confirmed"]).default("draft").notNull(),
   currentVersion: int("currentVersion").default(1).notNull(),
   createdBy: int("createdBy"),
@@ -126,6 +126,10 @@ export const grids = mysqlTable("grids", {
   id: int("id").autoincrement().primaryKey(),
   projectId: int("projectId").notNull(),
   version: int("version").default(1).notNull(),
+  pageIndex: int("pageIndex").default(0).notNull(), // 0-based page index for multi-grid support
+  pageLabel: varchar("pageLabel", { length: 64 }),  // e.g. "Page 1/3 (frames 1-12)"
+  startFrame: int("startFrame"),  // first frame index in this grid page (1-based)
+  endFrame: int("endFrame"),      // last frame index in this grid page (1-based)
   rows: int("rows").notNull(),       // M
   cols: int("cols").notNull(),       // N
   totalPanels: int("totalPanels").notNull(),

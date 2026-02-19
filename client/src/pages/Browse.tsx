@@ -44,7 +44,7 @@ export default function Browse() {
   // Create project dialog
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newDuration, setNewDuration] = useState<"15" | "30" | "45">("15");
+  const [newDuration, setNewDuration] = useState<string>("15");
   const [selectedL1, setSelectedL1] = useState(l1Id || "");
   const [selectedL2, setSelectedL2] = useState(l2Id || "");
   const [selectedL3, setSelectedL3] = useState(l3Id || "");
@@ -179,12 +179,15 @@ export default function Browse() {
                 )}
                 <div className="space-y-2">
                   <Label>视频时长</Label>
-                  <Select value={newDuration} onValueChange={(v) => setNewDuration(v as "15" | "30" | "45")}>
+                  <Select value={newDuration} onValueChange={setNewDuration}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="15">15秒（6-8帧）</SelectItem>
-                      <SelectItem value="30">30秒（10-15帧）</SelectItem>
-                      <SelectItem value="45">45秒（15-22帧）</SelectItem>
+                      <SelectItem value="15">15秒（6-8帧，1页Grid）</SelectItem>
+                      <SelectItem value="30">30秒（10-15帧，1-2页Grid）</SelectItem>
+                      <SelectItem value="45">45秒（15-22帧，2页Grid）</SelectItem>
+                      <SelectItem value="60">60秒（20-30帧，2-3页Grid）</SelectItem>
+                      <SelectItem value="90">90秒（30-45帧，3-4页Grid）</SelectItem>
+                      <SelectItem value="120">120秒（40-60帧，4-5页Grid）</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -200,7 +203,7 @@ export default function Browse() {
                       l1Id: selectedL1,
                       l2Id: selectedL2,
                       l3Id: selectedL3,
-                      duration: newDuration,
+                      duration: newDuration as any,
                     });
                   }}
                   disabled={createProject.isPending}

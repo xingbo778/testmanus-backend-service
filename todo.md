@@ -393,3 +393,22 @@
 - [ ] 在Railway上测试Project 52的Grid生成
 - [ ] 测试Prompt分段导出（30s→2段）
 - [ ] 创建45s项目测试16帧/3×6布局
+
+## Phase 22: Grid格数分析 + 长时长分镜方案 (2026-02-19)
+- [x] 检查Project 52 Grid效果（面板提取质量、细节清晰度）
+- [x] 分析不同时长对应的最佳Grid格数
+- [x] 设计1-2分钟长时长分镜的多Grid方案
+- [x] 实现多Grid支持
+
+## Phase 23: 多Grid分页方案 (2026-02-19)
+- [x] Schema: grids表添加pageIndex字段，支持一个项目多个Grid
+- [x] Schema: 项目duration支持60/90/120秒
+- [x] 后端: Grid生成按每页最多12格分页，每页独立生成Grid（共享Anchor）
+- [x] 后端: 多Grid之间相邻Grid传递过渡参考（前一页Grid图片URL）
+- [ ] 后端: Prompt生成按Grid分页
+- [ ] 后端: Seedance导出按Grid分页
+- [x] 前端: Grid tab支持多页切换（分页导航）
+- [x] 前端: 项目创建支持60/90/120秒时长
+- [x] 前端: 脚本生成帧数范围更新
+- [x] 测试: splitFramesIntoPages单元测试（16个测试全部通过）
+- [ ] 测试: Railway部署端到端测试

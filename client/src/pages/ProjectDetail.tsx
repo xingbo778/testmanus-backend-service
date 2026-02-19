@@ -60,6 +60,9 @@ export default function ProjectDetail() {
   // Fix panel reference image selection
   const [selectedRefImages, setSelectedRefImages] = useState<string[]>([]);
 
+  // Multi-grid page navigation
+  const [activeGridPage, setActiveGridPage] = useState(0);
+
   // Mutations
   const generateScript = trpc.script.generate.useMutation({
     onSuccess: () => { toast.success("脚本生成成功"); refetch(); versionHistory.refetch(); },
@@ -245,7 +248,7 @@ export default function ProjectDetail() {
     );
   }
 
-  const { project, script, anchors, grid, panels, prompts } = data;
+  const { project, script, anchors, grid, gridPages, panels, prompts } = data as any;
 
   // Parse script frames
   const scriptFrames = (() => {
@@ -425,7 +428,25 @@ export default function ProjectDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {grid?.gridImageUrl ? (
+                {gridPages && gridPages.length > 0 && gridPages.some((gp: any) => gp.gridImageUrl) ? (
+                  <div className="space-y-2">
+                    {gridPages.length > 1 && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                        <span className="font-medium">共 {gridPages.length} 页Grid</span>
+                      </div>
+                    )}
+                    <img src={gridPages[0]?.gridImageUrl || grid?.gridImageUrl} alt="Storyboard Grid" className="w-full rounded-lg border" />
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>布局: {grid?.rows}×{grid?.cols}</span>
+                      <span>·</span>
+                      <span>v{grid?.version}</span>
+                      {gridPages.length > 1 && <><span>·</span><span>{gridPages.length}页</span></>}
+                    </div>
+                    <Button variant="ghost" size="sm" className="w-full" onClick={() => setActiveTab("grid")}>
+                      查看详情 →
+                    </Button>
+                  </div>
+                ) : grid?.gridImageUrl ? (
                   <div className="space-y-2">
                     <img src={grid.gridImageUrl} alt="Storyboard Grid" className="w-full rounded-lg border" />
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -842,21 +863,69 @@ export default function ProjectDetail() {
               </div>
             </CardHeader>
             <CardContent>
-              {grid?.gridImageUrl ? (
-                <div className="space-y-4">
-                  <img src={grid.gridImageUrl} alt="Storyboard Grid" className="w-full rounded-lg border" />
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>布局: {grid.rows}×{grid.cols}</span>
-                    <Separator orientation="vertical" className="h-4" />
-                    <span>版本: v{grid.version}</span>
+              {(() => {
+                const allPages = gridPages && gridPages.length > 0 ? gridPages : (grid ? [grid] : []);
+                const hasImages = allPages.some((gp: any) => gp.gridImageUrl);
+                if (!hasImages) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <ImageIcon className="h-12 w-12 mb-4 opacity-30" />
+                      <p>尚未生成Grid，请先生成脚本</p>
+                    </div>
+                  );
+                }
+                const currentPage = allPages[activeGridPage] || allPages[0];
+                return (
+                  <div className="space-y-4">
+                    {/* Multi-page navigation */}
+                    {allPages.length > 1 && (
+                      <div className="flex items-center justify-between bg-muted/50 rounded-lg p-2">
+                        <Button variant="ghost" size="sm" disabled={activeGridPage === 0}
+                          onClick={() => setActiveGridPage(prev => Math.max(0, prev - 1))}>
+                          <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          {allPages.map((_: any, i: number) => (
+                            <button key={i}
+                              className={`w-8 h-8 rounded-full text-xs font-medium transition-all ${
+                                i === activeGridPage ? 'bg-primary text-primary-foreground' : 'bg-background border hover:bg-accent'
+                              }`}
+                              onClick={() => setActiveGridPage(i)}>
+                              {i + 1}
+                            </button>
+                          ))}
+                        </div>
+                        <Button variant="ghost" size="sm" disabled={activeGridPage >= allPages.length - 1}
+                          onClick={() => setActiveGridPage(prev => Math.min(allPages.length - 1, prev + 1))}>
+                          <ArrowLeft className="h-4 w-4 rotate-180" />
+                        </Button>
+                      </div>
+                    )}
+                    {/* Grid image */}
+                    {currentPage?.gridImageUrl && (
+                      <img src={currentPage.gridImageUrl} alt={`Storyboard Grid Page ${activeGridPage + 1}`} className="w-full rounded-lg border" />
+                    )}
+                    {/* Page info */}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>布局: {currentPage?.rows}×{currentPage?.cols}</span>
+                      <Separator orientation="vertical" className="h-4" />
+                      <span>版本: v{currentPage?.version}</span>
+                      {allPages.length > 1 && (
+                        <>
+                          <Separator orientation="vertical" className="h-4" />
+                          <span>第 {activeGridPage + 1}/{allPages.length} 页</span>
+                          {currentPage?.pageLabel && (
+                            <>
+                              <Separator orientation="vertical" className="h-4" />
+                              <span className="text-xs">{currentPage.startFrame && currentPage.endFrame ? `帧 ${currentPage.startFrame}-${currentPage.endFrame}` : currentPage.pageLabel}</span>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <ImageIcon className="h-12 w-12 mb-4 opacity-30" />
-                  <p>尚未生成Grid，请先生成脚本</p>
-                </div>
-              )}
+                );
+              })()}
             </CardContent>
           </Card>
 

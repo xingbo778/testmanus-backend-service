@@ -100,7 +100,7 @@ export async function seedCategories(data: {
 // ============================================================
 // Project helpers
 // ============================================================
-export async function createProject(data: { title: string; l1Id: string; l2Id: string; l3Id: string; duration: "15" | "30" | "45"; createdBy?: number }) {
+export async function createProject(data: { title: string; l1Id: string; l2Id: string; l3Id: string; duration: "15" | "30" | "45" | "60" | "90" | "120"; createdBy?: number }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(projects).values(data);
@@ -211,6 +211,7 @@ export async function saveGrid(data: {
   projectId: number; version: number; rows: number; cols: number;
   totalPanels: number; gridImageUrl?: string; annotatedImageUrl?: string;
   generationPrompt?: string;
+  pageIndex?: number; pageLabel?: string; startFrame?: number; endFrame?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -218,14 +219,47 @@ export async function saveGrid(data: {
   return result[0].insertId;
 }
 
-export async function getLatestGrid(projectId: number) {
+export async function getLatestGrid(projectId: number, pageIndex?: number) {
   const db = await getDb();
   if (!db) return null;
+  const conditions = [eq(grids.projectId, projectId)];
+  if (pageIndex !== undefined) conditions.push(eq(grids.pageIndex, pageIndex));
   const result = await db.select().from(grids)
-    .where(eq(grids.projectId, projectId))
+    .where(and(...conditions))
     .orderBy(desc(grids.version))
     .limit(1);
   return result[0] ?? null;
+}
+
+/**
+ * Get all grid pages for a project (latest version only).
+ * Returns grids ordered by pageIndex.
+ */
+export async function getGridPages(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  // Get the latest version number
+  const latest = await db.select({ version: grids.version }).from(grids)
+    .where(eq(grids.projectId, projectId))
+    .orderBy(desc(grids.version))
+    .limit(1);
+  if (latest.length === 0) return [];
+  const latestVersion = latest[0].version;
+  // Get all pages for that version
+  return db.select().from(grids)
+    .where(and(eq(grids.projectId, projectId), eq(grids.version, latestVersion)))
+    .orderBy(grids.pageIndex);
+}
+
+/**
+ * Delete all grid pages for a project (optionally by version).
+ */
+export async function deleteGridsForProject(projectId: number, version?: number) {
+  const db = await getDb();
+  if (!db) return;
+  const conditions = [eq(grids.projectId, projectId)];
+  if (version) conditions.push(eq(grids.version, version));
+  await db.delete(grids).where(and(...conditions));
 }
 
 // ============================================================
