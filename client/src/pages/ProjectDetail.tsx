@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   ArrowLeft, Play, RefreshCw, Wand2, CheckCircle,
   Image as ImageIcon, Pencil, Eye, Loader2, History, RotateCcw,
-  Clock, Film, Camera, FileText, Sparkles, Plus, Trash2, Save, X, Download
+  Clock, Film, Camera, FileText, Sparkles, Plus, Trash2, Save, X, Download,
+  Library, Upload
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
@@ -57,6 +58,16 @@ export default function ProjectDetail() {
   // Anchor editing state
   const [anchorEditDialog, setAnchorEditDialog] = useState<{ anchor: any; customPrompt: string } | null>(null);
 
+  // Anchor library import dialog
+  const [anchorLibImportDialog, setAnchorLibImportDialog] = useState(false);
+  const [anchorLibSearch, setAnchorLibSearch] = useState("");
+  const [anchorLibTypeFilter, setAnchorLibTypeFilter] = useState<string>("all");
+  const [selectedLibAnchors, setSelectedLibAnchors] = useState<number[]>([]);
+  // Anchor export to library dialog
+  const [anchorExportDialog, setAnchorExportDialog] = useState<{ anchor: any } | null>(null);
+  const [exportTags, setExportTags] = useState("");
+  const [exportStyle, setExportStyle] = useState("");
+
   // Fix panel reference image selection
   const [selectedRefImages, setSelectedRefImages] = useState<string[]>([]);
 
@@ -78,6 +89,22 @@ export default function ProjectDetail() {
     onSuccess: () => { toast.success("Anchor重新生成成功"); refetch(); setAnchorEditDialog(null); },
     onError: (err: any) => toast.error(`Anchor重新生成失败: ${err.message}`),
   });
+
+  const importFromLibrary = trpc.anchor.importFromLibrary.useMutation({
+    onSuccess: (data) => { toast.success(`成功导入 ${data.imported.length} 个 Anchor`); refetch(); setAnchorLibImportDialog(false); setSelectedLibAnchors([]); },
+    onError: (err: any) => toast.error(`导入失败: ${err.message}`),
+  });
+
+  const exportToLibrary = trpc.anchor.exportToLibrary.useMutation({
+    onSuccess: () => { toast.success("已导出到Anchor库"); setAnchorExportDialog(null); setExportTags(""); setExportStyle(""); },
+    onError: (err: any) => toast.error(`导出失败: ${err.message}`),
+  });
+
+  // Anchor library query (only when import dialog is open)
+  const anchorLibQuery = trpc.anchorLib.list.useQuery(
+    { search: anchorLibSearch || undefined, anchorType: anchorLibTypeFilter !== "all" ? anchorLibTypeFilter as any : undefined, limit: 50 },
+    { enabled: anchorLibImportDialog }
+  );
 
   const generateGrid = trpc.grid.generate.useMutation({
     onSuccess: () => { toast.success("Grid生成成功"); refetch(); versionHistory.refetch(); },
@@ -675,6 +702,10 @@ export default function ProjectDetail() {
                     <span className="text-xs">查看Prompt</span>
                   </Button>
                 )}
+                <Button size="sm" variant="outline" onClick={() => setAnchorLibImportDialog(true)}>
+                  <Library className="mr-1 h-4 w-4" />
+                  从库中导入
+                </Button>
                 <Button size="sm"
                   onClick={() => setConfirmRegenDialog({ step: "全部Anchor", action: () => generateAnchor.mutate({ projectId }) })}
                   disabled={generateAnchor.isPending || !script}
@@ -711,6 +742,10 @@ export default function ProjectDetail() {
                           onClick={() => setAnchorEditDialog({ anchor: a, customPrompt: a.prompt || "" })}>
                           <Pencil className="h-3 w-3 mr-1" />
                           编辑Prompt
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" title="导出到Anchor库"
+                          onClick={() => setAnchorExportDialog({ anchor: a })}>
+                          <Upload className="h-3 w-3" />
                         </Button>
                         <Button size="sm" variant="outline" className="h-7 text-xs"
                           onClick={() => setConfirmRegenDialog({
@@ -1980,6 +2015,148 @@ export default function ProjectDetail() {
             }} disabled={regenerateOneAnchor.isPending}>
               {regenerateOneAnchor.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               重新生成
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================== Anchor Library Import Dialog ==================== */}
+      <Dialog open={anchorLibImportDialog} onOpenChange={(open) => { if (!open) { setAnchorLibImportDialog(false); setSelectedLibAnchors([]); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>从Anchor库导入</DialogTitle>
+            <DialogDescription>选择要导入到当前项目的Anchor</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex gap-2">
+              <Input
+                placeholder="搜索Anchor..."
+                value={anchorLibSearch}
+                onChange={(e) => setAnchorLibSearch(e.target.value)}
+                className="flex-1"
+              />
+              <Select value={anchorLibTypeFilter} onValueChange={setAnchorLibTypeFilter}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部类型</SelectItem>
+                  <SelectItem value="character">角色</SelectItem>
+                  <SelectItem value="scene">场景</SelectItem>
+                  <SelectItem value="prop">道具</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {anchorLibQuery.isLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+            ) : anchorLibQuery.data?.items && anchorLibQuery.data.items.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {anchorLibQuery.data.items.map((item: any) => {
+                  const isSelected = selectedLibAnchors.includes(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      className={`relative cursor-pointer rounded-lg border-2 p-2 transition-all ${
+                        isSelected ? "border-primary bg-primary/5" : "border-transparent hover:border-muted-foreground/20"
+                      }`}
+                      onClick={() => {
+                        setSelectedLibAnchors(prev =>
+                          isSelected ? prev.filter(id => id !== item.id) : [...prev, item.id]
+                        );
+                      }}
+                    >
+                      {isSelected && (
+                        <div className="absolute top-1 right-1 z-10 bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center">
+                          <CheckCircle className="h-3 w-3" />
+                        </div>
+                      )}
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} className="w-full aspect-square object-cover rounded-md" />
+                      ) : (
+                        <div className="w-full aspect-square bg-muted/30 rounded-md flex items-center justify-center">
+                          <ImageIcon className="h-6 w-6 text-muted-foreground/30" />
+                        </div>
+                      )}
+                      <p className="text-xs font-medium truncate mt-1">{item.name}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Badge variant="outline" className="text-[10px]">
+                          {item.anchorType === "character" ? "角色" : item.anchorType === "scene" ? "场景" : "道具"}
+                        </Badge>
+                        {item.style && <Badge variant="secondary" className="text-[10px]">{item.style}</Badge>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Library className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Anchor库为空，请先在Anchor库页面创建</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <div className="flex items-center gap-2 w-full justify-between">
+              <span className="text-sm text-muted-foreground">已选择 {selectedLibAnchors.length} 个</span>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => { setAnchorLibImportDialog(false); setSelectedLibAnchors([]); }}>取消</Button>
+                <Button
+                  onClick={() => importFromLibrary.mutate({ projectId, libraryItemIds: selectedLibAnchors })}
+                  disabled={selectedLibAnchors.length === 0 || importFromLibrary.isPending}
+                >
+                  {importFromLibrary.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Library className="mr-2 h-4 w-4" />}
+                  导入 ({selectedLibAnchors.length})
+                </Button>
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================== Anchor Export to Library Dialog ==================== */}
+      <Dialog open={!!anchorExportDialog} onOpenChange={(open) => { if (!open) { setAnchorExportDialog(null); setExportTags(""); setExportStyle(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>导出到Anchor库</DialogTitle>
+            <DialogDescription>将 "{anchorExportDialog?.anchor?.name}" 保存到全局Anchor库</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {anchorExportDialog?.anchor?.imageUrl && (
+              <img src={anchorExportDialog.anchor.imageUrl} alt={anchorExportDialog.anchor.name}
+                className="w-24 h-24 object-cover rounded-lg border mx-auto" />
+            )}
+            <div className="space-y-2">
+              <Label>风格标签</Label>
+              <Input
+                value={exportStyle}
+                onChange={(e) => setExportStyle(e.target.value)}
+                placeholder="例如：赛博朋克、水墨风、写实..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>标签（逗号分隔）</Label>
+              <Input
+                value={exportTags}
+                onChange={(e) => setExportTags(e.target.value)}
+                placeholder="例如：武侠,古装,男性角色"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAnchorExportDialog(null)}>取消</Button>
+            <Button
+              onClick={() => {
+                if (!anchorExportDialog) return;
+                exportToLibrary.mutate({
+                  anchorId: anchorExportDialog.anchor.id,
+                  style: exportStyle || undefined,
+                  tags: exportTags ? exportTags.split(",").map((t: string) => t.trim()).filter(Boolean) : undefined,
+                });
+              }}
+              disabled={exportToLibrary.isPending}
+            >
+              {exportToLibrary.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              导出到库
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, FolderTree, BookOpen, Download, Shield, Film, KeyRound, FileText, ScrollText } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, FolderTree, BookOpen, Download, Shield, Film, KeyRound, FileText, ScrollText, Palette } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -34,6 +34,7 @@ const menuItems = [
   { icon: Shield, label: "规则管理", path: "/rules" },
   { icon: Download, label: "KB导出", path: "/export" },
   { icon: FileText, label: "Prompt管理", path: "/prompts" },
+  { icon: Palette, label: "Anchor库", path: "/anchors" },
   { icon: ScrollText, label: "日志中心", path: "/logs" },
 ];
 

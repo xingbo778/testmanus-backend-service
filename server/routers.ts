@@ -941,6 +941,65 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
       .query(async ({ input }) => {
         return db.getAnchors(input.projectId, input.version);
       }),
+    importFromLibrary: protectedProcedure
+      .input(z.object({
+        projectId: z.number(),
+        libraryItemIds: z.array(z.number()),
+      }))
+      .mutation(async ({ input }) => {
+        const script = await db.getLatestScript(input.projectId);
+        const version = script?.version ?? 1;
+        const dbConn = await db.getDb();
+        if (!dbConn) throw new Error("Database not available");
+        const { anchorLibrary } = await import("../drizzle/schema");
+        const { inArray } = await import("drizzle-orm");
+        const libItems = await dbConn.select().from(anchorLibrary).where(inArray(anchorLibrary.id, input.libraryItemIds));
+        const results: Array<{ id: number; name: string; type: string; imageUrl?: string }> = [];
+        for (const item of libItems) {
+          const anchorId = await db.saveAnchor({
+            projectId: input.projectId,
+            version,
+            anchorType: item.anchorType,
+            name: item.name,
+            description: item.description ?? undefined,
+            prompt: item.prompt ?? undefined,
+            imageUrl: item.imageUrl ?? undefined,
+          });
+          // Increment usage count
+          await db.incrementAnchorLibraryUsage(item.id);
+          results.push({ id: anchorId, name: item.name, type: item.anchorType, imageUrl: item.imageUrl ?? undefined });
+        }
+        logInfo("anchor_import", `Imported ${results.length} anchors from library`, {
+          projectId: input.projectId,
+          details: { libraryItemIds: input.libraryItemIds, imported: results.length },
+        });
+        return { imported: results };
+      }),
+    exportToLibrary: protectedProcedure
+      .input(z.object({
+        anchorId: z.number(),
+        tags: z.array(z.string()).optional(),
+        style: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) throw new Error("Database not available");
+        const { anchors: anchorsTable } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+        const [anchor] = await dbConn.select().from(anchorsTable).where(eq(anchorsTable.id, input.anchorId)).limit(1);
+        if (!anchor) throw new Error("Anchor not found");
+        const libId = await db.createAnchorLibraryItem({
+          name: anchor.name,
+          anchorType: anchor.anchorType as "character" | "scene" | "prop",
+          description: anchor.description ?? undefined,
+          prompt: anchor.prompt ?? undefined,
+          imageUrl: anchor.imageUrl ?? undefined,
+          style: input.style,
+          tags: input.tags,
+          createdBy: ctx.user?.id,
+        });
+        return { libraryItemId: libId };
+      }),
   }),
 
   // ============================================================
@@ -2324,6 +2383,148 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
         return { success: true };
       }),
   }),
+  // ============================================================
+  // Anchor Library (global reusable anchors)
+  // ============================================================
+  anchorLib: router({
+    list: protectedProcedure
+      .input(z.object({
+        anchorType: z.enum(["character", "scene", "prop"]).optional(),
+        style: z.string().optional(),
+        search: z.string().optional(),
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+      }).optional())
+      .query(async ({ input }) => {
+        return db.listAnchorLibrary(input ?? {});
+      }),
+    get: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const item = await db.getAnchorLibraryItem(input.id);
+        if (!item) throw new Error("Anchor not found");
+        return item;
+      }),
+    create: protectedProcedure
+      .input(z.object({
+        name: z.string().min(1),
+        anchorType: z.enum(["character", "scene", "prop"]),
+        description: z.string().optional(),
+        prompt: z.string().optional(),
+        imageUrl: z.string().optional(),
+        style: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+        metadata: z.record(z.string(), z.any()).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await db.createAnchorLibraryItem({
+          name: input.name,
+          anchorType: input.anchorType,
+          description: input.description,
+          prompt: input.prompt,
+          imageUrl: input.imageUrl,
+          style: input.style,
+          tags: input.tags,
+          metadata: input.metadata,
+          createdBy: ctx.user?.id,
+        });
+        return { id };
+      }),
+    createWithImage: protectedProcedure
+      .input(z.object({
+        name: z.string().min(1),
+        anchorType: z.enum(["character", "scene", "prop"]),
+        description: z.string().optional(),
+        prompt: z.string().min(1),
+        style: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        // Generate image from prompt
+        let imageUrl: string | undefined;
+        try {
+          const result = await generateImage({ prompt: input.prompt });
+          imageUrl = result.url;
+        } catch (e) {
+          console.error(`[AnchorLib] Failed to generate image:`, e instanceof Error ? e.message : e);
+        }
+        const id = await db.createAnchorLibraryItem({
+          name: input.name,
+          anchorType: input.anchorType,
+          description: input.description,
+          prompt: input.prompt,
+          imageUrl,
+          style: input.style,
+          tags: input.tags,
+          createdBy: ctx.user?.id,
+        });
+        return { id, imageUrl };
+      }),
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        prompt: z.string().optional(),
+        imageUrl: z.string().optional(),
+        style: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+        metadata: z.record(z.string(), z.any()).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await db.updateAnchorLibraryItem(id, data);
+        return { success: true };
+      }),
+    regenerateImage: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        customPrompt: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const item = await db.getAnchorLibraryItem(input.id);
+        if (!item) throw new Error("Anchor not found");
+        const prompt = input.customPrompt || item.prompt || "";
+        if (!prompt) throw new Error("No prompt available for image generation");
+        const { url } = await generateImage({ prompt });
+        await db.updateAnchorLibraryItem(input.id, { imageUrl: url, prompt });
+        return { imageUrl: url, prompt };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteAnchorLibraryItem(input.id);
+        return { success: true };
+      }),
+    // Save a project anchor to the library
+    saveFromProject: protectedProcedure
+      .input(z.object({
+        anchorId: z.number(),
+        style: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await db.saveProjectAnchorToLibrary(input.anchorId, {
+          style: input.style,
+          tags: input.tags,
+          createdBy: ctx.user?.id,
+        });
+        return { id };
+      }),
+    // Import a library anchor into a project
+    importToProject: protectedProcedure
+      .input(z.object({
+        libraryItemId: z.number(),
+        projectId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const script = await db.getLatestScript(input.projectId);
+        const version = script?.version ?? 1;
+        const anchorId = await db.importLibraryAnchorToProject(input.libraryItemId, input.projectId, version);
+        return { anchorId };
+      }),
+  }),
+
   // ============================================================
   // Utility: Image proxy for ZIP download (avoid CORS)
   // ============================================================

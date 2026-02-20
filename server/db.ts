@@ -5,8 +5,9 @@ import {
   categoriesL1, categoriesL2, categoriesL3,
   projects, scripts, anchors, grids, panels, prompts,
   references, ruleChapters, experienceRecords, userRules, exportRecords,
-  systemPrompts, appLogs, videoClips, finalVideos,
+  systemPrompts, appLogs, videoClips, finalVideos, anchorLibrary,
   type Project, type Script, type Anchor, type Grid, type Panel, type Prompt, type SystemPrompt, type AppLog, type VideoClip, type FinalVideo,
+  type AnchorLibraryItem, type InsertAnchorLibraryItem,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -992,4 +993,151 @@ export async function getFinalVideos(projectId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(finalVideos).where(eq(finalVideos.projectId, projectId)).orderBy(desc(finalVideos.createdAt));
+}
+
+// ============================================================
+// Anchor Library (global reusable anchors)
+// ============================================================
+export async function createAnchorLibraryItem(data: {
+  name: string;
+  anchorType: "character" | "scene" | "prop";
+  description?: string;
+  prompt?: string;
+  imageUrl?: string;
+  style?: string;
+  tags?: string[];
+  metadata?: Record<string, any>;
+  sourceProjectId?: number;
+  sourceAnchorId?: number;
+  createdBy?: number;
+}): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(anchorLibrary).values({
+    name: data.name,
+    anchorType: data.anchorType,
+    description: data.description,
+    prompt: data.prompt,
+    imageUrl: data.imageUrl,
+    style: data.style,
+    tags: data.tags ?? [],
+    metadata: data.metadata ?? {},
+    sourceProjectId: data.sourceProjectId,
+    sourceAnchorId: data.sourceAnchorId,
+    createdBy: data.createdBy,
+  });
+  return result.insertId;
+}
+
+export async function updateAnchorLibraryItem(id: number, data: Partial<{
+  name: string;
+  description: string;
+  prompt: string;
+  imageUrl: string;
+  style: string;
+  tags: string[];
+  metadata: Record<string, any>;
+}>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(anchorLibrary).set(data as any).where(eq(anchorLibrary.id, id));
+}
+
+export async function deleteAnchorLibraryItem(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(anchorLibrary).where(eq(anchorLibrary.id, id));
+}
+
+export async function getAnchorLibraryItem(id: number): Promise<AnchorLibraryItem | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const [item] = await db.select().from(anchorLibrary).where(eq(anchorLibrary.id, id)).limit(1);
+  return item ?? null;
+}
+
+export async function listAnchorLibrary(opts?: {
+  anchorType?: "character" | "scene" | "prop";
+  style?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: AnchorLibraryItem[]; total: number }> {
+  const db = await getDb();
+  if (!db) return { items: [], total: 0 };
+
+  const conditions: any[] = [];
+  if (opts?.anchorType) conditions.push(eq(anchorLibrary.anchorType, opts.anchorType));
+  if (opts?.style) conditions.push(eq(anchorLibrary.style, opts.style));
+  if (opts?.search) conditions.push(like(anchorLibrary.name, `%${opts.search}%`));
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [items, countResult] = await Promise.all([
+    db.select().from(anchorLibrary)
+      .where(where)
+      .orderBy(desc(anchorLibrary.updatedAt))
+      .limit(opts?.limit ?? 50)
+      .offset(opts?.offset ?? 0),
+    db.select({ count: sql<number>`count(*)` }).from(anchorLibrary).where(where),
+  ]);
+
+  return { items, total: countResult[0]?.count ?? 0 };
+}
+
+export async function incrementAnchorLibraryUsage(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(anchorLibrary)
+    .set({ usageCount: sql`${anchorLibrary.usageCount} + 1` })
+    .where(eq(anchorLibrary.id, id));
+}
+
+export async function saveProjectAnchorToLibrary(anchorId: number, opts?: {
+  style?: string;
+  tags?: string[];
+  createdBy?: number;
+}): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const [anchor] = await db.select().from(anchors).where(eq(anchors.id, anchorId)).limit(1);
+  if (!anchor) throw new Error("Anchor not found");
+
+  return createAnchorLibraryItem({
+    name: anchor.name,
+    anchorType: anchor.anchorType,
+    description: anchor.description ?? undefined,
+    prompt: anchor.prompt ?? undefined,
+    imageUrl: anchor.imageUrl ?? undefined,
+    style: opts?.style,
+    tags: opts?.tags ?? [],
+    sourceProjectId: anchor.projectId,
+    sourceAnchorId: anchor.id,
+    createdBy: opts?.createdBy,
+  });
+}
+
+export async function importLibraryAnchorToProject(libraryItemId: number, projectId: number, version: number): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const [item] = await db.select().from(anchorLibrary).where(eq(anchorLibrary.id, libraryItemId)).limit(1);
+  if (!item) throw new Error("Library anchor not found");
+
+  // Create project anchor from library item
+  const anchorId = await saveAnchor({
+    projectId,
+    version,
+    anchorType: item.anchorType,
+    name: item.name,
+    description: item.description ?? undefined,
+    prompt: item.prompt ?? undefined,
+    imageUrl: item.imageUrl ?? undefined,
+  });
+
+  // Increment usage count
+  await incrementAnchorLibraryUsage(libraryItemId);
+
+  return anchorId;
 }

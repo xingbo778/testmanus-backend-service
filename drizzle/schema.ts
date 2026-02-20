@@ -356,3 +356,27 @@ export const finalVideos = mysqlTable("final_videos", {
 });
 
 export type FinalVideo = typeof finalVideos.$inferSelect;
+
+// ============================================================
+// Anchor Library (global reusable anchors, independent of projects)
+// ============================================================
+export const anchorLibrary = mysqlTable("anchor_library", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 128 }).notNull(),
+  anchorType: mysqlEnum("anchorType", ["character", "scene", "prop"]).notNull(),
+  description: text("description"),
+  prompt: text("prompt"),           // generation prompt (English)
+  imageUrl: text("imageUrl"),       // S3 URL of the reference image
+  style: varchar("style", { length: 128 }),  // e.g. "anime", "photorealistic", "watercolor"
+  tags: json("tags"),               // string[] for flexible categorization
+  metadata: json("metadata"),       // { age?, ethnicity?, hairColor?, ... } flexible attributes
+  sourceProjectId: int("sourceProjectId"), // if imported from a project
+  sourceAnchorId: int("sourceAnchorId"),   // original anchor ID if imported
+  usageCount: int("usageCount").default(0).notNull(), // how many projects use this
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AnchorLibraryItem = typeof anchorLibrary.$inferSelect;
+export type InsertAnchorLibraryItem = typeof anchorLibrary.$inferInsert;

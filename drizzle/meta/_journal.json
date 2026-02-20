@@ -43,6 +43,13 @@
       "when": 1771516082374,
       "tag": "0005_magical_human_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1771571838355,
+      "tag": "0006_lazy_omega_sentinel",
+      "breakpoints": true
     }
   ]
 }

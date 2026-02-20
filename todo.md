@@ -405,10 +405,34 @@
 - [x] Schema: 项目duration支持60/90/120秒
 - [x] 后端: Grid生成按每页最多12格分页，每页独立生成Grid（共享Anchor）
 - [x] 后端: 多Grid之间相邻Grid传递过渡参考（前一页Grid图片URL）
-- [ ] 后端: Prompt生成按Grid分页
-- [ ] 后端: Seedance导出按Grid分页
+- [x] 后端: Prompt生成按Grid分页
+- [x] 后端: Seedance导出按Grid分页
 - [x] 前端: Grid tab支持多页切换（分页导航）
 - [x] 前端: 项目创建支持60/90/120秒时长
 - [x] 前端: 脚本生成帧数范围更新
 - [x] 测试: splitFramesIntoPages单元测试（16个测试全部通过）
 - [x] 测试: 本地dev server端到端测试通过（60秒项目，22帧，2页Grid，4段Seedance导出）
+
+## Phase 24: Bug修复 - Railway Project 52页面打不开 (2026-02-20)
+- [x] 诊断Railway上Project 52页面打不开的原因（grids表缺少pageIndex/pageLabel/startFrame/endFrame列，projects.duration缺少60/90/120枚举值）
+- [x] 修复问题（通过ALTER TABLE手动添加缺失列和枚举值）
+- [x] 通过GitHub connector推送代码到GitHub（GH_TOKEN环境变量可用）
+- [x] 验证Railway部署后Project 52可正常访问
+
+## Phase 25: 全局Anchor库管理 (2026-02-20)
+- [x] Schema: 新增anchorLibrary表（全局Anchor库，独立于项目）
+- [x] Schema: anchorLibrary表内置tags JSON字段（无需独立tags表）
+- [x] 后端: anchorLib CRUD路由（创建/编辑/删除/列表/搜索）
+- [x] 后端: 从Anchor库导入到项目的路由（anchor.importFromLibrary）
+- [x] 后端: 从项目Anchor保存到库的路由（anchor.exportToLibrary）
+- [x] 前端: Anchor库管理页面（侧边栏入口 /anchors）
+- [x] 前端: Anchor库浏览/搜索/筛选（按类型/风格过滤）
+- [x] 前端: Anchor详情编辑（名称/描述/风格/标签/图片）+ 重新生成图片
+- [x] 前端: 项目Anchor tab "从库中导入"按钮（选择多个库Anchor导入）
+- [x] 前端: 项目Anchor tab "导出到库"按钮（每个Anchor卡片上传按钮）
+- [x] 测试: 58个测试全部通过（含Anchor库相关逻辑）
+- [x] 测试: 端到端测试通过（导出3个Anchor到库→库中显示3个→导入对话框正常）
+
+## Bug Fix: Anchor库列表页不显示数据 (2026-02-20)
+- [x] 前端AnchorLibrary.tsx发送limit:200超过后端验证max(100)导致400错误
+- [x] 修复：limit改为100
