@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean, index } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -98,7 +98,9 @@ export const scripts = mysqlTable("scripts", {
   rulesUsed: json("rulesUsed"),   // rule IDs used during generation
   generationPrompt: text("generationPrompt"), // the actual prompt sent to LLM
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_scripts_project_version").on(t.projectId, t.version),
+]);
 
 export type Script = typeof scripts.$inferSelect;
 
@@ -115,7 +117,9 @@ export const anchors = mysqlTable("anchors", {
   prompt: text("prompt"),        // prompt used to generate
   imageUrl: text("imageUrl"),    // S3 URL
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_anchors_project_version").on(t.projectId, t.version),
+]);
 
 export type Anchor = typeof anchors.$inferSelect;
 
@@ -137,7 +141,9 @@ export const grids = mysqlTable("grids", {
   annotatedImageUrl: text("annotatedImageUrl"), // S3 URL with annotations
   generationPrompt: text("generationPrompt"), // prompt used to generate grid
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_grids_project_version").on(t.projectId, t.version),
+]);
 
 export type Grid = typeof grids.$inferSelect;
 
@@ -164,7 +170,10 @@ export const panels = mysqlTable("panels", {
   referenceImageUrls: json("referenceImageUrls"), // string[]
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => [
+  index("idx_panels_project_version").on(t.projectId, t.version),
+  index("idx_panels_grid").on(t.gridId),
+]);
 
 export type Panel = typeof panels.$inferSelect;
 
@@ -197,7 +206,10 @@ export const prompts = mysqlTable("prompts", {
   transition: varchar("transition", { length: 64 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => [
+  index("idx_prompts_project_version").on(t.projectId, t.version),
+  index("idx_prompts_panel").on(t.panelId),
+]);
 
 export type Prompt = typeof prompts.$inferSelect;
 
@@ -334,7 +346,10 @@ export const videoClips = mysqlTable("video_clips", {
   errorMessage: text("errorMessage"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => [
+  index("idx_videoclips_project").on(t.projectId),
+  index("idx_videoclips_status").on(t.status),
+]);
 
 export type VideoClip = typeof videoClips.$inferSelect;
 
@@ -376,7 +391,10 @@ export const anchorLibrary = mysqlTable("anchor_library", {
   createdBy: int("createdBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => [
+  index("idx_anchorlib_type").on(t.anchorType),
+  index("idx_anchorlib_style").on(t.style),
+]);
 
 export type AnchorLibraryItem = typeof anchorLibrary.$inferSelect;
 export type InsertAnchorLibraryItem = typeof anchorLibrary.$inferInsert;

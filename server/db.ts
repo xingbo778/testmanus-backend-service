@@ -13,6 +13,11 @@ import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
+/** Escape SQL LIKE wildcards to prevent injection via % and _ characters */
+function escapeLike(str: string): string {
+  return str.replace(/[%_\\]/g, '\\$&');
+}
+
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -860,7 +865,7 @@ export async function getAppLogs(opts: {
   if (opts.level) conditions.push(eq(appLogs.level, opts.level as any));
   if (opts.source) conditions.push(eq(appLogs.source, opts.source));
   if (opts.projectId) conditions.push(eq(appLogs.projectId, opts.projectId));
-  if (opts.search) conditions.push(like(appLogs.message, `%${opts.search}%`));
+  if (opts.search) conditions.push(like(appLogs.message, `%${escapeLike(opts.search)}%`));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -1069,7 +1074,7 @@ export async function listAnchorLibrary(opts?: {
   const conditions: any[] = [];
   if (opts?.anchorType) conditions.push(eq(anchorLibrary.anchorType, opts.anchorType));
   if (opts?.style) conditions.push(eq(anchorLibrary.style, opts.style));
-  if (opts?.search) conditions.push(like(anchorLibrary.name, `%${opts.search}%`));
+  if (opts?.search) conditions.push(like(anchorLibrary.name, `%${escapeLike(opts.search)}%`));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 

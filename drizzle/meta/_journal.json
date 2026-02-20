@@ -50,6 +50,13 @@
       "when": 1771571838355,
       "tag": "0006_lazy_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1771582739295,
+      "tag": "0007_even_lyja",
+      "breakpoints": true
     }
   ]
 }

@@ -14,5 +14,6 @@ export const ENV = {
   toapisApiKey: process.env.TOAPIS_API_KEY ?? "",
   toapisApiUrl: process.env.TOAPIS_API_URL ?? "https://toapis.com",
   // Admin API key for simple auth (Railway deployment)
-  adminApiKey: process.env.ADMIN_API_KEY ?? "storyboard-admin-2024",
+  // MUST set ADMIN_API_KEY env var in production; empty string disables API key auth
+  adminApiKey: process.env.ADMIN_API_KEY ?? "",
 };
