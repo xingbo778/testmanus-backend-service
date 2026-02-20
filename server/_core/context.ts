@@ -1,5 +1,6 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { User } from "../../drizzle/schema";
+import { parse as parseCookieHeader } from "cookie";
 import { ENV } from "./env";
 
 export type TrpcContext = {
@@ -28,6 +29,16 @@ function createAdminUser(): User {
 }
 
 /**
+ * Parse a specific cookie from the raw Cookie header
+ */
+function getCookieValue(req: CreateExpressContextOptions["req"], name: string): string | undefined {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) return undefined;
+  const parsed = parseCookieHeader(cookieHeader);
+  return parsed[name] || undefined;
+}
+
+/**
  * Check if request has a valid API key in Authorization header or cookie
  */
 function authenticateByApiKey(req: CreateExpressContextOptions["req"]): User | null {
@@ -41,7 +52,7 @@ function authenticateByApiKey(req: CreateExpressContextOptions["req"]): User | n
   }
 
   // 2. Check cookie (for browser access on Railway)
-  const cookieToken = req.cookies?.[API_KEY_COOKIE_NAME];
+  const cookieToken = getCookieValue(req, API_KEY_COOKIE_NAME);
   if (cookieToken && ENV.adminApiKey && cookieToken === ENV.adminApiKey) {
     return createAdminUser();
   }
