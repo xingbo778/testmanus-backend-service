@@ -8,6 +8,8 @@ export type TrpcContext = {
   user: User | null;
 };
 
+export const API_KEY_COOKIE_NAME = "sb_api_key";
+
 /**
  * Create a mock admin user for API Key auth (Railway deployment)
  */
@@ -26,17 +28,21 @@ function createAdminUser(): User {
 }
 
 /**
- * Check if request has a valid API key in Authorization header
+ * Check if request has a valid API key in Authorization header or cookie
  */
 function authenticateByApiKey(req: CreateExpressContextOptions["req"]): User | null {
+  // 1. Check Authorization header (for API clients)
   const authHeader = req.headers.authorization;
-  if (!authHeader) return null;
+  if (authHeader) {
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (token && ENV.adminApiKey && token === ENV.adminApiKey) {
+      return createAdminUser();
+    }
+  }
 
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return null;
-
-  // Check against admin API key
-  if (ENV.adminApiKey && token === ENV.adminApiKey) {
+  // 2. Check cookie (for browser access on Railway)
+  const cookieToken = req.cookies?.[API_KEY_COOKIE_NAME];
+  if (cookieToken && ENV.adminApiKey && cookieToken === ENV.adminApiKey) {
     return createAdminUser();
   }
 

@@ -2,6 +2,8 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
+import { API_KEY_COOKIE_NAME } from "./_core/context";
+import { ENV } from "./_core/env";
 import { z } from "zod";
 import * as db from "./db";
 import { CATEGORY_SEED } from "./seed-categories";
@@ -23,8 +25,26 @@ export const appRouter = router({
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      ctx.res.clearCookie(API_KEY_COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+    // API Key login for Railway deployment (browser access)
+    apiKeyLogin: publicProcedure
+      .input(z.object({ apiKey: z.string().min(1) }))
+      .mutation(({ input, ctx }) => {
+        if (!ENV.adminApiKey || input.apiKey !== ENV.adminApiKey) {
+          throw new Error("Invalid API Key");
+        }
+        // Set cookie for browser-based auth
+        ctx.res.cookie(API_KEY_COOKIE_NAME, input.apiKey, {
+          httpOnly: true,
+          secure: ctx.req.secure || ctx.req.headers['x-forwarded-proto'] === 'https',
+          sameSite: 'lax',
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+          path: '/',
+        });
+        return { success: true } as const;
+      }),
   }),
 
   // ============================================================

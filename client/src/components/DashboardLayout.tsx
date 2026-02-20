@@ -21,8 +21,9 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, FolderTree, BookOpen, Download, Shield, Film, KeyRound, FileText, ScrollText, Palette } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, FolderTree, BookOpen, Download, Shield, Film, KeyRound, FileText, ScrollText, Palette, Loader2 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
+import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
@@ -42,6 +43,60 @@ const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 260;
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 480;
+
+function ApiKeyLoginForm() {
+  const [apiKey, setApiKey] = useState("");
+  const [error, setError] = useState("");
+  const utils = trpc.useUtils();
+  const loginMutation = trpc.auth.apiKeyLogin.useMutation({
+    onSuccess: async () => {
+      // Cookie is set by server, refresh auth state
+      await utils.auth.me.invalidate();
+      window.location.reload();
+    },
+    onError: (err) => {
+      setError("API Key 无效，请重试");
+    },
+  });
+
+  const handleLogin = () => {
+    if (!apiKey.trim()) return;
+    setError("");
+    loginMutation.mutate({ apiKey: apiKey.trim() });
+  };
+
+  return (
+    <div className="w-full space-y-4">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <KeyRound className="h-4 w-4" />
+        <span>请输入API Key</span>
+      </div>
+      <input
+        type="password"
+        placeholder="输入API Key..."
+        value={apiKey}
+        onChange={(e) => setApiKey(e.target.value)}
+        className="w-full px-4 py-2 rounded-lg border bg-background text-foreground"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleLogin();
+        }}
+      />
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <Button
+        onClick={handleLogin}
+        disabled={loginMutation.isPending || !apiKey.trim()}
+        size="lg"
+        className="w-full shadow-lg hover:shadow-xl transition-all"
+      >
+        {loginMutation.isPending ? (
+          <><Loader2 className="h-4 w-4 animate-spin mr-2" />登录中...</>
+        ) : (
+          "登录"
+        )}
+      </Button>
+    </div>
+  );
+}
 
 export default function DashboardLayout({
   children,
@@ -78,40 +133,7 @@ export default function DashboardLayout({
             </p>
           </div>
           {isRailwayMode ? (
-            <div className="w-full space-y-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <KeyRound className="h-4 w-4" />
-                <span>请输入API Key</span>
-              </div>
-              <input
-                type="password"
-                placeholder="输入API Key..."
-                className="w-full px-4 py-2 rounded-lg border bg-background text-foreground"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    const key = (e.target as HTMLInputElement).value;
-                    if (key) {
-                      localStorage.setItem('storyboard-api-key', key);
-                      window.location.reload();
-                    }
-                  }
-                }}
-              />
-              <Button
-                onClick={() => {
-                  const input = document.querySelector('input[type=password]') as HTMLInputElement;
-                  const key = input?.value;
-                  if (key) {
-                    localStorage.setItem('storyboard-api-key', key);
-                    window.location.reload();
-                  }
-                }}
-                size="lg"
-                className="w-full shadow-lg hover:shadow-xl transition-all"
-              >
-                登录
-              </Button>
-            </div>
+            <ApiKeyLoginForm />
           ) : (
             <Button
               onClick={() => {
