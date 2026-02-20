@@ -436,3 +436,13 @@
 ## Bug Fix: Anchor库列表页不显示数据 (2026-02-20)
 - [x] 前端AnchorLibrary.tsx发送limit:200超过后端验证max(100)导致400错误
 - [x] 修复：limit改为100
+
+## Code Review 修复 (2026-02-20)
+- [x] BUG-1: SQL LIKE通配符注入修复（escapeLike函数转义%和_字符）
+- [x] BUG-4: 移除硬编码Admin API Key默认值（空字符串禁用API Key认证）
+- [x] OPT-2: 添加11个数据库索引（scripts/anchors/grids/panels/prompts/videoClips/anchorLibrary）
+- [ ] OPT-1: 拆分routers.ts（2600+行→按功能模块拆分）
+- [ ] OPT-3: 串行await循环改为Promise.all并行
+- [ ] OPT-4: 拆分ProjectDetail.tsx（2100+行→子组件）
+- [ ] OPT-5: 拆分AnchorLibrary.tsx（700+行→子组件）
+- [ ] OPT-7: 添加Anchor库专项单元测试
