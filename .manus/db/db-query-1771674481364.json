@@ -1,0 +1,15 @@
+{
+  "query": "SELECT g.projectId, g.gridImageUrl, p.title FROM grids g JOIN projects p ON g.projectId = p.id WHERE g.gridImageUrl IS NOT NULL AND g.gridImageUrl != '' AND g.projectId IN (80,78,76,71,70,69,68,67,61,59,58,57,56,1,52,43,40,31,30,28,27,26,20,18,15,14,13,12,10,9,7,5,3) LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT g.projectId, g.gridImageUrl, p.title FROM grids g JOIN projects p ON g.projectId = p.id WHERE g.gridImageUrl IS NOT NULL AND g.gridImageUrl != '' AND g.projectId IN (80,78,76,71,70,69,68,67,61,59,58,57,56,1,52,43,40,31,30,28,27,26,20,18,15,14,13,12,10,9,7,5,3) LIMIT 5;",
+  "rows": [
+    {
+      "projectId": "1",
+      "gridImageUrl": "https://files.toapis.com/uploads/5355/1771506190_6fbb2a0e.jpg",
+      "title": "午夜飙车 - 城市追逐"
+    }
+  ],
+  "messages": [],
+  "stdout": "projectId\tgridImageUrl\ttitle\n1\thttps://files.toapis.com/uploads/5355/1771506190_6fbb2a0e.jpg\t午夜飙车 - 城市追逐\n",
+  "stderr": "",
+  "execution_time_ms": 1546
+}

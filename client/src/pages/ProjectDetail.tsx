@@ -14,7 +14,7 @@ import {
   ArrowLeft, Play, RefreshCw, Wand2, CheckCircle,
   Image as ImageIcon, Pencil, Eye, Loader2, History, RotateCcw,
   Clock, Film, Camera, FileText, Sparkles, Plus, Trash2, Save, X, Download,
-  Library, Upload
+  Library, Upload, AlertTriangle, AlertCircle, Info
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
@@ -36,6 +36,7 @@ export default function ProjectDetail() {
 
   const { data, isLoading, refetch } = trpc.project.get.useQuery({ id: projectId }, { enabled: !!projectId });
   const versionHistory = trpc.version.history.useQuery({ projectId }, { enabled: !!projectId });
+  const validation30 = trpc.script.validate30PercentRule.useQuery({ projectId }, { enabled: !!projectId });
 
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedPanel, setSelectedPanel] = useState<number | null>(null);
@@ -572,6 +573,61 @@ export default function ProjectDetail() {
                           ? script.validationResult
                           : JSON.stringify(script.validationResult, null, 2))}
                       </pre>
+                    </div>
+                  )}
+                  {/* 30% Rule Validation */}
+                  {validation30.data && validation30.data.totalViolations > 0 && (
+                    <div className={`p-3 rounded-lg border ${
+                      validation30.data.criticalCount > 0 ? 'border-red-500/50 bg-red-500/5' :
+                      validation30.data.warningCount > 0 ? 'border-yellow-500/50 bg-yellow-500/5' :
+                      'border-blue-500/50 bg-blue-500/5'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        {validation30.data.criticalCount > 0 ? (
+                          <AlertTriangle className="h-4 w-4 text-red-500" />
+                        ) : validation30.data.warningCount > 0 ? (
+                          <AlertCircle className="h-4 w-4 text-yellow-500" />
+                        ) : (
+                          <Info className="h-4 w-4 text-blue-500" />
+                        )}
+                        <span className="text-sm font-medium">30% 法则检查</span>
+                        <div className="flex gap-1 ml-auto">
+                          {validation30.data.criticalCount > 0 && (
+                            <Badge variant="destructive" className="text-[10px]">严重 {validation30.data.criticalCount}</Badge>
+                          )}
+                          {validation30.data.warningCount > 0 && (
+                            <Badge className="text-[10px] bg-yellow-500">警告 {validation30.data.warningCount}</Badge>
+                          )}
+                          {validation30.data.infoCount > 0 && (
+                            <Badge variant="secondary" className="text-[10px]">提示 {validation30.data.infoCount}</Badge>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-2">{validation30.data.summary}</p>
+                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                        {validation30.data.violations.map((v: any, vi: number) => (
+                          <div key={vi} className={`text-xs p-2 rounded ${
+                            v.severity === 'critical' ? 'bg-red-500/10 text-red-700 dark:text-red-300' :
+                            v.severity === 'warning' ? 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-300' :
+                            'bg-blue-500/10 text-blue-700 dark:text-blue-300'
+                          }`}>
+                            <span className="font-medium">
+                              {v.severity === 'critical' ? '🔴' : v.severity === 'warning' ? '🟡' : '🔵'}
+                              {' '}#{v.frameA} → #{v.frameB}
+                            </span>
+                            <span className="ml-1">{v.reason}</span>
+                            {v.details?.descriptionSimilarity > 0 && (
+                              <span className="ml-1 opacity-70">(相似度: {(v.details.descriptionSimilarity * 100).toFixed(0)}%)</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {validation30.data && validation30.data.totalViolations === 0 && (
+                    <div className="p-3 rounded-lg border border-green-500/50 bg-green-500/5 flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span className="text-sm text-green-700 dark:text-green-300">30% 法则检查通过 — 相邻镜头视觉差异充分</span>
                     </div>
                   )}
                   {/* Frames Table - Desktop */}

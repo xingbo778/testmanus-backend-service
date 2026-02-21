@@ -1,0 +1,52 @@
+{
+  "query": "SELECT id, title, duration, status FROM projects ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT id, title, duration, status FROM projects ORDER BY id;",
+  "rows": [
+    {
+      "id": "1",
+      "title": "午夜飙车 - 城市追逐",
+      "duration": "30",
+      "status": "grid_generated"
+    },
+    {
+      "id": "2",
+      "title": "樱花树下的告白",
+      "duration": "45",
+      "status": "grid_generated"
+    },
+    {
+      "id": "3",
+      "title": "废弃医院的夜晚",
+      "duration": "30",
+      "status": "draft"
+    },
+    {
+      "id": "30001",
+      "title": "武术格斗 - 60秒多Grid测试",
+      "duration": "60",
+      "status": "grid_generated"
+    },
+    {
+      "id": "60001",
+      "title": "集成测试Case1 - 咖啡馆浪漫邂逅",
+      "duration": "15",
+      "status": "grid_generated"
+    },
+    {
+      "id": "60002",
+      "title": "集成测试 - 赛博朋克追逐",
+      "duration": "30",
+      "status": "grid_generated"
+    },
+    {
+      "id": "60003",
+      "title": "集成测试 - 武术格斗对决",
+      "duration": "60",
+      "status": "grid_generated"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\tduration\tstatus\n1\t午夜飙车 - 城市追逐\t30\tgrid_generated\n2\t樱花树下的告白\t45\tgrid_generated\n3\t废弃医院的夜晚\t30\tdraft\n30001\t武术格斗 - 60秒多Grid测试\t60\tgrid_generated\n60001\t集成测试Case1 - 咖啡馆浪漫邂逅\t15\tgrid_generated\n60002\t集成测试 - 赛博朋克追逐\t30\tgrid_generated\n60003\t集成测试 - 武术格斗对决\t60\tgrid_generated\n",
+  "stderr": "",
+  "execution_time_ms": 1605
+}

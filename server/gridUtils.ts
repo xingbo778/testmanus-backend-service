@@ -228,8 +228,17 @@ ${pageLabel ? `This is ${pageLabel} of the storyboard.` : ''}
 CRITICAL LAYOUT RULE:
 - Follow the GRID LAYOUT TEMPLATE (Image #${imgIdx}) EXACTLY - all panels must be the SAME SIZE
 - ${rows} rows x ${cols} columns, uniform white borders between panels
-- Panels numbered 1-${totalPanels}, reading left-to-right, top-to-bottom
-- NO text, NO titles, NO captions anywhere
+- Panels are ordered 1-${totalPanels}, reading left-to-right, top-to-bottom
+- DO NOT draw any numbers, labels, or text on the panels
+- NO text, NO titles, NO captions, NO panel numbers anywhere on the image
+
+30% VISUAL DIVERSITY RULE (CRITICAL):
+Every adjacent pair of panels MUST differ by at least 30% in visual composition:
+- Adjacent panels MUST use different shot types (e.g., WS→MCU→CU, NOT MCU→MCU)
+- Adjacent panels MUST show different camera angles or subject positions
+- Adjacent panels MUST have visually distinct compositions (different framing, different background elements visible)
+- If two adjacent panels show the same character, they MUST differ in pose, angle, and framing
+- NEVER create two adjacent panels that look almost identical - this is the #1 quality issue to avoid
 
 CHARACTER CONSISTENCY (CRITICAL):
 The characters in EVERY panel MUST look EXACTLY like the people in the character reference images:

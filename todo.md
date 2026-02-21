@@ -433,6 +433,13 @@
 - [x] 测试: 58个测试全部通过（含Anchor库相关逻辑）
 - [x] 测试: 端到端测试通过（导出3个Anchor到库→库中显示3个→导入对话框正常）
 
+## Phase 26: 30%法则 - 相邻镜头差异性保证 (2026-02-21)
+- [ ] 脚本生成system prompt集成30%法则规则（相邻镜头景别/角度/构图至少30%变化）
+- [ ] 添加相邻镜头差异性验证逻辑（shotType+cameraAngle连续重复检测）
+- [ ] Prompt生成后自动标记违反30%法则的相邻镜头对
+- [ ] 前端显示30%法则违规警告
+- [ ] 对Railway上80个项目执行30%法则批量检查，生成违规报告
+
 ## Bug Fix: Anchor库列表页不显示数据 (2026-02-20)
 - [x] 前端AnchorLibrary.tsx发送limit:200超过后端验证max(100)导致400错误
 - [x] 修复：limit改为100
@@ -460,3 +467,31 @@
 - [x] 辅助功能测试（SQL通配符转义/分页/权限）
 - [x] 运行全部测试通过（161 tests, 9 files, all passed）
 - [x] 推送到GitHub
+
+## Phase 27: 集成测试 - 3个测试Case实际运行Grid和Prompt生成
+- [x] 编写3个测试case（不同题材/时长）的集成测试脚本
+- [x] Case 1: 短片（15s）- 运行完整流程（创建→脚本→Anchor→Grid→Prompt）✅ 6帧/3anchor/1页Grid/6prompt
+- [x] Case 2: 中片（30s）- 运行完整流程 ✅ 12帧/2anchor/1页Grid(3×4)/12prompt
+- [x] Case 3: 长片（60s多Grid）- 运行完整流程 ✅ 18帧/3anchor/2页Grid(1/2有图)/18prompt
+- [x] 验证每个case的Grid和Prompt生成结果
+- [x] 建立发布后自动验证脚本 e2e-pipeline.test.ts（vitest，3个case，quick/medium/long）
+
+## Phase 28: 批量L3分类覆盖 - 为所有未生成过的L3创建项目并生成Grid+Prompt
+- [x] 获取所有L3分类列表，对比已有项目，找出未覆盖的L3
+- [x] 批量创建项目并运行完整生成流程（脚本→Anchor→Grid→Prompt）
+- [x] 验证所有生成结果 ✅ 80个项目，77个grid_generated，72/72 L3全部覆盖
+- [x] 创建Anchor库：亚洲男+亚洲女通用角色 + 10个通用场景
+- [x] 新项目使用固定Anchor（importFromLibrary）保持角色一致性
+
+## Phase 29: 视频生成 - 选几个项目生成视频并拼接
+- [ ] 选择项目并获取完整Prompt和Anchor数据
+- [ ] 使用veo3.1-fast生成各面板视频片段
+- [ ] 下载视频片段并拼接成完整剧情
+
+## Phase 30: 30%法则全面修复 (2026-02-21)
+- [x] 后端：实现30%法则验证逻辑（shotType + description语义相似度 + 场景/角色重复检测）
+- [x] 后端：新增 script.validate30PercentRule tRPC procedure
+- [x] 后端：改进脚本生成system prompt，强制面板差异性（场景/构图/主体位置必须30%以上变化）
+- [x] 后端：修复Grid编号重复bug（面板编号出现重复的3/9/10/11）— Grid prompt中明确禁止画编号
+- [x] 前端：在脚本详情页显示30%法则违规警告标记
+- [x] 编写vitest测试覆盖30%法则验证逻辑（9个测试全部通过）

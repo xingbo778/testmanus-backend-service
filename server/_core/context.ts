@@ -65,8 +65,15 @@ export async function createContext(
 ): Promise<TrpcContext> {
   let user: User | null = null;
 
+  // Dev bypass: allow unauthenticated access with X-Dev-Bypass header (non-production only)
+  if (process.env.NODE_ENV !== 'production' && opts.req.headers['x-dev-bypass'] === 'true') {
+    user = createAdminUser();
+  }
+
   // First try API Key auth (for Railway deployment)
-  user = authenticateByApiKey(opts.req);
+  if (!user) {
+    user = authenticateByApiKey(opts.req);
+  }
 
   // If no API key match, try Manus OAuth
   if (!user) {

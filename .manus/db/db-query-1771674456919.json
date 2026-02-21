@@ -1,0 +1,810 @@
+{
+  "query": "SELECT g.projectId, g.version, g.rows, g.cols, g.totalPanels, LEFT(g.gridImageUrl, 100) as gridUrl, p.title, p.l3Id FROM grids g JOIN projects p ON g.projectId = p.id WHERE g.gridImageUrl IS NOT NULL AND g.gridImageUrl != '' ORDER BY g.projectId;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT g.projectId, g.version, g.rows, g.cols, g.totalPanels, LEFT(g.gridImageUrl, 100) as gridUrl, p.title, p.l3Id FROM grids g JOIN projects p ON g.projectId = p.id WHERE g.gridImageUrl IS NOT NULL AND g.gridImageUrl != '' ORDER BY g.projectId;",
+  "rows": [
+    {
+      "projectId": "1",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771506190_6fbb2a0e.jpg",
+      "title": "午夜飙车 - 城市追逐",
+      "l3Id": "narrative.chase.car"
+    },
+    {
+      "projectId": "30001",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "10",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771527561_e7640ed2.png",
+      "title": "武术格斗 - 60秒多Grid测试",
+      "l3Id": "narrative.action.martial"
+    },
+    {
+      "projectId": "30001",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771527352_faa8c4e8.png",
+      "title": "武术格斗 - 60秒多Grid测试",
+      "l3Id": "narrative.action.martial"
+    },
+    {
+      "projectId": "60001",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771640965_5a5f0951.png",
+      "title": "集成测试Case1 - 咖啡馆浪漫邂逅",
+      "l3Id": "narrative.romance.firstmeet"
+    },
+    {
+      "projectId": "60002",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771641223_401bc421.png",
+      "title": "集成测试 - 赛博朋克追逐",
+      "l3Id": "scifi.cyberpunk.chase"
+    },
+    {
+      "projectId": "60003",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771641540_a1f4d4f8.png",
+      "title": "集成测试 - 武术格斗对决",
+      "l3Id": "sports.martial.kungfu"
+    },
+    {
+      "projectId": "90001",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771660040_10d7d49a.png",
+      "title": "L3测试-城市街道追逐",
+      "l3Id": "narrative.chase.urban"
+    },
+    {
+      "projectId": "90002",
+      "version": "2",
+      "rows": "2",
+      "cols": "2",
+      "totalPanels": "1",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771659875_ad9a3707.png",
+      "title": "L3测试-丛林追逐",
+      "l3Id": "narrative.chase.jungle"
+    },
+    {
+      "projectId": "90002",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771659811_1494264f.png",
+      "title": "L3测试-丛林追逐",
+      "l3Id": "narrative.chase.jungle"
+    },
+    {
+      "projectId": "120001",
+      "version": "2",
+      "rows": "2",
+      "cols": "4",
+      "totalPanels": "7",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771660403_9e143655.png",
+      "title": "L3-室内追逐",
+      "l3Id": "narrative.chase.indoor"
+    },
+    {
+      "projectId": "120004",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771660744_e65a5337.png",
+      "title": "L3-办公室/职场对话",
+      "l3Id": "narrative.dialogue.office"
+    },
+    {
+      "projectId": "120005",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771660749_4eb6d3bb.png",
+      "title": "L3-咖啡馆/餐厅对话",
+      "l3Id": "narrative.dialogue.cafe"
+    },
+    {
+      "projectId": "120006",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771660943_826b6900.png",
+      "title": "L3-户外/街头对话",
+      "l3Id": "narrative.dialogue.outdoor"
+    },
+    {
+      "projectId": "120008",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771661051_8035174d.png",
+      "title": "L3-车内对话",
+      "l3Id": "narrative.dialogue.car"
+    },
+    {
+      "projectId": "120010",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771661332_65671169.png",
+      "title": "L3-对峙/冲突对话",
+      "l3Id": "narrative.dialogue.confrontation"
+    },
+    {
+      "projectId": "120011",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771661505_4ad137e9.png",
+      "title": "L3-审讯/盘问",
+      "l3Id": "narrative.dialogue.interrogation"
+    },
+    {
+      "projectId": "120012",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771661712_ae79167a.png",
+      "title": "L3-电话/视频通话",
+      "l3Id": "narrative.dialogue.phone"
+    },
+    {
+      "projectId": "120013",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771661903_81805ad9.png",
+      "title": "L3-密谋/窃窃私语",
+      "l3Id": "narrative.dialogue.whisper"
+    },
+    {
+      "projectId": "120014",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771662181_ecf89129.png",
+      "title": "L3-多人群聊/聚会",
+      "l3Id": "narrative.dialogue.group"
+    },
+    {
+      "projectId": "120015",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771662379_0a7041f6.png",
+      "title": "L3-告别/离别对话",
+      "l3Id": "narrative.dialogue.farewell"
+    },
+    {
+      "projectId": "120016",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771662693_8a15caf0.png",
+      "title": "L3-枪战",
+      "l3Id": "narrative.action.gunfight"
+    },
+    {
+      "projectId": "120017",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771662912_c8d63c7e.png",
+      "title": "L3-逃脱场景",
+      "l3Id": "narrative.action.escape"
+    },
+    {
+      "projectId": "120018",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771663058_079f43c4.png",
+      "title": "L3-悬疑推理",
+      "l3Id": "narrative.suspense.mystery"
+    },
+    {
+      "projectId": "120019",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "11",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771663207_919f17b7.png",
+      "title": "L3-真相揭露",
+      "l3Id": "narrative.suspense.reveal"
+    },
+    {
+      "projectId": "120020",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771663388_a3e3d525.png",
+      "title": "L3-离别场景",
+      "l3Id": "narrative.romance.farewell"
+    },
+    {
+      "projectId": "120022",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771663769_c1a583b3.png",
+      "title": "L3-闹剧",
+      "l3Id": "narrative.comedy.slapstick"
+    },
+    {
+      "projectId": "120023",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771664097_149b5b5d.png",
+      "title": "L3-反转喜剧",
+      "l3Id": "narrative.comedy.twist"
+    },
+    {
+      "projectId": "120024",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "11",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771664434_b1988379.png",
+      "title": "L3-讽刺幽默",
+      "l3Id": "narrative.comedy.satire"
+    },
+    {
+      "projectId": "120025",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771664582_2e41ca09.png",
+      "title": "L3-武侠对决",
+      "l3Id": "narrative.historical.wuxia"
+    },
+    {
+      "projectId": "120026",
+      "version": "2",
+      "rows": "2",
+      "cols": "4",
+      "totalPanels": "8",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771664724_0566d309.png",
+      "title": "L3-宫廷戏",
+      "l3Id": "narrative.historical.court"
+    },
+    {
+      "projectId": "120026",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771664692_215b424c.png",
+      "title": "L3-宫廷戏",
+      "l3Id": "narrative.historical.court"
+    },
+    {
+      "projectId": "120027",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771664897_1446206e.png",
+      "title": "L3-古代战争",
+      "l3Id": "narrative.historical.war"
+    },
+    {
+      "projectId": "120029",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771665290_1b657b81.png",
+      "title": "L3-产品对比",
+      "l3Id": "commercial.product.comparison"
+    },
+    {
+      "projectId": "120030",
+      "version": "2",
+      "rows": "2",
+      "cols": "2",
+      "totalPanels": "1",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771665633_bc2e733c.png",
+      "title": "L3-场景化展示",
+      "l3Id": "commercial.product.lifestyle"
+    },
+    {
+      "projectId": "120030",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771665512_411af7df.png",
+      "title": "L3-场景化展示",
+      "l3Id": "commercial.product.lifestyle"
+    },
+    {
+      "projectId": "120032",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771665982_448c2731.png",
+      "title": "L3-美食ASMR",
+      "l3Id": "commercial.food.asmr"
+    },
+    {
+      "projectId": "120033",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771666291_ab4ee1a7.png",
+      "title": "L3-美食测评",
+      "l3Id": "commercial.food.review"
+    },
+    {
+      "projectId": "120033",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771666224_27d3a4cd.png",
+      "title": "L3-美食测评",
+      "l3Id": "commercial.food.review"
+    },
+    {
+      "projectId": "120034",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771666514_8f500052.png",
+      "title": "L3-穿搭展示",
+      "l3Id": "commercial.fashion.lookbook"
+    },
+    {
+      "projectId": "120035",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771666668_22235c1a.png",
+      "title": "L3-化妆教程",
+      "l3Id": "commercial.fashion.makeup"
+    },
+    {
+      "projectId": "120036",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771666978_2dc1cbc0.png",
+      "title": "L3-科技评测",
+      "l3Id": "commercial.tech.review"
+    },
+    {
+      "projectId": "120036",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771666870_ee13f810.png",
+      "title": "L3-科技评测",
+      "l3Id": "commercial.tech.review"
+    },
+    {
+      "projectId": "120037",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771667192_a96c233a.png",
+      "title": "L3-使用教程",
+      "l3Id": "commercial.tech.tutorial"
+    },
+    {
+      "projectId": "120038",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771667370_0989814f.png",
+      "title": "L3-日常记录",
+      "l3Id": "lifestyle.vlog.daily"
+    },
+    {
+      "projectId": "120039",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771667577_b4771fa3.png",
+      "title": "L3-事件记录",
+      "l3Id": "lifestyle.vlog.event"
+    },
+    {
+      "projectId": "120040",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "11",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771667780_a963138b.png",
+      "title": "L3-城市探索",
+      "l3Id": "lifestyle.travel.city"
+    },
+    {
+      "projectId": "120041",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771667998_19271072.png",
+      "title": "L3-自然风光",
+      "l3Id": "lifestyle.travel.nature"
+    },
+    {
+      "projectId": "120042",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771668190_05499859.png",
+      "title": "L3-家常菜",
+      "l3Id": "lifestyle.cooking.home"
+    },
+    {
+      "projectId": "120043",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "5",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771668467_087f5a68.png",
+      "title": "L3-烘焙甜点",
+      "l3Id": "lifestyle.cooking.baking"
+    },
+    {
+      "projectId": "120043",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771668377_a1d6b336.png",
+      "title": "L3-烘焙甜点",
+      "l3Id": "lifestyle.cooking.baking"
+    },
+    {
+      "projectId": "120044",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771668643_ce3e5cfc.png",
+      "title": "L3-健身教程",
+      "l3Id": "lifestyle.fitness.workout"
+    },
+    {
+      "projectId": "120045",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771668828_ca8bd084.png",
+      "title": "L3-瑜伽冥想",
+      "l3Id": "lifestyle.fitness.yoga"
+    },
+    {
+      "projectId": "120046",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771669298_c2ba52f5.png",
+      "title": "L3-风景延时",
+      "l3Id": "documentary.nature.landscape"
+    },
+    {
+      "projectId": "120046",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771669127_0990bde7.png",
+      "title": "L3-风景延时",
+      "l3Id": "documentary.nature.landscape"
+    },
+    {
+      "projectId": "120047",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771669510_f3149f98.png",
+      "title": "L3-野生动物",
+      "l3Id": "documentary.nature.wildlife"
+    },
+    {
+      "projectId": "120048",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771669719_4c2f7505.png",
+      "title": "L3-人物特写",
+      "l3Id": "documentary.interview.portrait"
+    },
+    {
+      "projectId": "120050",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771669989_149d52a2.png",
+      "title": "L3-科普讲解",
+      "l3Id": "documentary.science.explainer"
+    },
+    {
+      "projectId": "120051",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771670078_4bc17034.png",
+      "title": "L3-叙事MV",
+      "l3Id": "music_perf.mv.narrative"
+    },
+    {
+      "projectId": "120052",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771670184_c7e7d588.png",
+      "title": "L3-表演MV",
+      "l3Id": "music_perf.mv.performance"
+    },
+    {
+      "projectId": "120053",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "5",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771670470_8c3aa1fd.png",
+      "title": "L3-独舞",
+      "l3Id": "music_perf.dance.solo"
+    },
+    {
+      "projectId": "120053",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771670380_1183054a.png",
+      "title": "L3-独舞",
+      "l3Id": "music_perf.dance.solo"
+    },
+    {
+      "projectId": "120054",
+      "version": "2",
+      "rows": "2",
+      "cols": "2",
+      "totalPanels": "1",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771670810_6067ae7e.png",
+      "title": "L3-群舞",
+      "l3Id": "music_perf.dance.group"
+    },
+    {
+      "projectId": "120054",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771670689_e1c39bea.png",
+      "title": "L3-群舞",
+      "l3Id": "music_perf.dance.group"
+    },
+    {
+      "projectId": "120055",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771671007_5c69ad4f.png",
+      "title": "L3-太空探索",
+      "l3Id": "scifi_fantasy.scifi.space"
+    },
+    {
+      "projectId": "120056",
+      "version": "2",
+      "rows": "3",
+      "cols": "3",
+      "totalPanels": "9",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771671317_b837b305.png",
+      "title": "L3-赛博朋克",
+      "l3Id": "scifi_fantasy.scifi.cyberpunk"
+    },
+    {
+      "projectId": "120056",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771671230_3dabddd1.png",
+      "title": "L3-赛博朋克",
+      "l3Id": "scifi_fantasy.scifi.cyberpunk"
+    },
+    {
+      "projectId": "120057",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771671455_c0704c71.png",
+      "title": "L3-魔法对决",
+      "l3Id": "scifi_fantasy.fantasy.magic"
+    },
+    {
+      "projectId": "120058",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771671555_9a6610fc.png",
+      "title": "L3-神话传说",
+      "l3Id": "scifi_fantasy.fantasy.myth"
+    },
+    {
+      "projectId": "120059",
+      "version": "2",
+      "rows": "2",
+      "cols": "2",
+      "totalPanels": "2",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771671847_07e076ed.png",
+      "title": "L3-节奏蒙太奇",
+      "l3Id": "technique.montage.rhythmic"
+    },
+    {
+      "projectId": "120059",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771671778_32df2565.png",
+      "title": "L3-节奏蒙太奇",
+      "l3Id": "technique.montage.rhythmic"
+    },
+    {
+      "projectId": "120060",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771672153_3a4deaf0.png",
+      "title": "L3-对比蒙太奇",
+      "l3Id": "technique.montage.contrast"
+    },
+    {
+      "projectId": "120061",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771672418_96fd1d63.png",
+      "title": "L3-双线叙事",
+      "l3Id": "technique.parallel.dual"
+    },
+    {
+      "projectId": "120062",
+      "version": "2",
+      "rows": "2",
+      "cols": "2",
+      "totalPanels": "1",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771672723_ac84bdcf.png",
+      "title": "L3-比赛实况",
+      "l3Id": "sports.competition.match"
+    },
+    {
+      "projectId": "120062",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771672639_34b4527e.png",
+      "title": "L3-比赛实况",
+      "l3Id": "sports.competition.match"
+    },
+    {
+      "projectId": "120064",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771673156_169a0a92.png",
+      "title": "L3-冲浪",
+      "l3Id": "sports.extreme.surfing"
+    },
+    {
+      "projectId": "120065",
+      "version": "2",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771673338_ebed1c5b.png",
+      "title": "L3-粘土动画",
+      "l3Id": "special.stopmotion.clay"
+    },
+    {
+      "projectId": "120066",
+      "version": "2",
+      "rows": "2",
+      "cols": "2",
+      "totalPanels": "1",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771673852_994d93ba.png",
+      "title": "L3-连续长镜头",
+      "l3Id": "special.oneshot.continuous"
+    },
+    {
+      "projectId": "120066",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771673729_fd1a802e.png",
+      "title": "L3-连续长镜头",
+      "l3Id": "special.oneshot.continuous"
+    },
+    {
+      "projectId": "120066",
+      "version": "2",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771673625_d6b991c2.png",
+      "title": "L3-连续长镜头",
+      "l3Id": "special.oneshot.continuous"
+    },
+    {
+      "projectId": "120067",
+      "version": "2",
+      "rows": "2",
+      "cols": "2",
+      "totalPanels": "1",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771674289_cd13deda.png",
+      "title": "L3-双画面分屏",
+      "l3Id": "special.splitscreen.dual"
+    }
+  ],
+  "messages": [],
+  "stdout": "projectId\tversion\trows\tcols\ttotalPanels\tgridUrl\ttitle\tl3Id\n1\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771506190_6fbb2a0e.jpg\t午夜飙车 - 城市追逐\tnarrative.chase.car\n30001\t2\t3\t4\t10\thttps://files.toapis.com/uploads/5355/1771527561_e7640ed2.png\t武术格斗 - 60秒多Grid测试\tnarrative.action.martial\n30001\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771527352_faa8c4e8.png\t武术格斗 - 60秒多Grid测试\tnarrative.action.martial\n60001\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771640965_5a5f0951.png\t集成测试Case1 - 咖啡馆浪漫邂逅\tnarrative.romance.firstmeet\n60002\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771641223_401bc421.png\t集成测试 - 赛博朋克追逐\tscifi.cyberpunk.chase\n60003\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771641540_a1f4d4f8.png\t集成测试 - 武术格斗对决\tsports.martial.kungfu\n90001\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771660040_10d7d49a.png\tL3测试-城市街道追逐\tnarrative.chase.urban\n90002\t2\t2\t2\t1\thttps://files.toapis.com/uploads/5355/1771659875_ad9a3707.png\tL3测试-丛林追逐\tnarrative.chase.jungle\n90002\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771659811_1494264f.png\tL3测试-丛林追逐\tnarrative.chase.jungle\n120001\t2\t2\t4\t7\thttps://files.toapis.com/uploads/5355/1771660403_9e143655.png\tL3-室内追逐\tnarrative.chase.indoor\n120004\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771660744_e65a5337.png\tL3-办公室/职场对话\tnarrative.dialogue.office\n120005\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771660749_4eb6d3bb.png\tL3-咖啡馆/餐厅对话\tnarrative.dialogue.cafe\n120006\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771660943_826b6900.png\tL3-户外/街头对话\tnarrative.dialogue.outdoor\n120008\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771661051_8035174d.png\tL3-车内对话\tnarrative.dialogue.car\n120010\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771661332_65671169.png\tL3-对峙/冲突对话\tnarrative.dialogue.confrontation\n120011\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771661505_4ad137e9.png\tL3-审讯/盘问\tnarrative.dialogue.interrogation\n120012\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771661712_ae79167a.png\tL3-电话/视频通话\tnarrative.dialogue.phone\n120013\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771661903_81805ad9.png\tL3-密谋/窃窃私语\tnarrative.dialogue.whisper\n120014\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771662181_ecf89129.png\tL3-多人群聊/聚会\tnarrative.dialogue.group\n120015\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771662379_0a7041f6.png\tL3-告别/离别对话\tnarrative.dialogue.farewell\n120016\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771662693_8a15caf0.png\tL3-枪战\tnarrative.action.gunfight\n120017\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771662912_c8d63c7e.png\tL3-逃脱场景\tnarrative.action.escape\n120018\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771663058_079f43c4.png\tL3-悬疑推理\tnarrative.suspense.mystery\n120019\t2\t3\t4\t11\thttps://files.toapis.com/uploads/5355/1771663207_919f17b7.png\tL3-真相揭露\tnarrative.suspense.reveal\n120020\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771663388_a3e3d525.png\tL3-离别场景\tnarrative.romance.farewell\n120022\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771663769_c1a583b3.png\tL3-闹剧\tnarrative.comedy.slapstick\n120023\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771664097_149b5b5d.png\tL3-反转喜剧\tnarrative.comedy.twist\n120024\t2\t3\t4\t11\thttps://files.toapis.com/uploads/5355/1771664434_b1988379.png\tL3-讽刺幽默\tnarrative.comedy.satire\n120025\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771664582_2e41ca09.png\tL3-武侠对决\tnarrative.historical.wuxia\n120026\t2\t2\t4\t8\thttps://files.toapis.com/uploads/5355/1771664724_0566d309.png\tL3-宫廷戏\tnarrative.historical.court\n120026\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771664692_215b424c.png\tL3-宫廷戏\tnarrative.historical.court\n120027\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771664897_1446206e.png\tL3-古代战争\tnarrative.historical.war\n120029\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771665290_1b657b81.png\tL3-产品对比\tcommercial.product.comparison\n120030\t2\t2\t2\t1\thttps://files.toapis.com/uploads/5355/1771665633_bc2e733c.png\tL3-场景化展示\tcommercial.product.lifestyle\n120030\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771665512_411af7df.png\tL3-场景化展示\tcommercial.product.lifestyle\n120032\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771665982_448c2731.png\tL3-美食ASMR\tcommercial.food.asmr\n120033\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771666291_ab4ee1a7.png\tL3-美食测评\tcommercial.food.review\n120033\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771666224_27d3a4cd.png\tL3-美食测评\tcommercial.food.review\n120034\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771666514_8f500052.png\tL3-穿搭展示\tcommercial.fashion.lookbook\n120035\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771666668_22235c1a.png\tL3-化妆教程\tcommercial.fashion.makeup\n120036\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771666978_2dc1cbc0.png\tL3-科技评测\tcommercial.tech.review\n120036\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771666870_ee13f810.png\tL3-科技评测\tcommercial.tech.review\n120037\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771667192_a96c233a.png\tL3-使用教程\tcommercial.tech.tutorial\n120038\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771667370_0989814f.png\tL3-日常记录\tlifestyle.vlog.daily\n120039\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771667577_b4771fa3.png\tL3-事件记录\tlifestyle.vlog.event\n120040\t2\t3\t4\t11\thttps://files.toapis.com/uploads/5355/1771667780_a963138b.png\tL3-城市探索\tlifestyle.travel.city\n120041\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771667998_19271072.png\tL3-自然风光\tlifestyle.travel.nature\n120042\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771668190_05499859.png\tL3-家常菜\tlifestyle.cooking.home\n120043\t2\t2\t3\t5\thttps://files.toapis.com/uploads/5355/1771668467_087f5a68.png\tL3-烘焙甜点\tlifestyle.cooking.baking\n120043\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771668377_a1d6b336.png\tL3-烘焙甜点\tlifestyle.cooking.baking\n120044\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771668643_ce3e5cfc.png\tL3-健身教程\tlifestyle.fitness.workout\n120045\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771668828_ca8bd084.png\tL3-瑜伽冥想\tlifestyle.fitness.yoga\n120046\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771669298_c2ba52f5.png\tL3-风景延时\tdocumentary.nature.landscape\n120046\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771669127_0990bde7.png\tL3-风景延时\tdocumentary.nature.landscape\n120047\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771669510_f3149f98.png\tL3-野生动物\tdocumentary.nature.wildlife\n120048\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771669719_4c2f7505.png\tL3-人物特写\tdocumentary.interview.portrait\n120050\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771669989_149d52a2.png\tL3-科普讲解\tdocumentary.science.explainer\n120051\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771670078_4bc17034.png\tL3-叙事MV\tmusic_perf.mv.narrative\n120052\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771670184_c7e7d588.png\tL3-表演MV\tmusic_perf.mv.performance\n120053\t2\t2\t3\t5\thttps://files.toapis.com/uploads/5355/1771670470_8c3aa1fd.png\tL3-独舞\tmusic_perf.dance.solo\n120053\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771670380_1183054a.png\tL3-独舞\tmusic_perf.dance.solo\n120054\t2\t2\t2\t1\thttps://files.toapis.com/uploads/5355/1771670810_6067ae7e.png\tL3-群舞\tmusic_perf.dance.group\n120054\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771670689_e1c39bea.png\tL3-群舞\tmusic_perf.dance.group\n120055\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771671007_5c69ad4f.png\tL3-太空探索\tscifi_fantasy.scifi.space\n120056\t2\t3\t3\t9\thttps://files.toapis.com/uploads/5355/1771671317_b837b305.png\tL3-赛博朋克\tscifi_fantasy.scifi.cyberpunk\n120056\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771671230_3dabddd1.png\tL3-赛博朋克\tscifi_fantasy.scifi.cyberpunk\n120057\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771671455_c0704c71.png\tL3-魔法对决\tscifi_fantasy.fantasy.magic\n120058\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771671555_9a6610fc.png\tL3-神话传说\tscifi_fantasy.fantasy.myth\n120059\t2\t2\t2\t2\thttps://files.toapis.com/uploads/5355/1771671847_07e076ed.png\tL3-节奏蒙太奇\ttechnique.montage.rhythmic\n120059\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771671778_32df2565.png\tL3-节奏蒙太奇\ttechnique.montage.rhythmic\n120060\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771672153_3a4deaf0.png\tL3-对比蒙太奇\ttechnique.montage.contrast\n120061\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771672418_96fd1d63.png\tL3-双线叙事\ttechnique.parallel.dual\n120062\t2\t2\t2\t1\thttps://files.toapis.com/uploads/5355/1771672723_ac84bdcf.png\tL3-比赛实况\tsports.competition.match\n120062\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771672639_34b4527e.png\tL3-比赛实况\tsports.competition.match\n120064\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771673156_169a0a92.png\tL3-冲浪\tsports.extreme.surfing\n120065\t2\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771673338_ebed1c5b.png\tL3-粘土动画\tspecial.stopmotion.clay\n120066\t2\t2\t2\t1\thttps://files.toapis.com/uploads/5355/1771673852_994d93ba.png\tL3-连续长镜头\tspecial.oneshot.continuous\n120066\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771673729_fd1a802e.png\tL3-连续长镜头\tspecial.oneshot.continuous\n120066\t2\t3\t4\t12\thttps://files.toapis.com/uploads/5355/1771673625_d6b991c2.png\tL3-连续长镜头\tspecial.oneshot.continuous\n120067\t2\t2\t2\t1\thttps://files.toapis.com/uploads/5355/1771674289_cd13deda.png\tL3-双画面分屏\tspecial.splitscreen.dual\n",
+  "stderr": "",
+  "execution_time_ms": 1586
+}

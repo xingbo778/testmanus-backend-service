@@ -17,6 +17,7 @@ import { DEFAULT_SYSTEM_PROMPTS } from "./seed-prompts";
 import { logInfo, logError, logWarn } from "./appLogger";
 import { extractPanel, extractAllPanels } from "./panelExtractor";
 import { generateAllGridPages, splitFramesIntoPages, type Frame } from "./gridUtils";
+import { validate30PercentRule, type FrameForValidation } from "./thirtyPercentRule";
 
 export const appRouter = router({
   system: systemRouter,
@@ -484,6 +485,33 @@ ${userRulesContext}
 - 前3秒必须有强钩子（hook）
 - 必须严格遵循上述规则手册中的规则
 
+# 30%法则（CRITICAL - 必须严格遵守）
+相邻两个镜头之间，画面构图必须至少有30%的变化，否则会产生"跳切"（Jump Cut）。
+
+## 具体要求：
+1. **景别变化**：相邻帧的shotType不能相同或过于接近（如MCU→MCU、CU→CU是禁止的）。
+   - 正确示例：WS→MCU→CU→MS→EWS（景别跳跃式变化）
+   - 错误示例：MCU→MCU→MCU（连续相同景别=跳切）
+   - 错误示例：CU→MCU→CU（来回切换相近景别=视觉单调）
+2. **角度/构图变化**：即使景别不同，相邻帧的拍摄角度、主体位置也必须明显不同。
+   - 不能连续两帧都是正面平视角度
+   - 不能连续两帧主体都在画面中央
+3. **场景/背景变化**：相邻帧不能描述几乎相同的场景和背景。
+   - 每帧的description必须在环境、人物姿态、光线中至少有2项明显不同
+4. **对话场景特殊规则**：
+   - 禁止连续3帧以上使用MCU（中近景正反打）
+   - 对话中必须穿插WS/MS/INS等不同景别打破节奏
+   - 推荐模式：MS(建立)→MCU(A说话)→CU(B反应)→INS(道具特写)→MS(双人)→MCU(B说话)
+5. **动作场景特殊规则**：
+   - 景别必须快速跳跃：WS→CU→MS→ECU→WS
+   - 禁止连续2帧以上使用相同景别
+
+## 自检清单（生成后必须检查）：
+- [ ] 没有连续2帧使用完全相同的shotType
+- [ ] 没有连续3帧使用同一景别组（如CU/MCU/BCU都属于近景组）
+- [ ] 每帧的description与前后帧有明显的视觉差异
+- [ ] 对话场景中穿插了足够的景别变化
+
 # 重要：每帧description必须非常详细
 每帧的description字段必须包含以下所有要素（用英文撰写，因为后续用于生成图片）：
 1. **环境/背景**：具体的场景环境描述（如"warm-toned cafe interior with wooden tables, large windows letting in golden afternoon sunlight, potted plants on windowsills"）
@@ -622,7 +650,33 @@ ${input.additionalContext ? `补充说明：${input.additionalContext}` : ""}
           details: { version, frameCount: parsed.frames?.length, characterCount: parsed.characters?.length, rulesInjected: totalRulesInjected },
         });
 
-        return { scriptId, script: parsed, version };
+        // Auto-validate against 30% rule
+        const validation = validate30PercentRule(parsed.frames as FrameForValidation[]);
+        if (!validation.isValid) {
+          logWarn("script_gen", `30% rule violations detected: ${validation.criticalCount} critical, ${validation.warningCount} warning`, {
+            projectId: input.projectId,
+            details: { violations: validation.violations.slice(0, 10) },
+          });
+        }
+
+        return { scriptId, script: parsed, version, validation };
+      }),
+
+    // Validate script against 30% rule
+    validate30PercentRule: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .query(async ({ input }) => {
+        const script = await db.getLatestScript(input.projectId);
+        if (!script) throw new Error("No script found for this project");
+        const frames = (script.frames as any[]).map(f => ({
+          index: f.index,
+          shotType: f.shotType,
+          duration: f.duration,
+          description: f.description,
+          cameraMovement: f.cameraMovement,
+          notes: f.notes,
+        })) as FrameForValidation[];
+        return validate30PercentRule(frames);
       }),
 
     // Edit single frame
