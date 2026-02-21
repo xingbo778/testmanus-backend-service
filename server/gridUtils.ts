@@ -70,25 +70,23 @@ export interface GridPageResult {
 
 /**
  * Calculate optimal rows x cols for a given number of panels.
- * Max 12 panels per grid (3x4) to maintain quality.
+ * Always uses 3×3 grid. Empty cells are filled with black.
+ * Max 6 content panels per grid page.
  */
-export function calculateGridLayout(panelCount: number): { rows: number; cols: number } {
-  if (panelCount <= 4) return { rows: 2, cols: 2 };
-  if (panelCount <= 6) return { rows: 2, cols: 3 };
-  if (panelCount <= 8) return { rows: 2, cols: 4 };
-  if (panelCount <= 9) return { rows: 3, cols: 3 };
-  if (panelCount <= 12) return { rows: 3, cols: 4 };
-  // Should not reach here with proper pagination
-  if (panelCount <= 15) return { rows: 3, cols: 5 };
-  if (panelCount <= 20) return { rows: 4, cols: 5 };
-  return { rows: 4, cols: 6 };
+export function calculateGridLayout(panelCount: number): { rows: number; cols: number; emptyCount: number } {
+  // Always use 3×3 grid
+  const rows = 3;
+  const cols = 3;
+  const totalCells = rows * cols; // 9
+  const emptyCount = totalCells - Math.min(panelCount, totalCells);
+  return { rows, cols, emptyCount };
 }
 
 /**
  * Split frames into grid pages. Each page has at most MAX_PANELS_PER_GRID panels.
  * Returns an array of GridPage objects.
  */
-export const MAX_PANELS_PER_GRID = 12;
+export const MAX_PANELS_PER_GRID = 6;
 
 export function splitFramesIntoPages(frames: Frame[]): GridPage[] {
   const totalFrames = frames.length;
@@ -228,7 +226,8 @@ ${pageLabel ? `This is ${pageLabel} of the storyboard.` : ''}
 CRITICAL LAYOUT RULE:
 - Follow the GRID LAYOUT TEMPLATE (Image #${imgIdx}) EXACTLY - all panels must be the SAME SIZE
 - ${rows} rows x ${cols} columns, uniform white borders between panels
-- Panels are ordered 1-${totalPanels}, reading left-to-right, top-to-bottom
+- Only the first ${totalPanels} panels contain content (ordered 1-${totalPanels}, left-to-right, top-to-bottom)
+- The remaining ${rows * cols - totalPanels} cells in the grid MUST be PURE BLACK (solid #000000) - these are empty placeholder cells
 - DO NOT draw any numbers, labels, or text on the panels
 - NO text, NO titles, NO captions, NO panel numbers anywhere on the image
 

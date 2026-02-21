@@ -44,23 +44,28 @@ export async function generateGridTemplate(opts: GridTemplateOptions): Promise<B
   // Background (border color fills gaps between cells)
   svgParts.push(`<rect width="${width}" height="${height}" fill="${borderColor}"/>`);
 
+  const emptyColor = "#000000"; // Black for empty cells
   let panelIdx = 1;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (panelIdx > totalPanels) break;
       const x = borderWidth + c * (cellW + borderWidth);
       const y = borderWidth + r * (cellH + borderWidth);
 
-      // Cell background
-      svgParts.push(`<rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" fill="${bgColor}" rx="2"/>`);
+      if (panelIdx <= totalPanels) {
+        // Content cell background
+        svgParts.push(`<rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" fill="${bgColor}" rx="2"/>`);
 
-      // Panel number label (centered, large and clear)
-      const fontSize = Math.min(cellW, cellH) * 0.35;
-      svgParts.push(
-        `<text x="${x + cellW / 2}" y="${y + cellH / 2 + fontSize * 0.35}" ` +
-        `font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="bold" ` +
-        `fill="${labelColor}" text-anchor="middle">${panelIdx}</text>`
-      );
+        // Panel number label (centered, large and clear)
+        const fontSize = Math.min(cellW, cellH) * 0.35;
+        svgParts.push(
+          `<text x="${x + cellW / 2}" y="${y + cellH / 2 + fontSize * 0.35}" ` +
+          `font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="bold" ` +
+          `fill="${labelColor}" text-anchor="middle">${panelIdx}</text>`
+        );
+      } else {
+        // Empty cell - render as black
+        svgParts.push(`<rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" fill="${emptyColor}" rx="2"/>`);
+      }
 
       panelIdx++;
     }

@@ -495,3 +495,12 @@
 - [x] 后端：修复Grid编号重复bug（面板编号出现重复的3/9/10/11）— Grid prompt中明确禁止画编号
 - [x] 前端：在脚本详情页显示30%法则违规警告标记
 - [x] 编写vitest测试覆盖30%法则验证逻辑（9个测试全部通过）
+
+## Phase 31: 3×3 Grid布局（最后3格留空）(2026-02-22)
+- [x] calculateGridLayout 改为所有 ≤6 面板返回 3×3（emptyCount = 9 - panelCount）
+- [x] splitFramesIntoPages 改为每页最多6帧（MAX_PANELS_PER_GRID=6）
+- [x] gridTemplate 空格子渲染为深色/黑色（区别于内容格）
+- [x] Grid prompt 指示 Gemini 将空格子保持纯黑
+- [x] 更新 multiGrid.test.ts 匹配新的布局逻辑（19个测试全部通过）
+- [ ] 推送到 GitHub + Railway 自动部署
+- [ ] 验证 Railway 上 Grid 生成效果（项目 #66 已验证通过）
