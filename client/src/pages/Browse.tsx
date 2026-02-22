@@ -17,8 +17,10 @@ import { toast } from "sonner";
 const STATUS_MAP: Record<string, string> = {
   draft: "草稿",
   scripted: "已生成脚本",
+  anchors_generated: "已生成Anchor",
   grid_generating: "Grid生成中...",
   grid_generated: "已生成Grid",
+  prompt_generated: "已生成Prompt",
   reviewing: "审核中",
   confirmed: "已确认",
 };

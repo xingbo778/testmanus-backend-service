@@ -1015,7 +1015,7 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         });
 
         // Update project status to anchor_generated
-        await db.updateProject(input.projectId, { status: "anchor_generated" });
+        await db.updateProject(input.projectId, { status: "anchors_generated" });
 
         return { anchors: results };
       }),
@@ -1860,6 +1860,9 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
           projectId: input.projectId,
           details: { promptCount: parsed.prompts.length, models: Array.from(new Set(parsed.prompts.map((p: any) => p.model))) },
         });
+
+        // Update project status to prompt_generated
+        await db.updateProject(input.projectId, { status: "prompt_generated" });
 
         return { prompts: parsed.prompts };
       }),
