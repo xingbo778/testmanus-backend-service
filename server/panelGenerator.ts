@@ -92,8 +92,16 @@ export async function generateSinglePanel(opts: {
       );
       imgIdx++;
     }
-
-    // Build character appearance block
+    // Prop anchor images (key props)
+    const propAnchors = anchors.filter(a => a.anchorType === 'prop' && a.imageUrl?.startsWith('http'));
+    for (const pa of propAnchors) {
+      orderedImages.push({ url: pa.imageUrl! });
+      imageDescriptions.push(
+        `Image #${imgIdx}: KEY PROP "${pa.name}" reference photo. This prop MUST appear exactly like this in the scene. ${pa.prompt || pa.description || ''}`
+      );
+      imgIdx++;
+    }
+    // Build character appearance blockk
     const charAppearanceLines = charAnchors.map(ca => {
       const charData = characters.find(c => c.name === ca.name);
       return `- "${ca.name}": ${ca.prompt || charData?.description || ca.description || 'See reference image'}`;
@@ -116,6 +124,15 @@ REQUIREMENTS:
 1. Generate exactly ONE standalone cinematic image. Do NOT create a grid, collage, or multi-panel layout.
 2. The characters MUST look EXACTLY like the reference photos provided — same face, same ethnicity, same hair, same clothing.
 ${charAppearanceLines ? `3. CHARACTER APPEARANCE:\n${charAppearanceLines}` : ''}
+
+KEYFRAME PRINCIPLE (CRITICAL):
+This image will be used as the STARTING KEYFRAME for a ${frame.duration}s video clip.
+- The image MUST capture the BEGINNING STATE of the action described, NOT the middle or end.
+- Characters should be in their initial positions/poses BEFORE the main action unfolds.
+- The composition should set up the action that is ABOUT TO HAPPEN.
+- Example: If the description says "character picks up a cup and drinks", show the character reaching toward the cup, NOT already drinking.
+- Example: If the description says "character turns around in surprise", show the character facing away, ABOUT TO turn.
+- The subsequent video will animate FROM this starting frame through the described action.
 
 STYLE:
 - A real photograph, NOT a digital render or CGI — shot on 35mm film, Kodak Vision3 500T

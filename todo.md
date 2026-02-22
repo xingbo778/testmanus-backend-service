@@ -589,5 +589,36 @@
 - [x] Grid tab显示生成中动画（Loader2旋转 + 提示文字）
 - [x] 清理调试代码（移除gridUtils.ts的console.log、index.ts的debug端点、未使用import）
 - [x] 27个multiGrid测试 + 103个e2e测试 + 19个ruleSelector测试 + 11个newFeatures测试全部通过
-- [ ] 推送到GitHub + Railway自动部署
+- [x] 推送到GitHub + Railway自动部署
 - [ ] 在Railway上验证前端异步Grid生成体验
+
+## Phase 44: 系统性优化 - 帧数/布局/Anchor/关键帧/L3补充/全量重生成 (2026-02-22)
+### 44.1 帧数与Grid布局规则优化
+- [x] 15秒分镜帧数限定为4/6/8/9（对应2×2/3×2/4×2/3×3布局）
+- [x] 30秒分镜前后分段（前15秒8帧+后15秒6或8帧）
+- [x] calculateGridLayout更新：9→3×3, 8→4×2, 6→3×2, 4→2×2
+- [x] 脚本生成prompt中明确帧数限制（15秒→4/6/8/9帧）
+- [x] splitFramesIntoPages更新适配新规则（MAX_PANELS_PER_GRID=9，平衡分页算法）
+- [x] 更新multiGrid测试（32个测试全部通过）
+
+### 44.2 Anchor关键道具补充
+- [x] 脚本分析时提取关键道具（杯子/武器/信件等）+ anchorPrompt字段
+- [x] Anchor生成时除角色/场景外，也为关键道具生成参考图
+- [x] 道具Anchor传入Grid生成和Panel生成作为参考图
+
+### 44.3 关键帧起始帧优化
+- [x] Panel图作为该分镜的起始状态（KEYFRAME PRINCIPLE注入panelGenerator prompt）
+- [x] Prompt描述从起始状态到结束状态的动作过程（视频prompt生成也注入关键帧原则）
+- [x] 更新Panel生成prompt和视频Prompt生成prompt，强调“起始帧”概念
+
+### 44.4 L2→L3分类补充
+- [x] 遍历所有L2分类，分析缺失的L3场景
+- [x] 补充灾难场景、密室逃脱、心理博弈、婚礼、约会、误会喜剧、恶作剧等缺失L3
+- [x] 补充乐器演奏、恐怖超自然、倒叙闪回、训练日常等完全缺失L3的L2
+- [x] 补充自然风光、科普、体育、特殊风格等分类的额外L3
+- [x] 共新增约30+个L3分类
+
+### 44.5 全量重新生成
+- [ ] 所有L3重新创建项目
+- [ ] 批量生成脚本→Anchor→Grid→Prompt
+- [ ] 验证生成结果质量

@@ -9,11 +9,11 @@
  * The reference grid is kept internally for style guidance.
  * The final output is a clean composed grid from individual panels.
  * 
- * Layout is dynamic based on panel count:
- *   1-2 panels → 2×1 (2 cols × 1 row)
- *   3-4 panels → 2×2 (2 cols × 2 rows)
- *   5-6 panels → 2×3 (2 cols × 3 rows)
- *   7-8 panels → 2×4 (2 cols × 4 rows)
+ * Layout is based on standard panel counts:
+ *   4 panels → 2×2
+ *   6 panels → 3×2
+ *   8 panels → 4×2
+ *   9 panels → 3×3
  */
 
 import { generateImage } from "./_core/imageGeneration";
@@ -86,34 +86,56 @@ export interface GridPageResult {
 
 /**
  * Calculate the optimal grid layout for a given panel count.
- * Always uses 2 columns, rows scale to fit all panels.
- * 
- * Panel count → Layout:
- *   1-2  → 2×1 (2 cols × 1 row)
- *   3-4  → 2×2 (2 cols × 2 rows)
- *   5-6  → 2×3 (2 cols × 3 rows)
- *   7-8  → 2×4 (2 cols × 4 rows)
- *   9-10 → 2×5 (2 cols × 5 rows)
- *   etc.
+ * Uses predefined layouts for standard panel counts:
+ *   4  → 2×2 (2 cols × 2 rows)
+ *   6  → 3×2 (3 cols × 2 rows)
+ *   8  → 4×2 (4 cols × 2 rows)
+ *   9  → 3×3 (3 cols × 3 rows)
+ * For other counts, uses the nearest fitting layout.
  */
 export function calculateGridLayout(panelCount: number): { rows: number; cols: number; emptyCount: number } {
-  const cols = 2;
+  // Standard layouts per user specification
+  const layoutMap: Record<number, { rows: number; cols: number }> = {
+    1: { rows: 1, cols: 1 },
+    2: { rows: 1, cols: 2 },
+    3: { rows: 1, cols: 3 },
+    4: { rows: 2, cols: 2 },
+    5: { rows: 2, cols: 3 },  // 3×2 with 1 empty
+    6: { rows: 2, cols: 3 },
+    7: { rows: 2, cols: 4 },  // 4×2 with 1 empty
+    8: { rows: 2, cols: 4 },
+    9: { rows: 3, cols: 3 },
+  };
+
+  if (layoutMap[panelCount]) {
+    const { rows, cols } = layoutMap[panelCount];
+    const totalCells = rows * cols;
+    return { rows, cols, emptyCount: totalCells - panelCount };
+  }
+
+  // For counts > 9, use 4 columns
+  const cols = 4;
   const rows = Math.max(1, Math.ceil(panelCount / cols));
   const totalCells = rows * cols;
-  const emptyCount = totalCells - panelCount;
-  return { rows, cols, emptyCount };
+  return { rows, cols, emptyCount: totalCells - panelCount };
 }
 
 /**
  * Split frames into grid pages. Each page has at most MAX_PANELS_PER_GRID panels.
  * Returns an array of GridPage objects.
  */
-export const MAX_PANELS_PER_GRID = 8;
+export const MAX_PANELS_PER_GRID = 9;
 
+/**
+ * Split frames into grid pages.
+ * For ≤15 frames (typically 15s video): single page, use all frames.
+ * For 16+ frames (30s+): split into pages of 6-9 frames each,
+ * preferring 8+6, 8+8, 9+9 etc. for balanced distribution.
+ */
 export function splitFramesIntoPages(frames: Frame[]): GridPage[] {
   const totalFrames = frames.length;
 
-  // If total fits in one grid, no splitting needed
+  // If total fits in one grid (≤9), no splitting needed
   if (totalFrames <= MAX_PANELS_PER_GRID) {
     const layout = calculateGridLayout(totalFrames);
     return [{
@@ -128,16 +150,17 @@ export function splitFramesIntoPages(frames: Frame[]): GridPage[] {
     }];
   }
 
-  // Split into pages of MAX_PANELS_PER_GRID
+  // For 10+ frames, split into balanced pages
+  // Strategy: distribute frames as evenly as possible across pages,
+  // with each page having 4-9 frames (preferring 6-9)
+  const pageSizes = calculateBalancedPageSizes(totalFrames);
   const pages: GridPage[] = [];
-  const totalPages = Math.ceil(totalFrames / MAX_PANELS_PER_GRID);
+  let offset = 0;
 
-  for (let i = 0; i < totalPages; i++) {
-    const startIdx = i * MAX_PANELS_PER_GRID;
-    const endIdx = Math.min(startIdx + MAX_PANELS_PER_GRID, totalFrames);
-    const pageFrames = frames.slice(startIdx, endIdx);
-    const panelCount = pageFrames.length;
-    const layout = calculateGridLayout(panelCount);
+  for (let i = 0; i < pageSizes.length; i++) {
+    const size = pageSizes[i];
+    const pageFrames = frames.slice(offset, offset + size);
+    const layout = calculateGridLayout(size);
 
     pages.push({
       pageIndex: i,
@@ -146,12 +169,74 @@ export function splitFramesIntoPages(frames: Frame[]): GridPage[] {
       frames: pageFrames,
       rows: layout.rows,
       cols: layout.cols,
-      totalPanels: panelCount,
-      pageLabel: `Page ${i + 1}/${totalPages} (frames ${pageFrames[0].index}-${pageFrames[pageFrames.length - 1].index})`,
+      totalPanels: size,
+      pageLabel: `Page ${i + 1}/${pageSizes.length} (frames ${pageFrames[0].index}-${pageFrames[pageFrames.length - 1].index})`,
     });
+
+    offset += size;
   }
 
   return pages;
+}
+
+/**
+ * Calculate balanced page sizes for a given total frame count.
+ * Each page should have 4-9 frames, preferring standard counts (4/6/8/9).
+ * Examples:
+ *   10 → [6, 4] or [5, 5]
+ *   12 → [6, 6]
+ *   14 → [8, 6]
+ *   16 → [8, 8]
+ *   18 → [9, 9]
+ *   20 → [8, 6, 6]
+ *   24 → [8, 8, 8]
+ *   30 → [8, 8, 8, 6]
+ */
+export function calculateBalancedPageSizes(totalFrames: number): number[] {
+  if (totalFrames <= MAX_PANELS_PER_GRID) return [totalFrames];
+
+  // Try to find the best split with pages of 4-9 frames
+  const minPerPage = 4;
+  const maxPerPage = MAX_PANELS_PER_GRID; // 9
+
+  // Calculate number of pages needed
+  const numPages = Math.ceil(totalFrames / maxPerPage);
+
+  // Distribute frames as evenly as possible
+  const baseSize = Math.floor(totalFrames / numPages);
+  const remainder = totalFrames % numPages;
+
+  const sizes: number[] = [];
+  for (let i = 0; i < numPages; i++) {
+    // Give extra frames to earlier pages
+    sizes.push(baseSize + (i < remainder ? 1 : 0));
+  }
+
+  // Validate all pages have at least minPerPage
+  // If any page is too small, merge with adjacent
+  for (let i = sizes.length - 1; i >= 0; i--) {
+    if (sizes[i] < minPerPage && i > 0) {
+      sizes[i - 1] += sizes[i];
+      sizes.splice(i, 1);
+    }
+  }
+
+  // If any page exceeds maxPerPage after merging, re-split
+  const finalSizes: number[] = [];
+  for (const s of sizes) {
+    if (s > maxPerPage) {
+      const subPages = Math.ceil(s / maxPerPage);
+      const subBase = Math.floor(s / subPages);
+      const subRem = s % subPages;
+      for (let j = 0; j < subPages; j++) {
+        finalSizes.push(subBase + (j < subRem ? 1 : 0));
+      }
+    } else {
+      finalSizes.push(s);
+    }
+  }
+
+  return finalSizes;
 }
 
 // ============================================================
@@ -184,6 +269,7 @@ async function generateReferenceGrid(opts: {
   try {
     const charAnchors = anchorsList.filter(a => a.anchorType === 'character' && a.imageUrl && a.imageUrl.startsWith('http'));
     const sceneAnchors = anchorsList.filter(a => a.anchorType === 'scene' && a.imageUrl && a.imageUrl.startsWith('http'));
+    const propAnchors = anchorsList.filter(a => a.anchorType === 'prop' && a.imageUrl && a.imageUrl.startsWith('http'));
 
     const orderedImages: Array<{ url: string }> = [];
     const imageDescriptions: string[] = [];
@@ -210,7 +296,14 @@ async function generateReferenceGrid(opts: {
       imgIdx++;
     }
 
-    // Grid template (dynamic rows × 2 cols)
+    // Prop anchors (key props)
+    for (const pa of propAnchors) {
+      orderedImages.push({ url: pa.imageUrl! });
+      imageDescriptions.push(`Image #${imgIdx}: KEY PROP "${pa.name}" reference photo. This prop MUST appear exactly like this when shown in panels. ${pa.prompt || pa.description || ''}`);
+      imgIdx++;
+    }
+
+    // Grid template
     const gridTemplateDataUrl = await generateGridTemplateDataUrl({ rows: refRows, cols: refCols, totalPanels: refTotalCells });
     orderedImages.push({ url: gridTemplateDataUrl });
     imageDescriptions.push(`Image #${imgIdx}: GRID LAYOUT TEMPLATE. This shows the exact ${refRows}x${refCols} uniform grid layout you MUST follow.`);

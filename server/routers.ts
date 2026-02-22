@@ -451,15 +451,15 @@ export const appRouter = router({
 
         const totalDuration = parseInt(project.duration);
         const frameCountMap: Record<number, string> = {
-          15: "6-8", 30: "10-15", 45: "15-22", 60: "20-30", 90: "30-45", 120: "40-60"
+          15: "4, 6, 8, 或9", 30: "12-16", 45: "18-24", 60: "24-30", 90: "36-45", 120: "48-60"
         };
         const gridLayoutMap: Record<number, string> = {
-          15: "2×3 or 2×4 (1 page)",
-          30: "3×4 (1-2 pages)",
-          45: "3×4 (2 pages)",
-          60: "3×4 (2-3 pages)",
-          90: "3×4 (3-4 pages)",
-          120: "3×4 (4-5 pages)",
+          15: "2×2(4帧) / 3×2(6帧) / 4×2(8帧) / 3×3(9帧), 1页",
+          30: "前后分段: 前15秒8帧(4×2) + 后15秒6-8帧(3×2或4×2), 2页",
+          45: "前后分段: 3页, 每页6-9帧",
+          60: "前后分段: 3-4页, 每页6-9帧",
+          90: "前后分段: 4-5页, 每页6-9帧",
+          120: "前后分段: 6-7页, 每页6-9帧",
         };
         const frameCount = frameCountMap[totalDuration] || "15-22";
         const gridLayout = gridLayoutMap[totalDuration] || "3×4 (multi-page)";
@@ -479,6 +479,14 @@ ${userRulesContext}
 - 每帧时长：1-3秒
 - 前3秒必须有强钩子（hook）
 - 必须严格遵循上述规则手册中的规则
+${totalDuration === 15 ? `
+# 帧数限制（重要）
+15秒分镜的帧数必须为以下四个值之一：4、6、8、9。
+- 4帧：适合简单场景（建立镜头→主体→动作→结尾）
+- 6帧：适合对话/交互场景
+- 8帧：适合动作/悬疑场景（推荐）
+- 9帧：适合复杂多角色场景
+绝对不能生成其他数量的帧（如5、7、10、12帧都是禁止的）。` : ''}
 
 # 30%法则（CRITICAL - 必须严格遵守）
 相邻两个镜头之间，画面构图必须至少有30%的变化，否则会产生"跳切"（Jump Cut）。
@@ -534,7 +542,7 @@ ${userRulesContext}
     { "name": "场景名", "description": "场景描述（中文，非常详细：空间大小、装修风格、家具摆设、光线条件、时间段、氛围）", "anchorPrompt": "用于生成场景参考图的英文prompt，必须遵循以下格式：A wide establishing photograph of [SCENE], [detailed environment: furniture, decorations, materials, colors]. [Lighting description: direction, color temperature, shadows]. [Time of day] atmosphere. Rich saturated colors, natural motivated lighting. Real photograph shot on 35mm wide-angle lens, Kodak Portra 400 film. Visible environmental textures (dust, moisture, surface wear). No people. NOT a digital render or CGI." }
   ],
   "props": [
-    { "name": "道具名", "description": "道具描述" }
+    { "name": "道具名", "description": "道具描述（中文，详细描述道具的外观、材质、颜色、尺寸、状态）", "anchorPrompt": "用于生成道具参考图的英文prompt，必须遵循以下格式：A product photograph of [PROP], [detailed appearance: material, color, texture, size, condition]. Centered on pure white studio background (#FFFFFF), soft even lighting from above. Shot on Canon EOS R5, 100mm macro lens f/2.8. Visible surface details, reflections, textures. NOT a digital render or CGI." }
   ]
 }`;
 
@@ -607,8 +615,9 @@ ${input.additionalContext ? `补充说明：${input.additionalContext}` : ""}
                       properties: {
                         name: { type: "string" },
                         description: { type: "string" },
+                        anchorPrompt: { type: "string" },
                       },
-                      required: ["name", "description"],
+                      required: ["name", "description", "anchorPrompt"],
                       additionalProperties: false,
                     },
                   },
@@ -965,8 +974,38 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
           }
         }
 
+        // Generate prop anchors (key props from script)
+        const props = (script.props as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
+        for (const prop of props) {
+          if (!prop.anchorPrompt) continue; // Skip props without anchor prompts
+          try {
+            const { url } = await generateImage({ prompt: prop.anchorPrompt });
+            const anchorId = await db.saveAnchor({
+              projectId: input.projectId,
+              version: script.version,
+              anchorType: "prop",
+              name: prop.name,
+              description: prop.description,
+              prompt: prop.anchorPrompt,
+              imageUrl: url,
+            });
+            results.push({ id: anchorId, type: "prop", name: prop.name, imageUrl: url, prompt: prop.anchorPrompt });
+          } catch (e) {
+            console.error(`[AnchorGen] Failed to generate image for prop "${prop.name}":`, e instanceof Error ? e.message : e);
+            const anchorId = await db.saveAnchor({
+              projectId: input.projectId,
+              version: script.version,
+              anchorType: "prop",
+              name: prop.name,
+              description: prop.description,
+              prompt: prop.anchorPrompt,
+            });
+            results.push({ id: anchorId, type: "prop", name: prop.name, prompt: prop.anchorPrompt });
+          }
+        }
+
         const successCount = results.filter(r => r.imageUrl).length;
-        logInfo("anchor_gen", `Anchors generated: ${successCount}/${results.length} with images`, {
+        logInfo("anchor_gen", `Anchors generated: ${successCount}/${results.length} with images (${characters.length} chars, ${scenes.length} scenes, ${props.length} props)`, {
           projectId: input.projectId,
           details: { total: results.length, withImages: successCount, types: results.map(r => r.type) },
         });
@@ -1688,8 +1727,15 @@ ${rulesText}
 ## 角色/场景锚点
 ${anchorInfo}
 
+## 关键帧起始帧原则（重要）
+每一帧的panel图将作为视频片段的起始关键帧，因此：
+- promptText必须描述从起始状态开始的动作过程，而不是静态描述
+- 例如：“角色从桌上拿起杯子并喝一口”而不是“角色手持杯子”
+- 例如：“角色猛然转身，表情从平静变为惊讶”而不是“角色惊讶地看着”
+- action字段必须描述完整的动作过程，从起始到结束
+
 ## 控制策略选择指南
-- first_frame: 第一帧有明确的起始画面时使用
+- first_frame: 第一帧有明确的起始画面时使用（推荐默认使用）
 - last_frame: 需要精确控制结束画面时使用
 - first_last_frame: 需要精确控制起止画面时使用（如两个关键姿势之间的过渡）
 - reference_frame: 需要参考已有画面风格但不严格匹配时使用
