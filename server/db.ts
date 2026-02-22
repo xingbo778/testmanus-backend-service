@@ -6,8 +6,12 @@ import {
   projects, scripts, anchors, grids, panels, prompts,
   references, ruleChapters, experienceRecords, userRules, exportRecords,
   systemPrompts, appLogs, videoClips, finalVideos, anchorLibrary,
+  screenplayTemplates, screenplays, shuangdianLibrary,
   type Project, type Script, type Anchor, type Grid, type Panel, type Prompt, type SystemPrompt, type AppLog, type VideoClip, type FinalVideo,
   type AnchorLibraryItem, type InsertAnchorLibraryItem,
+  type ScreenplayTemplate, type InsertScreenplayTemplate,
+  type Screenplay, type InsertScreenplay,
+  type ShuangdianItem, type InsertShuangdianItem,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1145,4 +1149,129 @@ export async function importLibraryAnchorToProject(libraryItemId: number, projec
   await incrementAnchorLibraryUsage(libraryItemId);
 
   return anchorId;
+}
+
+
+// ============================================================
+// Screenplay Template helpers
+// ============================================================
+export async function createScreenplayTemplate(data: InsertScreenplayTemplate) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(screenplayTemplates).values(data);
+  return result[0].insertId;
+}
+
+export async function listScreenplayTemplates(filters?: { category?: string; narrativeArchetype?: string }) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [];
+  if (filters?.category) conditions.push(eq(screenplayTemplates.category, filters.category));
+  if (filters?.narrativeArchetype) conditions.push(eq(screenplayTemplates.narrativeArchetype, filters.narrativeArchetype));
+  const query = conditions.length > 0
+    ? db.select().from(screenplayTemplates).where(and(...conditions)).orderBy(desc(screenplayTemplates.usageCount))
+    : db.select().from(screenplayTemplates).orderBy(desc(screenplayTemplates.usageCount));
+  return query;
+}
+
+export async function getScreenplayTemplateById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(screenplayTemplates).where(eq(screenplayTemplates.id, id)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function updateScreenplayTemplate(id: number, data: Partial<InsertScreenplayTemplate>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(screenplayTemplates).set(data as any).where(eq(screenplayTemplates.id, id));
+}
+
+export async function deleteScreenplayTemplate(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(screenplayTemplates).where(eq(screenplayTemplates.id, id));
+}
+
+export async function incrementScreenplayTemplateUsage(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(screenplayTemplates)
+    .set({ usageCount: sql`${screenplayTemplates.usageCount} + 1` })
+    .where(eq(screenplayTemplates.id, id));
+}
+
+// ============================================================
+// Screenplay helpers
+// ============================================================
+export async function createScreenplay(data: InsertScreenplay) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(screenplays).values(data);
+  return result[0].insertId;
+}
+
+export async function listScreenplays(filters?: { status?: string; templateId?: number }) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [];
+  if (filters?.status) conditions.push(eq(screenplays.status, filters.status as any));
+  if (filters?.templateId) conditions.push(eq(screenplays.templateId, filters.templateId));
+  const query = conditions.length > 0
+    ? db.select().from(screenplays).where(and(...conditions)).orderBy(desc(screenplays.updatedAt))
+    : db.select().from(screenplays).orderBy(desc(screenplays.updatedAt));
+  return query;
+}
+
+export async function getScreenplayById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(screenplays).where(eq(screenplays.id, id)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function updateScreenplay(id: number, data: Partial<InsertScreenplay>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(screenplays).set(data as any).where(eq(screenplays.id, id));
+}
+
+export async function deleteScreenplay(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(screenplays).where(eq(screenplays.id, id));
+}
+
+// ============================================================
+// Shuangdian Library helpers
+// ============================================================
+export async function createShuangdianItem(data: InsertShuangdianItem) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(shuangdianLibrary).values(data);
+  return result[0].insertId;
+}
+
+export async function listShuangdianItems(filters?: { category?: string; level?: string }) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [];
+  if (filters?.category) conditions.push(eq(shuangdianLibrary.category, filters.category));
+  if (filters?.level) conditions.push(eq(shuangdianLibrary.level, filters.level as any));
+  const query = conditions.length > 0
+    ? db.select().from(shuangdianLibrary).where(and(...conditions)).orderBy(desc(shuangdianLibrary.usageCount))
+    : db.select().from(shuangdianLibrary).orderBy(desc(shuangdianLibrary.usageCount));
+  return query;
+}
+
+export async function updateShuangdianItem(id: number, data: Partial<InsertShuangdianItem>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(shuangdianLibrary).set(data as any).where(eq(shuangdianLibrary.id, id));
+}
+
+export async function deleteShuangdianItem(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(shuangdianLibrary).where(eq(shuangdianLibrary.id, id));
 }

@@ -18,10 +18,14 @@ import { logInfo, logError, logWarn } from "./appLogger";
 import { extractPanel, extractAllPanels } from "./panelExtractor";
 import { generateAllGridPages, splitFramesIntoPages, MAX_PANELS_PER_GRID, calculateGridLayout, type Frame } from "./gridUtils";
 import { validate30PercentRule, type FrameForValidation } from "./thirtyPercentRule";
+import { screenplayRouter, screenplayTemplateRouter, shuangdianRouter } from "./screenplayRouter";
 import { buildRulesForScript, buildRulesForGrid, buildRulesForPanel, buildRulesForPrompt, type RuleChapter } from "./ruleSelector";
 
 export const appRouter = router({
   system: systemRouter,
+  screenplay: screenplayRouter,
+  screenplayTemplate: screenplayTemplateRouter,
+  shuangdian: shuangdianRouter,
   // Debug endpoint to check runtime grid config
   debug: router({
     gridConfig: publicProcedure.query(() => {

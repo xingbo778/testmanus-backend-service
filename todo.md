@@ -631,3 +631,12 @@
 - [x] 前端：显示最近完成/失败任务历史
 - [x] 前端：支持从任务跳转到项目详情
 - [x] autoSeedOnStartup添加category seed（每次启动upsert 9 L1 + 34 L2 + 111 L3）
+
+### 44.7 脚本管理功能迁移（从testmanus-backend-service）
+- [x] 迁移schema: screenplay_templates, screenplays, shuangdian_library 3张表
+- [x] 迁移server/screenplayRouter.ts
+- [x] 迁移client/src/pages/ScreenplayList.tsx + ScreenplayDetail.tsx
+- [x] 更新App.tsx路由和DashboardLayout侧边栏
+- [x] 运行db:push推送schema变更（3张新表创建成功）
+- [x] 集成测试（135个测试全部通过）
+- [ ] 推送到GitHub + Railway部署

@@ -14,6 +14,8 @@ import PromptManager from "./pages/PromptManager";
 import LogSession from "./pages/LogSession";
 import AnchorLibrary from "./pages/AnchorLibrary";
 import TaskMonitor from "./pages/TaskMonitor";
+import ScreenplayList from "./pages/ScreenplayList";
+import ScreenplayDetail from "./pages/ScreenplayDetail";
 import DashboardLayout from "./components/DashboardLayout";
 
 function Router() {
@@ -21,6 +23,8 @@ function Router() {
     <DashboardLayout>
       <Switch>
         <Route path={"/"} component={Home} />
+        <Route path={"/screenplay"} component={ScreenplayList} />
+        <Route path={"/screenplay/:id"} component={ScreenplayDetail} />
         <Route path={"/browse"} component={Browse} />
         <Route path={"/browse/:l1Id"} component={Browse} />
         <Route path={"/browse/:l1Id/:l2Id"} component={Browse} />

@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, FolderTree, BookOpen, Download, Shield, Film, KeyRound, FileText, ScrollText, Palette, Loader2, Activity } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, FolderTree, BookOpen, Download, Shield, Film, KeyRound, FileText, ScrollText, Palette, Loader2, Activity, Sparkles } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
@@ -30,6 +30,7 @@ import { Button } from "./ui/button";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "总览", path: "/" },
+  { icon: Sparkles, label: "脚本管理", path: "/screenplay" },
   { icon: FolderTree, label: "分类浏览", path: "/browse" },
   { icon: BookOpen, label: "经验管理", path: "/experience" },
   { icon: Shield, label: "规则管理", path: "/rules" },

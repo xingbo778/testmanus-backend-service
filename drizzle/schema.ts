@@ -398,3 +398,94 @@ export const anchorLibrary = mysqlTable("anchor_library", {
 
 export type AnchorLibraryItem = typeof anchorLibrary.$inferSelect;
 export type InsertAnchorLibraryItem = typeof anchorLibrary.$inferInsert;
+
+
+// ============================================================
+// Screenplay Templates (reusable narrative templates)
+// ============================================================
+export const screenplayTemplates = mysqlTable("screenplay_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 256 }).notNull(),           // e.g. "赘婿逆袭"
+  nameEn: varchar("nameEn", { length: 256 }),                 // e.g. "Son-in-law Comeback"
+  category: varchar("category", { length: 64 }).notNull(),    // e.g. "男频身份逆袭", "女频言情", "美食制作"
+  subcategory: varchar("subcategory", { length: 64 }),         // e.g. "反差逆袭", "甜宠"
+  description: text("description"),                            // one-line description
+  targetDuration: varchar("targetDuration", { length: 16 }),   // e.g. "60-90"
+  sceneCount: int("sceneCount").default(3).notNull(),          // typical number of scenes
+  // Narrative structure
+  narrativeArchetype: varchar("narrativeArchetype", { length: 128 }), // e.g. "鱼离水", "英雄之旅", "三幕式"
+  emotionCurve: text("emotionCurve"),                          // e.g. "压抑→爆发→逆转→升华"
+  hookStrategy: text("hookStrategy"),                          // first 3 seconds strategy
+  // Structured scene template as JSON array
+  scenes: json("scenes").notNull(),
+  // Configurable parameters (slots)
+  slots: json("slots"),                                        // [{name, type, description, defaultValue}]
+  // Shuangdian (pleasure points) configuration
+  shuangdian: json("shuangdian"),                              // [{level: "micro"|"mid"|"major", timing, description}]
+  // Metadata
+  tags: json("tags"),                                          // string[] for flexible categorization
+  usageCount: int("usageCount").default(0).notNull(),
+  isBuiltin: boolean("isBuiltin").default(false).notNull(),    // system built-in vs user created
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => [
+  index("idx_sptpl_category").on(t.category),
+  index("idx_sptpl_archetype").on(t.narrativeArchetype),
+]);
+export type ScreenplayTemplate = typeof screenplayTemplates.$inferSelect;
+export type InsertScreenplayTemplate = typeof screenplayTemplates.$inferInsert;
+
+// ============================================================
+// Screenplays (user-generated scripts from ideas)
+// ============================================================
+export const screenplays = mysqlTable("screenplays", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 256 }).notNull(),
+  idea: text("idea").notNull(),                                // original user idea/inspiration
+  templateId: int("templateId"),                               // matched template (nullable for fully custom)
+  templateName: varchar("templateName", { length: 256 }),      // denormalized for display
+  totalDuration: int("totalDuration").default(60).notNull(),   // target total duration in seconds
+  sceneCount: int("sceneCount").default(0).notNull(),
+  status: mysqlEnum("status", ["draft", "generated", "editing", "finalized", "archived"]).default("draft").notNull(),
+  version: int("version").default(1).notNull(),
+  narrativeArchetype: varchar("narrativeArchetype", { length: 128 }),
+  emotionCurve: text("emotionCurve"),
+  generationPrompt: text("generationPrompt"),                  // the prompt used for generation
+  scenes: json("scenes"),
+  characters: json("characters"),                              // [{name, description, role}]
+  settings: json("settings"),                                  // [{name, description}]
+  slotValues: json("slotValues"),                              // {protagonist: "张伟", antagonist: "李总", ...}
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => [
+  index("idx_sp_status").on(t.status),
+  index("idx_sp_template").on(t.templateId),
+  index("idx_sp_created").on(t.createdBy),
+]);
+export type Screenplay = typeof screenplays.$inferSelect;
+export type InsertScreenplay = typeof screenplays.$inferInsert;
+
+// ============================================================
+// Shuangdian Library (pleasure/satisfaction point knowledge base)
+// ============================================================
+export const shuangdianLibrary = mysqlTable("shuangdian_library", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 256 }).notNull(),            // e.g. "身份揭露打脸"
+  category: varchar("category", { length: 64 }).notNull(),     // e.g. "身份反转", "权力碾压", "甜宠"
+  level: mysqlEnum("level", ["micro", "mid", "major"]).default("mid").notNull(),
+  description: text("description"),                            // detailed description
+  example: text("example"),                                    // concrete example
+  applicableTemplates: json("applicableTemplates"),            // string[] template categories this applies to
+  emotionTarget: varchar("emotionTarget", { length: 64 }),     // e.g. "爽感", "心动", "解气", "治愈"
+  tags: json("tags"),
+  usageCount: int("usageCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => [
+  index("idx_sdlib_category").on(t.category),
+  index("idx_sdlib_level").on(t.level),
+]);
+export type ShuangdianItem = typeof shuangdianLibrary.$inferSelect;
+export type InsertShuangdianItem = typeof shuangdianLibrary.$inferInsert;
