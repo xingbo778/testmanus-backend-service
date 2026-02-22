@@ -1,10 +1,19 @@
 /**
  * Grid utility functions for multi-page grid support.
- * Handles grid pagination, layout calculation, and single-page grid generation.
+ * 
+ * NEW 3-stage pipeline:
+ *   Stage 1: Gemini generates a 3×3 Grid (full content, used as style reference)
+ *   Stage 2: Generate each panel individually (referencing Grid + Anchors)
+ *   Stage 3: Sharp composes panels into a 2×3 final grid image
+ * 
+ * The 3×3 "reference grid" is kept internally for style guidance.
+ * The final output is a clean 2×3 composed grid from individual panels.
  */
 
 import { generateImage } from "./_core/imageGeneration";
 import { generateGridTemplateDataUrl } from "./gridTemplate";
+import { generateAllPanels, type PanelGenAnchor, type PanelGenCharacter, type PanelGenScene, type PanelGenFrame } from "./panelGenerator";
+import { composePanels } from "./gridComposer";
 import * as db from "./db";
 import { logInfo, logError } from "./appLogger";
 
@@ -54,7 +63,8 @@ export interface GridPage {
 export interface GridPageResult {
   gridId: number;
   pageIndex: number;
-  gridImageUrl: string | null;
+  gridImageUrl: string | null;       // Final composed 2×3 grid
+  referenceGridUrl?: string | null;  // Original 3×3 reference grid from Gemini
   rows: number;
   cols: number;
   totalPanels: number;
@@ -69,15 +79,14 @@ export interface GridPageResult {
 // ============================================================
 
 /**
- * Calculate optimal rows x cols for a given number of panels.
- * Always uses 3×3 grid. Empty cells are filled with black.
- * Max 6 content panels per grid page.
+ * Calculate the layout for the final composed grid.
+ * Always uses 2×3 layout (2 columns × 3 rows = 6 panels max).
  */
 export function calculateGridLayout(panelCount: number): { rows: number; cols: number; emptyCount: number } {
-  // Always use 3×3 grid
+  // Final output is always 2×3
+  const cols = 2;
   const rows = 3;
-  const cols = 3;
-  const totalCells = rows * cols; // 9
+  const totalCells = rows * cols; // 6
   const emptyCount = totalCells - Math.min(panelCount, totalCells);
   return { rows, cols, emptyCount };
 }
@@ -133,69 +142,67 @@ export function splitFramesIntoPages(frames: Frame[]): GridPage[] {
 }
 
 // ============================================================
-// Single Grid Page Generation
+// Stage 1: Generate 3×3 Reference Grid (Gemini)
 // ============================================================
 
 /**
- * Generate a single grid page image.
- * @param page - The grid page definition
- * @param anchorsList - Character/scene anchors with images
- * @param characters - Character info from script
- * @param scenes - Scene info from script
- * @param prevGridImageUrl - Optional: previous grid page's image URL for style continuity
- * @param customPrompt - Optional: user-provided custom prompt
+ * Generate a 3×3 reference grid using Gemini.
+ * This grid is used as a style/composition reference for individual panel generation.
+ * Gemini fills all 9 cells with content (we don't worry about empty cells here).
  */
-export async function generateSingleGridPage(opts: {
+async function generateReferenceGrid(opts: {
   page: GridPage;
   anchorsList: AnchorInfo[];
   characters: CharacterInfo[];
   scenes: SceneInfo[];
   prevGridImageUrl?: string;
   customPrompt?: string;
-}): Promise<{ gridImageUrl: string | null; gridPrompt: string; error?: string }> {
+}): Promise<{ referenceGridUrl: string | null; gridPrompt: string; error?: string }> {
   const { page, anchorsList, characters, scenes, prevGridImageUrl, customPrompt } = opts;
-  const { rows, cols, totalPanels, frames, pageIndex, pageLabel } = page;
+  const { totalPanels, frames, pageIndex, pageLabel } = page;
+
+  // Reference grid is always 3×3
+  const refRows = 3;
+  const refCols = 3;
 
   let gridPrompt = '';
   try {
-    // Separate character and scene anchors that have images
     const charAnchors = anchorsList.filter(a => a.anchorType === 'character' && a.imageUrl && a.imageUrl.startsWith('http'));
     const sceneAnchors = anchorsList.filter(a => a.anchorType === 'scene' && a.imageUrl && a.imageUrl.startsWith('http'));
 
-    // Build ordered image list
     const orderedImages: Array<{ url: string }> = [];
     const imageDescriptions: string[] = [];
     let imgIdx = 1;
 
-    // 0) If there's a previous grid page, add it as style reference
+    // Previous grid for style continuity
     if (prevGridImageUrl) {
       orderedImages.push({ url: prevGridImageUrl });
-      imageDescriptions.push(`Image #${imgIdx}: PREVIOUS GRID PAGE. This is the style reference from the previous page. The new grid MUST match this exact visual style, color grading, lighting quality, and character appearance.`);
+      imageDescriptions.push(`Image #${imgIdx}: PREVIOUS GRID PAGE. Match this exact visual style, color grading, lighting quality, and character appearance.`);
       imgIdx++;
     }
 
-    // 1) Character anchor images
+    // Character anchors
     for (const ca of charAnchors) {
       orderedImages.push({ url: ca.imageUrl! });
       imageDescriptions.push(`Image #${imgIdx}: CHARACTER "${ca.name}" reference photo. ${ca.prompt || ca.description || ''}`);
       imgIdx++;
     }
 
-    // 2) Scene anchor images
+    // Scene anchors
     for (const sa of sceneAnchors) {
       orderedImages.push({ url: sa.imageUrl! });
       imageDescriptions.push(`Image #${imgIdx}: SCENE "${sa.name}" reference photo. ${sa.prompt || sa.description || ''}`);
       imgIdx++;
     }
 
-    // 3) Grid layout template
-    const gridTemplateDataUrl = await generateGridTemplateDataUrl({ rows, cols, totalPanels });
+    // Grid template (3×3, all cells filled)
+    const gridTemplateDataUrl = await generateGridTemplateDataUrl({ rows: refRows, cols: refCols, totalPanels: refRows * refCols });
     orderedImages.push({ url: gridTemplateDataUrl });
-    imageDescriptions.push(`Image #${imgIdx}: GRID LAYOUT TEMPLATE. This shows the exact ${rows}x${cols} uniform grid layout you MUST follow. Every panel must be the SAME SIZE as shown in this template.`);
+    imageDescriptions.push(`Image #${imgIdx}: GRID LAYOUT TEMPLATE. This shows the exact ${refRows}x${refCols} uniform grid layout you MUST follow.`);
 
-    console.log(`[GridGen] Page ${pageIndex}: Prepared ${orderedImages.length} reference images`);
+    console.log(`[GridGen] Stage 1 - Page ${pageIndex}: Prepared ${orderedImages.length} reference images for 3×3 grid`);
 
-    // Build character/scene appearance descriptions
+    // Character/scene descriptions
     const charAppearanceLines = charAnchors.map(ca => {
       const charData = characters.find(c => c.name === ca.name);
       return `- "${ca.name}": ${ca.prompt || charData?.description || ca.description || 'See reference image'}`;
@@ -206,52 +213,47 @@ export async function generateSingleGridPage(opts: {
       return `- "${sa.name}": ${sa.prompt || sceneData?.description || sa.description || 'See reference image'}`;
     }).join('\n');
 
-    // Panel descriptions - use LOCAL panel numbering (1-based within this page)
+    // Panel descriptions — map frames to 3×3 positions
+    // For ≤6 frames, we place them in the first 6 cells; cells 7-9 can be anything (will be ignored)
     const panelLines = frames.map((f, i) => {
       const localIndex = i + 1;
       return `Panel ${localIndex} (Frame #${f.index}) [${f.shotType}] (${f.duration}s, camera: ${f.cameraMovement}): ${f.description}`;
     }).join('\n');
 
-    const continuityNote = prevGridImageUrl
-      ? `\nSTYLE CONTINUITY: This is ${pageLabel}. The visual style, color grading, and character appearance MUST be IDENTICAL to the previous grid page (Image #1). This is a continuation of the same story.`
+    // If fewer than 9 frames, tell Gemini to fill remaining cells with related content
+    const extraCellNote = totalPanels < 9
+      ? `\nNote: You have ${totalPanels} specific panels described below. For the remaining ${9 - totalPanels} cells, create additional shots that complement the story (establishing shots, detail shots, or alternate angles). These extra cells help maintain visual coherence.`
       : '';
 
-    const emptyCount = rows * cols - totalPanels;
-    const emptyWarning = emptyCount > 0 ? `
-⚠️ MANDATORY EMPTY CELLS — READ THIS FIRST ⚠️
-This is a ${rows}x${cols} grid (9 cells total) but you are ONLY drawing ${totalPanels} content panels.
-The LAST ${emptyCount} cells (bottom-right) MUST be COMPLETELY FILLED WITH SOLID BLACK (#000000).
-Do NOT put any image, scene, character, text, or content in those ${emptyCount} cells — just pure black.
-Look at the GRID LAYOUT TEMPLATE (Image #${imgIdx}): cells marked with a red ✕ and "EMPTY" MUST stay black.
-If your output has content in more than ${totalPanels} cells, your output is WRONG.
-` : '';
+    const continuityNote = prevGridImageUrl
+      ? `\nSTYLE CONTINUITY: This is ${pageLabel}. Match the previous grid page (Image #1) exactly.`
+      : '';
 
-    gridPrompt = customPrompt || `I am providing ${orderedImages.length} reference images. Here is what each image shows:
+    gridPrompt = customPrompt || `I am providing ${orderedImages.length} reference images:
 
 ${imageDescriptions.join('\n')}
-${emptyWarning}
-Your task: Create a ${rows}x${cols} cinematic storyboard grid. Draw EXACTLY ${totalPanels} content panels, no more.
+${extraCellNote}
+
+Your task: Create a ${refRows}x${refCols} cinematic storyboard grid with ${refRows * refCols} panels.
 ${pageLabel ? `This is ${pageLabel} of the storyboard.` : ''}
 
 CRITICAL LAYOUT RULE:
-- Follow the GRID LAYOUT TEMPLATE (Image #${imgIdx}) EXACTLY - all panels must be the SAME SIZE
-- ${rows} rows x ${cols} columns, uniform white borders between panels
-- Content goes in cells 1-${totalPanels} ONLY (left-to-right, top-to-bottom)${emptyCount > 0 ? `\n- Cells ${totalPanels + 1}-${rows * cols} MUST be SOLID BLACK — no imagery, no text, nothing` : ''}
+- Follow the GRID LAYOUT TEMPLATE EXACTLY - all ${refRows * refCols} panels must be the SAME SIZE
+- ${refRows} rows x ${refCols} columns, uniform white borders between panels
+- Fill ALL ${refRows * refCols} cells with cinematic content
 - DO NOT draw any numbers, labels, or text on the panels
-- NO text, NO titles, NO captions, NO panel numbers anywhere on the image
+- NO text, NO titles, NO captions, NO panel numbers anywhere
 
 30% VISUAL DIVERSITY RULE (CRITICAL):
 Every adjacent pair of panels MUST differ by at least 30% in visual composition:
 - Adjacent panels MUST use different shot types (e.g., WS→MCU→CU, NOT MCU→MCU)
 - Adjacent panels MUST show different camera angles or subject positions
-- Adjacent panels MUST have visually distinct compositions (different framing, different background elements visible)
-- If two adjacent panels show the same character, they MUST differ in pose, angle, and framing
-- NEVER create two adjacent panels that look almost identical - this is the #1 quality issue to avoid
+- NEVER create two adjacent panels that look almost identical
 
 CHARACTER CONSISTENCY (CRITICAL):
-The characters in EVERY panel MUST look EXACTLY like the people in the character reference images:
+The characters in EVERY panel MUST look EXACTLY like the reference images:
 ${charAppearanceLines || characters.map(c => `- "${c.name}": ${c.description}`).join('\n')}
-Same face, same ethnicity, same hair, same clothing, same body proportions across ALL panels.
+Same face, same ethnicity, same hair, same clothing across ALL panels.
 
 SCENE REFERENCE:
 ${sceneAppearanceLines || scenes.map(s => `- "${s.name}": ${s.description}`).join('\n')}
@@ -260,26 +262,120 @@ PANEL-BY-PANEL BREAKDOWN:
 ${panelLines}
 ${continuityNote}
 
-FINAL REMINDER:${emptyCount > 0 ? `
-- You MUST output EXACTLY ${totalPanels} content panels. The last ${emptyCount} cells MUST be SOLID BLACK with ZERO content.` : ''}
-- Do NOT add any text, numbers, or labels to any panel.
-
 STYLE:
 - Photorealistic cinematic quality (ARRI Alexa / RED camera look)
 - Consistent character appearance across ALL panels
 - Cinematic lighting matching each panel's mood
 - Natural skin textures, realistic environments, atmospheric depth`;
 
-    console.log(`[GridGen] Page ${pageIndex}: Generating grid with ${orderedImages.length} reference images`);
-    const { url: gridImageUrl } = await generateImage({
+    console.log(`[GridGen] Stage 1 - Page ${pageIndex}: Generating 3×3 reference grid...`);
+    const { url: referenceGridUrl } = await generateImage({
       prompt: gridPrompt,
       originalImages: orderedImages,
     });
 
-    return { gridImageUrl: gridImageUrl || null, gridPrompt };
+    return { referenceGridUrl: referenceGridUrl || null, gridPrompt };
   } catch (e: any) {
-    console.error(`[GridGen] Page ${pageIndex}: Grid generation failed:`, e?.message || e);
-    return { gridImageUrl: null, gridPrompt, error: e instanceof Error ? e.message : String(e) };
+    console.error(`[GridGen] Stage 1 - Page ${pageIndex}: Reference grid generation failed:`, e?.message || e);
+    return { referenceGridUrl: null, gridPrompt, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// ============================================================
+// Stage 2 + 3: Generate Individual Panels & Compose
+// ============================================================
+
+/**
+ * Generate a single grid page using the 3-stage pipeline:
+ *   1. Generate 3×3 reference grid (Gemini)
+ *   2. Generate individual panels (Gemini, referencing the grid)
+ *   3. Compose panels into 2×3 final grid (Sharp)
+ */
+export async function generateSingleGridPage(opts: {
+  page: GridPage;
+  anchorsList: AnchorInfo[];
+  characters: CharacterInfo[];
+  scenes: SceneInfo[];
+  prevGridImageUrl?: string;
+  customPrompt?: string;
+  projectId?: number;
+}): Promise<{ gridImageUrl: string | null; referenceGridUrl?: string | null; gridPrompt: string; panelImageUrls?: (string | null)[]; error?: string }> {
+  const { page, anchorsList, characters, scenes, prevGridImageUrl, customPrompt, projectId } = opts;
+
+  // ---- Stage 1: Generate 3×3 reference grid ----
+  console.log(`[GridGen] === Stage 1/3: Generating 3×3 reference grid for page ${page.pageIndex} ===`);
+  const refResult = await generateReferenceGrid({
+    page,
+    anchorsList,
+    characters,
+    scenes,
+    prevGridImageUrl,
+    customPrompt,
+  });
+
+  if (!refResult.referenceGridUrl) {
+    console.error(`[GridGen] Stage 1 failed for page ${page.pageIndex}: ${refResult.error}`);
+    return {
+      gridImageUrl: null,
+      referenceGridUrl: null,
+      gridPrompt: refResult.gridPrompt,
+      error: `Reference grid generation failed: ${refResult.error}`,
+    };
+  }
+
+  console.log(`[GridGen] Stage 1 complete: reference grid URL = ${refResult.referenceGridUrl.substring(0, 80)}...`);
+
+  // ---- Stage 2: Generate individual panels ----
+  console.log(`[GridGen] === Stage 2/3: Generating ${page.frames.length} individual panels ===`);
+  const panelResults = await generateAllPanels({
+    frames: page.frames as PanelGenFrame[],
+    gridImageUrl: refResult.referenceGridUrl,
+    anchors: anchorsList as PanelGenAnchor[],
+    characters: characters as PanelGenCharacter[],
+    scenes: scenes as PanelGenScene[],
+  });
+
+  const panelImageUrls = panelResults.map(r => r.imageUrl);
+  const successCount = panelImageUrls.filter(u => u !== null).length;
+  console.log(`[GridGen] Stage 2 complete: ${successCount}/${page.frames.length} panels generated`);
+
+  if (successCount === 0) {
+    return {
+      gridImageUrl: refResult.referenceGridUrl, // Fall back to reference grid
+      referenceGridUrl: refResult.referenceGridUrl,
+      gridPrompt: refResult.gridPrompt,
+      panelImageUrls,
+      error: 'All individual panel generations failed, using reference grid as fallback',
+    };
+  }
+
+  // ---- Stage 3: Compose panels into 2×3 grid ----
+  console.log(`[GridGen] === Stage 3/3: Composing ${successCount} panels into 2×3 grid ===`);
+  try {
+    const composeResult = await composePanels({
+      panelImageUrls,
+      projectId,
+      pageIndex: page.pageIndex,
+    });
+
+    console.log(`[GridGen] Stage 3 complete: composed grid URL = ${composeResult.composedGridUrl.substring(0, 80)}...`);
+
+    return {
+      gridImageUrl: composeResult.composedGridUrl,
+      referenceGridUrl: refResult.referenceGridUrl,
+      gridPrompt: refResult.gridPrompt,
+      panelImageUrls,
+    };
+  } catch (e: any) {
+    console.error(`[GridGen] Stage 3 failed:`, e?.message || e);
+    // Fall back to reference grid if composition fails
+    return {
+      gridImageUrl: refResult.referenceGridUrl,
+      referenceGridUrl: refResult.referenceGridUrl,
+      gridPrompt: refResult.gridPrompt,
+      panelImageUrls,
+      error: `Composition failed: ${e?.message}, using reference grid as fallback`,
+    };
   }
 }
 
@@ -289,7 +385,7 @@ STYLE:
 
 /**
  * Generate all grid pages for a project.
- * Handles splitting frames, generating each page, and saving to DB.
+ * Uses the 3-stage pipeline for each page.
  */
 export async function generateAllGridPages(opts: {
   projectId: number;
@@ -308,13 +404,13 @@ export async function generateAllGridPages(opts: {
 
   // Split frames into pages
   const pages = splitFramesIntoPages(frames);
-  console.log(`[GridGen] Project ${projectId}: ${frames.length} frames → ${pages.length} grid page(s)`);
+  console.log(`[GridGen] Project ${projectId}: ${frames.length} frames → ${pages.length} grid page(s) (3-stage pipeline)`);
 
   const results: GridPageResult[] = [];
   let prevGridImageUrl: string | undefined;
 
   for (const page of pages) {
-    console.log(`[GridGen] Generating page ${page.pageIndex + 1}/${pages.length}: ${page.totalPanels} panels (${page.rows}x${page.cols}), frames ${page.startFrame}-${page.endFrame}`);
+    console.log(`[GridGen] ======== Page ${page.pageIndex + 1}/${pages.length}: ${page.totalPanels} panels, frames ${page.startFrame}-${page.endFrame} ========`);
 
     const genResult = await generateSingleGridPage({
       page,
@@ -322,15 +418,16 @@ export async function generateAllGridPages(opts: {
       characters,
       scenes,
       prevGridImageUrl,
-      customPrompt: page.pageIndex === 0 ? customPrompt : undefined, // Only apply custom prompt to first page
+      customPrompt: page.pageIndex === 0 ? customPrompt : undefined,
+      projectId,
     });
 
-    // Save grid to DB
+    // Save grid to DB — use 2×3 layout for the final composed grid
     const gridId = await db.saveGrid({
       projectId,
       version: scriptVersion,
-      rows: page.rows,
-      cols: page.cols,
+      rows: page.rows,   // 3 (2×3 layout)
+      cols: page.cols,    // 2
       totalPanels: page.totalPanels,
       gridImageUrl: genResult.gridImageUrl || undefined,
       generationPrompt: genResult.gridPrompt,
@@ -340,8 +437,8 @@ export async function generateAllGridPages(opts: {
       endFrame: page.endFrame,
     });
 
-    // Create panel records for this page
-    const panelData = page.frames.map(f => ({
+    // Create panel records with individual panel images
+    const panelData = page.frames.map((f, i) => ({
       gridId,
       projectId,
       version: scriptVersion,
@@ -350,10 +447,11 @@ export async function generateAllGridPages(opts: {
       duration: String(f.duration),
       description: f.description,
       cameraMovement: f.cameraMovement,
+      panelImageUrl: genResult.panelImageUrls?.[i] || undefined,
     }));
     await db.savePanels(panelData);
 
-    // Use this page's image as reference for next page
+    // Use the composed grid as reference for next page's style continuity
     if (genResult.gridImageUrl) {
       prevGridImageUrl = genResult.gridImageUrl;
     }
@@ -362,6 +460,7 @@ export async function generateAllGridPages(opts: {
       gridId,
       pageIndex: page.pageIndex,
       gridImageUrl: genResult.gridImageUrl,
+      referenceGridUrl: genResult.referenceGridUrl,
       rows: page.rows,
       cols: page.cols,
       totalPanels: page.totalPanels,
@@ -374,9 +473,18 @@ export async function generateAllGridPages(opts: {
     }
     results.push(pageResult);
 
-    logInfo("grid_gen", `Grid page ${page.pageIndex + 1}/${pages.length} generated: ${page.rows}x${page.cols} (${page.totalPanels} panels)`, {
+    logInfo("grid_gen", `Grid page ${page.pageIndex + 1}/${pages.length}: 3-stage pipeline complete (${page.rows}×${page.cols}, ${page.totalPanels} panels)`, {
       projectId,
-      details: { gridId, pageIndex: page.pageIndex, rows: page.rows, cols: page.cols, totalPanels: page.totalPanels, hasImage: !!genResult.gridImageUrl },
+      details: {
+        gridId,
+        pageIndex: page.pageIndex,
+        rows: page.rows,
+        cols: page.cols,
+        totalPanels: page.totalPanels,
+        hasComposedGrid: !!genResult.gridImageUrl,
+        hasReferenceGrid: !!genResult.referenceGridUrl,
+        panelSuccessCount: genResult.panelImageUrls?.filter(u => u).length || 0,
+      },
     }).catch(() => {});
   }
 

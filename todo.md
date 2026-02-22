@@ -506,8 +506,12 @@
 - [x] 验证 Railway 上 Grid 生成效果（项目 #66 已验证通过）
 
 ## Phase 32: 修复 Gemini 不遵守空格子纯黑指令 (2026-02-22)
-- [ ] 分析 Page 1 空格子被忽略的根因（模板不够明显 + prompt 措辞不够强）
-- [ ] 强化 SVG 模板：空格子用大 X 标记或更醒目的视觉提示
-- [ ] 重写 prompt 措辞：将空格子指令放在最显眼位置，用更强硬的语气
-- [ ] 推送到 GitHub + Railway 部署
-- [ ] 在 Railway 上重新测试验证空格子效果
+- [x] 已废弃 — 改用 Phase 33 的新方案（逐张Panel生成+拼接）
+
+## Phase 33: 新Grid方案 — Gemini生成Grid → 逐张Panel → Sharp拼接2×3 (2026-02-22)
+- [x] 实现 panelGenerator.ts：基于Grid整体图+Anchor逐张生成独立Panel
+- [x] 实现 gridComposer.ts：用Sharp将6个Panel拼接成2×3最终图
+- [x] 修改 gridUtils.ts 串联三阶段流程（Grid生成→Panel生成→拼接）
+- [x] 去掉空格子相关逻辑（不再需要3×3空格子，最终输出2×3）
+- [x] 编写测试并本地验证（19个测试全部通过）
+- [ ] 推送到GitHub + Railway验证

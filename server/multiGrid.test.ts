@@ -1,6 +1,9 @@
 /**
  * Tests for multi-grid pagination logic in gridUtils.ts
- * Updated for 3×3 grid layout with MAX_PANELS_PER_GRID=6
+ * Updated for 2×3 composed grid layout with MAX_PANELS_PER_GRID=6
+ * 
+ * New pipeline: Gemini generates 3×3 reference grid → individual panels → Sharp composes 2×3 final grid
+ * calculateGridLayout returns the FINAL composed layout (2 cols × 3 rows)
  */
 import { describe, it, expect } from "vitest";
 import { splitFramesIntoPages, calculateGridLayout, MAX_PANELS_PER_GRID, type Frame } from "./gridUtils";
@@ -16,33 +19,32 @@ function makeFrames(count: number): Frame[] {
 }
 
 describe("calculateGridLayout", () => {
-  it("should always return 3x3 grid", () => {
-    // All panel counts should return 3x3
+  it("should always return 2 cols × 3 rows grid", () => {
     for (const count of [1, 2, 3, 4, 5, 6]) {
       const layout = calculateGridLayout(count);
       expect(layout.rows).toBe(3);
-      expect(layout.cols).toBe(3);
+      expect(layout.cols).toBe(2);
     }
   });
 
   it("should return correct emptyCount for 1 panel", () => {
     const layout = calculateGridLayout(1);
-    expect(layout).toEqual({ rows: 3, cols: 3, emptyCount: 8 });
+    expect(layout).toEqual({ rows: 3, cols: 2, emptyCount: 5 });
   });
 
   it("should return correct emptyCount for 4 panels", () => {
     const layout = calculateGridLayout(4);
-    expect(layout).toEqual({ rows: 3, cols: 3, emptyCount: 5 });
+    expect(layout).toEqual({ rows: 3, cols: 2, emptyCount: 2 });
   });
 
-  it("should return correct emptyCount for 6 panels", () => {
+  it("should return correct emptyCount for 6 panels (full grid)", () => {
     const layout = calculateGridLayout(6);
-    expect(layout).toEqual({ rows: 3, cols: 3, emptyCount: 3 });
+    expect(layout).toEqual({ rows: 3, cols: 2, emptyCount: 0 });
   });
 
-  it("should return 0 emptyCount for 9 panels", () => {
+  it("should cap emptyCount at 0 for counts >= 6", () => {
     const layout = calculateGridLayout(9);
-    expect(layout).toEqual({ rows: 3, cols: 3, emptyCount: 0 });
+    expect(layout).toEqual({ rows: 3, cols: 2, emptyCount: 0 });
   });
 });
 
@@ -60,7 +62,7 @@ describe("splitFramesIntoPages", () => {
     expect(pages[0].pageIndex).toBe(0);
     expect(pages[0].totalPanels).toBe(3);
     expect(pages[0].rows).toBe(3);
-    expect(pages[0].cols).toBe(3);
+    expect(pages[0].cols).toBe(2);
     expect(pages[0].startFrame).toBe(1);
     expect(pages[0].endFrame).toBe(3);
   });
@@ -71,7 +73,7 @@ describe("splitFramesIntoPages", () => {
     expect(pages).toHaveLength(1);
     expect(pages[0].totalPanels).toBe(6);
     expect(pages[0].rows).toBe(3);
-    expect(pages[0].cols).toBe(3);
+    expect(pages[0].cols).toBe(2);
   });
 
   it("should return 2 pages for 7 frames", () => {
@@ -81,11 +83,13 @@ describe("splitFramesIntoPages", () => {
     // Page 1: 6 frames
     expect(pages[0].totalPanels).toBe(6);
     expect(pages[0].rows).toBe(3);
-    expect(pages[0].cols).toBe(3);
+    expect(pages[0].cols).toBe(2);
     expect(pages[0].startFrame).toBe(1);
     expect(pages[0].endFrame).toBe(6);
     // Page 2: 1 frame
     expect(pages[1].totalPanels).toBe(1);
+    expect(pages[1].rows).toBe(3);
+    expect(pages[1].cols).toBe(2);
     expect(pages[1].startFrame).toBe(7);
     expect(pages[1].endFrame).toBe(7);
   });
@@ -160,7 +164,6 @@ describe("splitFramesIntoPages", () => {
     expect(MAX_PANELS_PER_GRID).toBe(6);
     const frames = makeFrames(13);
     const pages = splitFramesIntoPages(frames);
-    // No page should exceed MAX_PANELS_PER_GRID
     for (const page of pages) {
       expect(page.totalPanels).toBeLessThanOrEqual(MAX_PANELS_PER_GRID);
     }
@@ -172,19 +175,16 @@ describe("splitFramesIntoPages", () => {
     expect(pages).toHaveLength(1);
     expect(pages[0].totalPanels).toBe(1);
     expect(pages[0].rows).toBe(3);
-    expect(pages[0].cols).toBe(3);
+    expect(pages[0].cols).toBe(2);
   });
 
   it("should have contiguous frame ranges across pages", () => {
     const frames = makeFrames(36);
     const pages = splitFramesIntoPages(frames);
-    // Check that frames are contiguous
     for (let i = 1; i < pages.length; i++) {
       expect(pages[i].startFrame).toBe(pages[i - 1].endFrame + 1);
     }
-    // First page starts at 1
     expect(pages[0].startFrame).toBe(1);
-    // Last page ends at total
     expect(pages[pages.length - 1].endFrame).toBe(36);
   });
 });
