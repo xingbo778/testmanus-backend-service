@@ -1014,6 +1014,9 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
           details: { total: results.length, withImages: successCount, types: results.map(r => r.type) },
         });
 
+        // Update project status to anchor_generated
+        await db.updateProject(input.projectId, { status: "anchor_generated" });
+
         return { anchors: results };
       }),
     regenerateOne: protectedProcedure
