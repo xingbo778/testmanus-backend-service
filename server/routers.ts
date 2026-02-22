@@ -18,6 +18,7 @@ import { logInfo, logError, logWarn } from "./appLogger";
 import { extractPanel, extractAllPanels } from "./panelExtractor";
 import { generateAllGridPages, splitFramesIntoPages, type Frame } from "./gridUtils";
 import { validate30PercentRule, type FrameForValidation } from "./thirtyPercentRule";
+import { buildRulesForScript, buildRulesForGrid, buildRulesForPanel, buildRulesForPrompt, type RuleChapter } from "./ruleSelector";
 
 export const appRouter = router({
   system: systemRouter,
@@ -419,40 +420,18 @@ export const appRouter = router({
         const project = await db.getProjectById(input.projectId);
         if (!project) throw new Error("Project not found");
 
-        // Get applicable rules - prioritize scene-specific + key universal rules
-        const allRuleChapters = await db.getRulesForScene(project.l2Id);
+        // Get applicable rules using intelligent selection
+        const allRuleChapters = await db.getRulesForScene(project.l2Id) as RuleChapter[];
         const userRulesList = await db.getUserRules({ status: "approved", applicableL2Id: project.l2Id });
 
-        // Separate scene-specific and universal/technical rules
-        const sceneSpecific = allRuleChapters.filter(ch => ch.category === 'scene_specific');
-        const universal = allRuleChapters.filter(ch => ch.category === 'universal');
-        const technical = allRuleChapters.filter(ch => ch.category === 'technical');
-        const aiPrompt = allRuleChapters.filter(ch => ch.category === 'ai_prompt');
-
-        // Prioritize: scene-specific (all) + universal (all) + ai_prompt (all) + technical (top 3 by relevance)
-        const prioritizedChapters = [
-          ...sceneSpecific,
-          ...universal,
-          ...aiPrompt,
-          ...technical.slice(0, 3), // Limit technical rules to avoid token overflow
-        ];
-
-        let totalRulesInjected = 0;
-        const rulesContext = prioritizedChapters.map(ch => {
-          const rules = ch.rules as Array<{ type: string; text: string; severity: string }>;
-          // For large chapters, only include warning/critical rules
-          const filteredRules = rules.length > 30
-            ? rules.filter(r => r.severity === 'warning' || r.severity === 'critical')
-            : rules;
-          totalRulesInjected += filteredRules.length;
-          return `## 第${ch.chapterNumber}章 ${ch.title}（${ch.category}）\n${filteredRules.map(r => `- [${r.type.toUpperCase()}][${r.severity}] ${r.text}`).join("\n")}`;
-        }).join("\n\n");
+        // Use ruleSelector for intelligent rule selection (replaces old technical.slice(0,3) approach)
+        const { rulesText: rulesContext, totalRules: totalRulesInjected, chaptersUsed } = buildRulesForScript(allRuleChapters);
 
         const userRulesContext = userRulesList.length > 0
           ? `## 用户自定义规则（优先级最高）\n${userRulesList.map(r => `- [${r.ruleType.toUpperCase()}][${r.severity}] ${r.ruleText}`).join("\n")}`
           : "";
 
-        console.log(`[ScriptGen] Injected ${totalRulesInjected} rules from ${prioritizedChapters.length} chapters for scene type: ${project.l2Id}`);
+        console.log(`[ScriptGen] Injected ${totalRulesInjected} rules from ${chaptersUsed} chapters for scene type: ${project.l2Id}`);
 
         const totalDuration = parseInt(project.duration);
         const frameCountMap: Record<number, string> = {
@@ -471,7 +450,7 @@ export const appRouter = router({
 
         const systemPrompt = `你是一个专业的分镜脚本设计师，精通电影分镜、摄影构图和视觉叙事。根据给定的场景类型和专业规则手册，生成高质量的结构化分镜脚本。
 
-# 参考规则手册（共${totalRulesInjected}条规则，来自${prioritizedChapters.length}个章节）
+# 参考规则手册（共${totalRulesInjected}条规则，来自${chaptersUsed}个章节）
 
 ${rulesContext}
 
@@ -640,7 +619,7 @@ ${input.additionalContext ? `补充说明：${input.additionalContext}` : ""}
           scenes: parsed.scenes,
           props: parsed.props,
           generationPrompt: userPrompt,
-          rulesUsed: prioritizedChapters.map((ch: any) => ch.id),
+          rulesUsed: allRuleChapters.map((ch: any) => ch.id),
         });
 
         await db.updateProject(input.projectId, { status: "scripted", currentVersion: version });
@@ -1105,6 +1084,11 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         const characters = (script.characters as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
         const scenes = (script.scenes as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
 
+        // Get RAG rules for visual guidance in grid generation
+        const gridRuleChapters = await db.getRulesForScene(project.l2Id) as RuleChapter[];
+        const gridVisualRules = buildRulesForGrid(gridRuleChapters);
+        console.log(`[GridGen] Built visual rules for grid: ${gridVisualRules ? gridVisualRules.split('\n').length + ' lines' : 'none'}`);
+
         // Mark project as generating (async mode) - wrapped in try-catch for DB compatibility
         try {
           await db.updateProject(input.projectId, { status: "grid_generating" });
@@ -1117,6 +1101,7 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         const capturedScriptVersion = script.version;
         const capturedAnchors = anchorsList;
         const capturedCustomPrompt = input.customPrompt;
+        const capturedVisualRules = gridVisualRules;
 
         // Run generation in background (fire-and-forget)
         setImmediate(async () => {
@@ -1131,6 +1116,7 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
               characters,
               scenes,
               customPrompt: capturedCustomPrompt,
+              visualRules: capturedVisualRules,
             });
 
             const totalPages = results.length;
@@ -1669,14 +1655,9 @@ CRITICAL STYLE REQUIREMENTS:
           description: string; cameraMovement: string;
         }>;
 
-        // Get prompt generation rules
-        const promptRules = await db.getRulesForScene(project.l2Id);
-        const aiPromptRules = promptRules.filter(ch => ch.category === "ai_prompt");
-
-        const rulesText = aiPromptRules.map(ch => {
-          const rules = ch.rules as Array<{ type: string; text: string }>;
-          return rules.map(r => `- [${r.type.toUpperCase()}] ${r.text}`).join("\n");
-        }).join("\n");
+        // Get prompt generation rules using intelligent selection
+        const promptRuleChapters = await db.getRulesForScene(project.l2Id) as RuleChapter[];
+        const rulesText = buildRulesForPrompt(promptRuleChapters);
 
         const anchorInfo = anchorsList.map(a => `${a.anchorType} "${a.name}": ${a.description}`).join("\n");
 

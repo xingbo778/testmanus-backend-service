@@ -157,8 +157,9 @@ async function generateReferenceGrid(opts: {
   scenes: SceneInfo[];
   prevGridImageUrl?: string;
   customPrompt?: string;
+  visualRules?: string;
 }): Promise<{ referenceGridUrl: string | null; gridPrompt: string; error?: string }> {
-  const { page, anchorsList, characters, scenes, prevGridImageUrl, customPrompt } = opts;
+  const { page, anchorsList, characters, scenes, prevGridImageUrl, customPrompt, visualRules } = opts;
   const { totalPanels, frames, pageIndex, pageLabel } = page;
 
   // Reference grid is always 3×3
@@ -268,7 +269,10 @@ STYLE:
 - Real film texture: visible skin pores, natural hair strands, fabric wrinkles, environmental dust particles
 - Lighting should feel natural and motivated (practical lights, sunlight, neon glow) — NOT flat studio lighting
 - Each panel should look like a film still from a high-budget movie, shot on 35mm film with Kodak Vision3 500T stock
-- Consistent character appearance across ALL panels`;
+- Consistent character appearance across ALL panels
+${visualRules ? `
+CINEMATOGRAPHY RULES (from professional handbook):
+${visualRules}` : ''}`;
 
     console.log(`[GridGen] Stage 1 - Page ${pageIndex}: Generating 3×3 reference grid...`);
     const { url: referenceGridUrl } = await generateImage({
@@ -301,8 +305,9 @@ export async function generateSingleGridPage(opts: {
   prevGridImageUrl?: string;
   customPrompt?: string;
   projectId?: number;
+  visualRules?: string;
 }): Promise<{ gridImageUrl: string | null; referenceGridUrl?: string | null; gridPrompt: string; panelImageUrls?: (string | null)[]; error?: string }> {
-  const { page, anchorsList, characters, scenes, prevGridImageUrl, customPrompt, projectId } = opts;
+  const { page, anchorsList, characters, scenes, prevGridImageUrl, customPrompt, projectId, visualRules } = opts;
 
   // ---- Stage 1: Generate 3×3 reference grid ----
   console.log(`[GridGen] === Stage 1/3: Generating 3×3 reference grid for page ${page.pageIndex} ===`);
@@ -313,6 +318,7 @@ export async function generateSingleGridPage(opts: {
     scenes,
     prevGridImageUrl,
     customPrompt,
+    visualRules,
   });
 
   if (!refResult.referenceGridUrl) {
@@ -335,6 +341,7 @@ export async function generateSingleGridPage(opts: {
     anchors: anchorsList as PanelGenAnchor[],
     characters: characters as PanelGenCharacter[],
     scenes: scenes as PanelGenScene[],
+    visualRules,
   });
 
   let panelImageUrls = panelResults.map(r => r.imageUrl);
@@ -357,6 +364,7 @@ export async function generateSingleGridPage(opts: {
           anchors: anchorsList as PanelGenAnchor[],
           characters: characters as PanelGenCharacter[],
           scenes: scenes as PanelGenScene[],
+          visualRules,
         });
         if (retryResult.imageUrl) {
           panelImageUrls[idx] = retryResult.imageUrl;
@@ -426,8 +434,9 @@ export async function generateAllGridPages(opts: {
   characters: CharacterInfo[];
   scenes: SceneInfo[];
   customPrompt?: string;
+  visualRules?: string;
 }): Promise<GridPageResult[]> {
-  const { projectId, scriptVersion, frames, anchorsList, characters, scenes, customPrompt } = opts;
+  const { projectId, scriptVersion, frames, anchorsList, characters, scenes, customPrompt, visualRules } = opts;
 
   // Split frames into pages
   const pages = splitFramesIntoPages(frames);
@@ -454,6 +463,7 @@ export async function generateAllGridPages(opts: {
       prevGridImageUrl,
       customPrompt: page.pageIndex === 0 ? customPrompt : undefined,
       projectId,
+      visualRules,
     });
 
     // Page-level retry: if gridImageUrl is null (Stage 1 failed), retry up to MAX_PAGE_RETRIES times
@@ -472,6 +482,7 @@ export async function generateAllGridPages(opts: {
         prevGridImageUrl,
         customPrompt: page.pageIndex === 0 ? customPrompt : undefined,
         projectId,
+        visualRules,
       });
     }
 

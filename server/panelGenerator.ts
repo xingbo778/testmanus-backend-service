@@ -59,8 +59,9 @@ export async function generateSinglePanel(opts: {
   anchors: PanelGenAnchor[];
   characters: PanelGenCharacter[];
   scenes: PanelGenScene[];
+  visualRules?: string;
 }): Promise<GeneratedPanel> {
-  const { frame, localIndex, totalPanelsInPage, gridImageUrl, anchors, characters, scenes } = opts;
+  const { frame, localIndex, totalPanelsInPage, gridImageUrl, anchors, characters, scenes, visualRules } = opts;
   let panelPrompt = '';
 
   try {
@@ -122,7 +123,10 @@ STYLE:
 - Real film texture: visible skin pores, natural hair strands, fabric wrinkles, dust particles
 - Natural motivated lighting (practical lights, sunlight, neon) — NOT flat or overly even
 - Aspect ratio: 16:9 landscape
-- NO text, NO labels, NO watermarks, NO borders, NO panel numbers`;
+- NO text, NO labels, NO watermarks, NO borders, NO panel numbers
+${visualRules ? `
+CINEMATOGRAPHY GUIDELINES:
+${visualRules}` : ''}`;
 
     console.log(`[PanelGen] Generating panel ${localIndex}/${totalPanelsInPage} (Frame #${frame.index}): ${frame.shotType}`);
 
@@ -169,6 +173,7 @@ async function generateSinglePanelWithRetry(opts: {
   characters: PanelGenCharacter[];
   scenes: PanelGenScene[];
   maxRetries?: number;
+  visualRules?: string;
 }): Promise<GeneratedPanel> {
   const { maxRetries = 2, ...panelOpts } = opts;
   
@@ -219,8 +224,9 @@ export async function generateAllPanels(opts: {
   characters: PanelGenCharacter[];
   scenes: PanelGenScene[];
   concurrency?: number;
+  visualRules?: string;
 }): Promise<GeneratedPanel[]> {
-  const { frames, gridImageUrl, anchors, characters, scenes, concurrency = 3 } = opts;
+  const { frames, gridImageUrl, anchors, characters, scenes, concurrency = 3, visualRules } = opts;
 
   console.log(`[PanelGen] Generating ${frames.length} individual panels (concurrency: ${concurrency})...`);
 
@@ -248,6 +254,7 @@ export async function generateAllPanels(opts: {
           characters,
           scenes,
           maxRetries: 2,
+          visualRules,
         })
       )
     );
