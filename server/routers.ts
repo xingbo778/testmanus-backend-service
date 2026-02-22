@@ -1105,39 +1105,61 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         const characters = (script.characters as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
         const scenes = (script.scenes as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
 
-        // Use multi-grid generation
-        const results = await generateAllGridPages({
-          projectId: input.projectId,
-          scriptVersion: script.version,
-          frames,
-          anchorsList: anchorsList as any,
-          characters,
-          scenes,
-          customPrompt: input.customPrompt,
+        // Mark project as generating (async mode)
+        await db.updateProject(input.projectId, { status: "grid_generating" });
+
+        // Capture variables for background task
+        const capturedProjectId = input.projectId;
+        const capturedScriptVersion = script.version;
+        const capturedAnchors = anchorsList;
+        const capturedCustomPrompt = input.customPrompt;
+
+        // Run generation in background (fire-and-forget)
+        setImmediate(async () => {
+          try {
+            console.log(`[GridGen] Background task started for project ${capturedProjectId}`);
+
+            const results = await generateAllGridPages({
+              projectId: capturedProjectId,
+              scriptVersion: capturedScriptVersion,
+              frames,
+              anchorsList: capturedAnchors as any,
+              characters,
+              scenes,
+              customPrompt: capturedCustomPrompt,
+            });
+
+            const totalPages = results.length;
+            const hasErrors = results.some(r => r.error);
+            const successPages = results.filter(r => r.gridImageUrl).length;
+
+            await db.updateProject(capturedProjectId, { status: "grid_generated" });
+
+            logInfo("grid_gen", `[ASYNC] Multi-grid generation complete: ${successPages}/${totalPages} page(s) succeeded, ${frames.length} total panels${hasErrors ? ' (some pages had errors)' : ''}`, {
+              projectId: capturedProjectId,
+              details: { totalPages, totalPanels: frames.length, results: results.map(r => ({ pageIndex: r.pageIndex, gridId: r.gridId, hasImage: !!r.gridImageUrl, error: r.error })) },
+            }).catch(() => {});
+
+            console.log(`[GridGen] Background task completed for project ${capturedProjectId}: ${successPages}/${totalPages} pages`);
+          } catch (e: any) {
+            console.error(`[GridGen] Background task FAILED for project ${capturedProjectId}:`, e?.message || e);
+            // Revert status on failure
+            await db.updateProject(capturedProjectId, { status: "anchors_generated" }).catch(() => {});
+            logError("grid_gen", `[ASYNC] Grid generation failed for project ${capturedProjectId}: ${e?.message}`, {
+              projectId: capturedProjectId,
+              details: { error: e?.message || String(e) },
+            }).catch(() => {});
+          }
         });
 
-        await db.updateProject(input.projectId, { status: "grid_generated" });
-
-        const totalPages = results.length;
-        const hasErrors = results.some(r => r.error);
-        const totalPanels = frames.length;
-
-        logInfo("grid_gen", `Multi-grid generation complete: ${totalPages} page(s), ${totalPanels} total panels${hasErrors ? ' (some pages had errors)' : ''}`, {
-          projectId: input.projectId,
-          details: { totalPages, totalPanels, results: results.map(r => ({ pageIndex: r.pageIndex, gridId: r.gridId, hasImage: !!r.gridImageUrl, error: r.error })) },
-        });
-
-        // Return backward-compatible format (first page as primary) + all pages
-        const firstPage = results[0];
+        // Return immediately
+        const pages = splitFramesIntoPages(frames);
         return {
-          gridId: firstPage?.gridId,
-          gridImageUrl: firstPage?.gridImageUrl,
-          rows: firstPage?.rows,
-          cols: firstPage?.cols,
-          totalPanels,
-          pages: results,
-          totalPages,
-          error: hasErrors ? 'Some grid pages had generation errors' : undefined,
+          status: "generating" as const,
+          message: `Grid generation started in background. ${frames.length} frames → ${pages.length} page(s). Poll project status for completion.`,
+          projectId: input.projectId,
+          totalFrames: frames.length,
+          totalPages: pages.length,
         };
       }),
     // Get all grid pages for a project

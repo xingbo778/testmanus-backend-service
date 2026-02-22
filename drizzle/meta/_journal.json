@@ -57,6 +57,13 @@
       "when": 1771582739295,
       "tag": "0007_even_lyja",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1771726347888,
+      "tag": "0008_flaky_polaris",
+      "breakpoints": true
     }
   ]
 }

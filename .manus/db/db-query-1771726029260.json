@@ -1,0 +1,110 @@
+{
+  "query": "SELECT id, projectId, pageIndex, `rows`, cols, totalPanels, LEFT(gridImageUrl, 60) as gridUrl, createdAt FROM grids ORDER BY createdAt DESC LIMIT 10",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT id, projectId, pageIndex, `rows`, cols, totalPanels, LEFT(gridImageUrl, 60) as gridUrl, createdAt FROM grids ORDER BY createdAt DESC LIMIT 10",
+  "rows": [
+    {
+      "id": "150006",
+      "projectId": "180010",
+      "pageIndex": "0",
+      "rows": "3",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771714483_8aa64dee.pn",
+      "createdAt": "2026-02-21 22:54:44"
+    },
+    {
+      "id": "150005",
+      "projectId": "180002",
+      "pageIndex": "2",
+      "rows": "1",
+      "cols": "2",
+      "totalPanels": "2",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771713189_07d3d9a5.pn",
+      "createdAt": "2026-02-21 22:33:10"
+    },
+    {
+      "id": "150004",
+      "projectId": "180002",
+      "pageIndex": "1",
+      "rows": "3",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "NULL",
+      "createdAt": "2026-02-21 22:32:31"
+    },
+    {
+      "id": "150003",
+      "projectId": "180003",
+      "pageIndex": "0",
+      "rows": "3",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "NULL",
+      "createdAt": "2026-02-21 22:32:29"
+    },
+    {
+      "id": "150002",
+      "projectId": "180002",
+      "pageIndex": "0",
+      "rows": "3",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771713109_80f53bb6.pn",
+      "createdAt": "2026-02-21 22:31:49"
+    },
+    {
+      "id": "150001",
+      "projectId": "180001",
+      "pageIndex": "0",
+      "rows": "3",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771712982_249b8efd.pn",
+      "createdAt": "2026-02-21 22:29:42"
+    },
+    {
+      "id": "120001",
+      "projectId": "150001",
+      "pageIndex": "0",
+      "rows": "2",
+      "cols": "3",
+      "totalPanels": "6",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771675880_a32b67d2.pn",
+      "createdAt": "2026-02-21 12:11:21"
+    },
+    {
+      "id": "90092",
+      "projectId": "120068",
+      "pageIndex": "0",
+      "rows": "2",
+      "cols": "4",
+      "totalPanels": "7",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771674615_9ccf9b3b.pn",
+      "createdAt": "2026-02-21 11:50:17"
+    },
+    {
+      "id": "90091",
+      "projectId": "120067",
+      "pageIndex": "1",
+      "rows": "2",
+      "cols": "2",
+      "totalPanels": "1",
+      "gridUrl": "https://files.toapis.com/uploads/5355/1771674289_cd13deda.pn",
+      "createdAt": "2026-02-21 11:44:50"
+    },
+    {
+      "id": "90090",
+      "projectId": "120067",
+      "pageIndex": "0",
+      "rows": "3",
+      "cols": "4",
+      "totalPanels": "12",
+      "gridUrl": "NULL",
+      "createdAt": "2026-02-21 11:42:43"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tprojectId\tpageIndex\trows\tcols\ttotalPanels\tgridUrl\tcreatedAt\n150006\t180010\t0\t3\t3\t6\thttps://files.toapis.com/uploads/5355/1771714483_8aa64dee.pn\t2026-02-21 22:54:44\n150005\t180002\t2\t1\t2\t2\thttps://files.toapis.com/uploads/5355/1771713189_07d3d9a5.pn\t2026-02-21 22:33:10\n150004\t180002\t1\t3\t3\t6\tNULL\t2026-02-21 22:32:31\n150003\t180003\t0\t3\t3\t6\tNULL\t2026-02-21 22:32:29\n150002\t180002\t0\t3\t3\t6\thttps://files.toapis.com/uploads/5355/1771713109_80f53bb6.pn\t2026-02-21 22:31:49\n150001\t180001\t0\t3\t3\t6\thttps://files.toapis.com/uploads/5355/1771712982_249b8efd.pn\t2026-02-21 22:29:42\n120001\t150001\t0\t2\t3\t6\thttps://files.toapis.com/uploads/5355/1771675880_a32b67d2.pn\t2026-02-21 12:11:21\n90092\t120068\t0\t2\t4\t7\thttps://files.toapis.com/uploads/5355/1771674615_9ccf9b3b.pn\t2026-02-21 11:50:17\n90091\t120067\t1\t2\t2\t1\thttps://files.toapis.com/uploads/5355/1771674289_cd13deda.pn\t2026-02-21 11:44:50\n90090\t120067\t0\t3\t4\t12\tNULL\t2026-02-21 11:42:43\n",
+  "stderr": "",
+  "execution_time_ms": 1513
+}

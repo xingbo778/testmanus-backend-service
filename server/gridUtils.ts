@@ -398,15 +398,16 @@ export async function generateAllGridPages(opts: {
 }): Promise<GridPageResult[]> {
   const { projectId, scriptVersion, frames, anchorsList, characters, scenes, customPrompt } = opts;
 
-  // Delete old grids and panels
-  await db.deleteGridsForProject(projectId);
-  await db.deletePanelsForProject(projectId);
-
   // Split frames into pages
   const pages = splitFramesIntoPages(frames);
   console.log(`[GridGen] Project ${projectId}: ${frames.length} frames → ${pages.length} grid page(s) (3-stage pipeline)`);
 
-  const results: GridPageResult[] = [];
+  // === SAFE DELETE: Generate all pages first, then replace old data ===
+  const tempResults: Array<{
+    page: GridPage;
+    genResult: { gridImageUrl: string | null; referenceGridUrl?: string | null; gridPrompt: string; panelImageUrls?: (string | null)[]; error?: string };
+  }> = [];
+
   let prevGridImageUrl: string | undefined;
 
   for (const page of pages) {
@@ -422,12 +423,36 @@ export async function generateAllGridPages(opts: {
       projectId,
     });
 
-    // Save grid to DB — use 2×3 layout for the final composed grid
+    tempResults.push({ page, genResult });
+
+    // Use the composed grid as reference for next page's style continuity
+    if (genResult.gridImageUrl) {
+      prevGridImageUrl = genResult.gridImageUrl;
+    }
+  }
+
+  // Check if at least one page succeeded before deleting old data
+  const anySuccess = tempResults.some(r => r.genResult.gridImageUrl);
+  if (anySuccess) {
+    console.log(`[GridGen] At least one page succeeded, deleting old grids/panels for project ${projectId}`);
+    await db.deleteGridsForProject(projectId);
+    await db.deletePanelsForProject(projectId);
+  } else {
+    console.error(`[GridGen] ALL pages failed for project ${projectId}, keeping old data`);
+  }
+
+  // Save new results to DB
+  const results: GridPageResult[] = [];
+
+  for (const { page, genResult } of tempResults) {
+    // Only save if we deleted old data (anySuccess) or if this page succeeded
+    if (!anySuccess && !genResult.gridImageUrl) continue;
+
     const gridId = await db.saveGrid({
       projectId,
       version: scriptVersion,
-      rows: page.rows,   // 3 (2×3 layout)
-      cols: page.cols,    // 2
+      rows: page.rows,
+      cols: page.cols,
       totalPanels: page.totalPanels,
       gridImageUrl: genResult.gridImageUrl || undefined,
       generationPrompt: genResult.gridPrompt,
@@ -450,11 +475,6 @@ export async function generateAllGridPages(opts: {
       panelImageUrl: genResult.panelImageUrls?.[i] || undefined,
     }));
     await db.savePanels(panelData);
-
-    // Use the composed grid as reference for next page's style continuity
-    if (genResult.gridImageUrl) {
-      prevGridImageUrl = genResult.gridImageUrl;
-    }
 
     const pageResult: GridPageResult = {
       gridId,
