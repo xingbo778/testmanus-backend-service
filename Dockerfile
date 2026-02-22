@@ -11,6 +11,7 @@ RUN pnpm install --frozen-lockfile --prod=false
 # Build
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
+ARG CACHE_BUST=1
 COPY . .
 RUN pnpm build
 
