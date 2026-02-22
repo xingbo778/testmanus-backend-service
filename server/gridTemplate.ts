@@ -3,6 +3,9 @@
  * Generates a uniform grid template image using Sharp.
  * This template is passed as a reference image to the AI model
  * to ensure the generated storyboard has uniform panel sizes.
+ *
+ * Empty cells are rendered with a bold red "✕" and "EMPTY" label
+ * on a black background to make them unmistakable.
  */
 import sharp from "sharp";
 
@@ -20,7 +23,8 @@ interface GridTemplateOptions {
 
 /**
  * Generate a uniform grid template image as a Buffer (PNG).
- * Each cell is labeled with its panel number.
+ * Each content cell is labeled with its panel number.
+ * Empty cells are rendered as black with a large red "✕" and "EMPTY" text.
  */
 export async function generateGridTemplate(opts: GridTemplateOptions): Promise<Buffer> {
   const {
@@ -28,7 +32,7 @@ export async function generateGridTemplate(opts: GridTemplateOptions): Promise<B
     cols,
     totalPanels,
     width = 1200,
-    height = 800,
+    height = 1200,
     borderWidth = 6,
     borderColor = "#FFFFFF",
     bgColor = "#D1D5DB",
@@ -44,7 +48,10 @@ export async function generateGridTemplate(opts: GridTemplateOptions): Promise<B
   // Background (border color fills gaps between cells)
   svgParts.push(`<rect width="${width}" height="${height}" fill="${borderColor}"/>`);
 
-  const emptyColor = "#000000"; // Black for empty cells
+  const emptyBgColor = "#000000";   // Black background for empty cells
+  const emptyXColor = "#FF0000";    // Red for the X mark
+  const emptyLabelColor = "#FF0000"; // Red for "EMPTY" text
+
   let panelIdx = 1;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -52,10 +59,9 @@ export async function generateGridTemplate(opts: GridTemplateOptions): Promise<B
       const y = borderWidth + r * (cellH + borderWidth);
 
       if (panelIdx <= totalPanels) {
-        // Content cell background
+        // Content cell: gray background with panel number
         svgParts.push(`<rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" fill="${bgColor}" rx="2"/>`);
 
-        // Panel number label (centered, large and clear)
         const fontSize = Math.min(cellW, cellH) * 0.35;
         svgParts.push(
           `<text x="${x + cellW / 2}" y="${y + cellH / 2 + fontSize * 0.35}" ` +
@@ -63,8 +69,29 @@ export async function generateGridTemplate(opts: GridTemplateOptions): Promise<B
           `fill="${labelColor}" text-anchor="middle">${panelIdx}</text>`
         );
       } else {
-        // Empty cell - render as black
-        svgParts.push(`<rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" fill="${emptyColor}" rx="2"/>`);
+        // Empty cell: black background + large red X + "EMPTY" label
+        svgParts.push(`<rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" fill="${emptyBgColor}" rx="2"/>`);
+
+        // Draw a large red X across the cell
+        const xPad = cellW * 0.15;
+        const yPad = cellH * 0.15;
+        const strokeW = Math.max(4, Math.min(cellW, cellH) * 0.04);
+        svgParts.push(
+          `<line x1="${x + xPad}" y1="${y + yPad}" x2="${x + cellW - xPad}" y2="${y + cellH - yPad}" ` +
+          `stroke="${emptyXColor}" stroke-width="${strokeW}" stroke-linecap="round"/>`
+        );
+        svgParts.push(
+          `<line x1="${x + cellW - xPad}" y1="${y + yPad}" x2="${x + xPad}" y2="${y + cellH - yPad}" ` +
+          `stroke="${emptyXColor}" stroke-width="${strokeW}" stroke-linecap="round"/>`
+        );
+
+        // "EMPTY" text centered in the cell
+        const emptyFontSize = Math.min(cellW, cellH) * 0.18;
+        svgParts.push(
+          `<text x="${x + cellW / 2}" y="${y + cellH / 2 + emptyFontSize * 0.35}" ` +
+          `font-family="Arial, Helvetica, sans-serif" font-size="${emptyFontSize}" font-weight="bold" ` +
+          `fill="${emptyLabelColor}" text-anchor="middle">EMPTY</text>`
+        );
       }
 
       panelIdx++;

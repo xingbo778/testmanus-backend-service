@@ -502,5 +502,12 @@
 - [x] gridTemplate 空格子渲染为深色/黑色（区别于内容格）
 - [x] Grid prompt 指示 Gemini 将空格子保持纯黑
 - [x] 更新 multiGrid.test.ts 匹配新的布局逻辑（19个测试全部通过）
-- [ ] 推送到 GitHub + Railway 自动部署
-- [ ] 验证 Railway 上 Grid 生成效果（项目 #66 已验证通过）
+- [x] 推送到 GitHub + Railway 自动部署
+- [x] 验证 Railway 上 Grid 生成效果（项目 #66 已验证通过）
+
+## Phase 32: 修复 Gemini 不遵守空格子纯黑指令 (2026-02-22)
+- [ ] 分析 Page 1 空格子被忽略的根因（模板不够明显 + prompt 措辞不够强）
+- [ ] 强化 SVG 模板：空格子用大 X 标记或更醒目的视觉提示
+- [ ] 重写 prompt 措辞：将空格子指令放在最显眼位置，用更强硬的语气
+- [ ] 推送到 GitHub + Railway 部署
+- [ ] 在 Railway 上重新测试验证空格子效果

@@ -216,18 +216,27 @@ export async function generateSingleGridPage(opts: {
       ? `\nSTYLE CONTINUITY: This is ${pageLabel}. The visual style, color grading, and character appearance MUST be IDENTICAL to the previous grid page (Image #1). This is a continuation of the same story.`
       : '';
 
+    const emptyCount = rows * cols - totalPanels;
+    const emptyWarning = emptyCount > 0 ? `
+⚠️ MANDATORY EMPTY CELLS — READ THIS FIRST ⚠️
+This is a ${rows}x${cols} grid (9 cells total) but you are ONLY drawing ${totalPanels} content panels.
+The LAST ${emptyCount} cells (bottom-right) MUST be COMPLETELY FILLED WITH SOLID BLACK (#000000).
+Do NOT put any image, scene, character, text, or content in those ${emptyCount} cells — just pure black.
+Look at the GRID LAYOUT TEMPLATE (Image #${imgIdx}): cells marked with a red ✕ and "EMPTY" MUST stay black.
+If your output has content in more than ${totalPanels} cells, your output is WRONG.
+` : '';
+
     gridPrompt = customPrompt || `I am providing ${orderedImages.length} reference images. Here is what each image shows:
 
 ${imageDescriptions.join('\n')}
-
-Your task: Create a professional ${rows}x${cols} cinematic storyboard grid with exactly ${totalPanels} panels.
+${emptyWarning}
+Your task: Create a ${rows}x${cols} cinematic storyboard grid. Draw EXACTLY ${totalPanels} content panels, no more.
 ${pageLabel ? `This is ${pageLabel} of the storyboard.` : ''}
 
 CRITICAL LAYOUT RULE:
 - Follow the GRID LAYOUT TEMPLATE (Image #${imgIdx}) EXACTLY - all panels must be the SAME SIZE
 - ${rows} rows x ${cols} columns, uniform white borders between panels
-- Only the first ${totalPanels} panels contain content (ordered 1-${totalPanels}, left-to-right, top-to-bottom)
-- The remaining ${rows * cols - totalPanels} cells in the grid MUST be PURE BLACK (solid #000000) - these are empty placeholder cells
+- Content goes in cells 1-${totalPanels} ONLY (left-to-right, top-to-bottom)${emptyCount > 0 ? `\n- Cells ${totalPanels + 1}-${rows * cols} MUST be SOLID BLACK — no imagery, no text, nothing` : ''}
 - DO NOT draw any numbers, labels, or text on the panels
 - NO text, NO titles, NO captions, NO panel numbers anywhere on the image
 
@@ -250,6 +259,10 @@ ${sceneAppearanceLines || scenes.map(s => `- "${s.name}": ${s.description}`).joi
 PANEL-BY-PANEL BREAKDOWN:
 ${panelLines}
 ${continuityNote}
+
+FINAL REMINDER:${emptyCount > 0 ? `
+- You MUST output EXACTLY ${totalPanels} content panels. The last ${emptyCount} cells MUST be SOLID BLACK with ZERO content.` : ''}
+- Do NOT add any text, numbers, or labels to any panel.
 
 STYLE:
 - Photorealistic cinematic quality (ARRI Alexa / RED camera look)
