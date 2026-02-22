@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, FolderTree, BookOpen, Download, Shield, Film, KeyRound, FileText, ScrollText, Palette, Loader2 } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, FolderTree, BookOpen, Download, Shield, Film, KeyRound, FileText, ScrollText, Palette, Loader2, Activity } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
@@ -36,6 +36,7 @@ const menuItems = [
   { icon: Download, label: "KB导出", path: "/export" },
   { icon: FileText, label: "Prompt管理", path: "/prompts" },
   { icon: Palette, label: "Anchor库", path: "/anchors" },
+  { icon: Activity, label: "生产任务", path: "/tasks" },
   { icon: ScrollText, label: "日志中心", path: "/logs" },
 ];
 
