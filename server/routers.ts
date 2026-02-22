@@ -919,105 +919,124 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
 
         const characters = (script.characters as Array<{ name: string; description: string; anchorPrompt: string }>) ?? [];
         const scenes = (script.scenes as Array<{ name: string; description: string; anchorPrompt: string }>) ?? [];
-
-        const results: Array<{ id: number; type: string; name: string; imageUrl?: string; prompt?: string }> = [];
-
-        // Generate character anchors
-        for (const char of characters) {
-          try {
-            const { url } = await generateImage({ prompt: char.anchorPrompt });
-            const anchorId = await db.saveAnchor({
-              projectId: input.projectId,
-              version: script.version,
-              anchorType: "character",
-              name: char.name,
-              description: char.description,
-              prompt: char.anchorPrompt,
-              imageUrl: url,
-            });
-            results.push({ id: anchorId, type: "character", name: char.name, imageUrl: url, prompt: char.anchorPrompt });
-          } catch (e) {
-            console.error(`[AnchorGen] Failed to generate image for character "${char.name}":`, e instanceof Error ? e.message : e);
-            const anchorId = await db.saveAnchor({
-              projectId: input.projectId,
-              version: script.version,
-              anchorType: "character",
-              name: char.name,
-              description: char.description,
-              prompt: char.anchorPrompt,
-            });
-            results.push({ id: anchorId, type: "character", name: char.name, prompt: char.anchorPrompt });
-          }
-        }
-
-        // Generate scene anchors
-        for (const scene of scenes) {
-          try {
-            const { url } = await generateImage({ prompt: scene.anchorPrompt });
-            const anchorId = await db.saveAnchor({
-              projectId: input.projectId,
-              version: script.version,
-              anchorType: "scene",
-              name: scene.name,
-              description: scene.description,
-              prompt: scene.anchorPrompt,
-              imageUrl: url,
-            });
-            results.push({ id: anchorId, type: "scene", name: scene.name, imageUrl: url, prompt: scene.anchorPrompt });
-          } catch (e) {
-            console.error(`[AnchorGen] Failed to generate image for scene "${scene.name}":`, e instanceof Error ? e.message : e);
-            const anchorId = await db.saveAnchor({
-              projectId: input.projectId,
-              version: script.version,
-              anchorType: "scene",
-              name: scene.name,
-              description: scene.description,
-              prompt: scene.anchorPrompt,
-            });
-            results.push({ id: anchorId, type: "scene", name: scene.name, prompt: scene.anchorPrompt });
-          }
-        }
-
-        // Generate prop anchors (key props from script)
         const props = (script.props as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
-        for (const prop of props) {
-          if (!prop.anchorPrompt) continue; // Skip props without anchor prompts
-          try {
-            const { url } = await generateImage({ prompt: prop.anchorPrompt });
-            const anchorId = await db.saveAnchor({
-              projectId: input.projectId,
-              version: script.version,
-              anchorType: "prop",
-              name: prop.name,
-              description: prop.description,
-              prompt: prop.anchorPrompt,
-              imageUrl: url,
-            });
-            results.push({ id: anchorId, type: "prop", name: prop.name, imageUrl: url, prompt: prop.anchorPrompt });
-          } catch (e) {
-            console.error(`[AnchorGen] Failed to generate image for prop "${prop.name}":`, e instanceof Error ? e.message : e);
-            const anchorId = await db.saveAnchor({
-              projectId: input.projectId,
-              version: script.version,
-              anchorType: "prop",
-              name: prop.name,
-              description: prop.description,
-              prompt: prop.anchorPrompt,
-            });
-            results.push({ id: anchorId, type: "prop", name: prop.name, prompt: prop.anchorPrompt });
-          }
-        }
 
-        const successCount = results.filter(r => r.imageUrl).length;
-        logInfo("anchor_gen", `Anchors generated: ${successCount}/${results.length} with images (${characters.length} chars, ${scenes.length} scenes, ${props.length} props)`, {
-          projectId: input.projectId,
-          details: { total: results.length, withImages: successCount, types: results.map(r => r.type) },
+        // Capture variables for background task
+        const capturedProjectId = input.projectId;
+        const capturedVersion = script.version;
+
+        // Run anchor generation in background (fire-and-forget) to avoid Railway 30s timeout
+        setImmediate(async () => {
+          try {
+            console.log(`[AnchorGen] Background task started for project ${capturedProjectId}`);
+            const results: Array<{ id: number; type: string; name: string; imageUrl?: string; prompt?: string }> = [];
+
+            // Generate character anchors
+            for (const char of characters) {
+              try {
+                const { url } = await generateImage({ prompt: char.anchorPrompt });
+                const anchorId = await db.saveAnchor({
+                  projectId: capturedProjectId,
+                  version: capturedVersion,
+                  anchorType: "character",
+                  name: char.name,
+                  description: char.description,
+                  prompt: char.anchorPrompt,
+                  imageUrl: url,
+                });
+                results.push({ id: anchorId, type: "character", name: char.name, imageUrl: url, prompt: char.anchorPrompt });
+              } catch (e) {
+                console.error(`[AnchorGen] Failed to generate image for character "${char.name}":`, e instanceof Error ? e.message : e);
+                const anchorId = await db.saveAnchor({
+                  projectId: capturedProjectId,
+                  version: capturedVersion,
+                  anchorType: "character",
+                  name: char.name,
+                  description: char.description,
+                  prompt: char.anchorPrompt,
+                });
+                results.push({ id: anchorId, type: "character", name: char.name, prompt: char.anchorPrompt });
+              }
+            }
+
+            // Generate scene anchors
+            for (const scene of scenes) {
+              try {
+                const { url } = await generateImage({ prompt: scene.anchorPrompt });
+                const anchorId = await db.saveAnchor({
+                  projectId: capturedProjectId,
+                  version: capturedVersion,
+                  anchorType: "scene",
+                  name: scene.name,
+                  description: scene.description,
+                  prompt: scene.anchorPrompt,
+                  imageUrl: url,
+                });
+                results.push({ id: anchorId, type: "scene", name: scene.name, imageUrl: url, prompt: scene.anchorPrompt });
+              } catch (e) {
+                console.error(`[AnchorGen] Failed to generate image for scene "${scene.name}":`, e instanceof Error ? e.message : e);
+                const anchorId = await db.saveAnchor({
+                  projectId: capturedProjectId,
+                  version: capturedVersion,
+                  anchorType: "scene",
+                  name: scene.name,
+                  description: scene.description,
+                  prompt: scene.anchorPrompt,
+                });
+                results.push({ id: anchorId, type: "scene", name: scene.name, prompt: scene.anchorPrompt });
+              }
+            }
+
+            // Generate prop anchors (key props from script)
+            for (const prop of props) {
+              if (!prop.anchorPrompt) continue;
+              try {
+                const { url } = await generateImage({ prompt: prop.anchorPrompt });
+                const anchorId = await db.saveAnchor({
+                  projectId: capturedProjectId,
+                  version: capturedVersion,
+                  anchorType: "prop",
+                  name: prop.name,
+                  description: prop.description,
+                  prompt: prop.anchorPrompt,
+                  imageUrl: url,
+                });
+                results.push({ id: anchorId, type: "prop", name: prop.name, imageUrl: url, prompt: prop.anchorPrompt });
+              } catch (e) {
+                console.error(`[AnchorGen] Failed to generate image for prop "${prop.name}":`, e instanceof Error ? e.message : e);
+                const anchorId = await db.saveAnchor({
+                  projectId: capturedProjectId,
+                  version: capturedVersion,
+                  anchorType: "prop",
+                  name: prop.name,
+                  description: prop.description,
+                  prompt: prop.anchorPrompt,
+                });
+                results.push({ id: anchorId, type: "prop", name: prop.name, prompt: prop.anchorPrompt });
+              }
+            }
+
+            const successCount = results.filter(r => r.imageUrl).length;
+            logInfo("anchor_gen", `[ASYNC] Anchors generated: ${successCount}/${results.length} with images (${characters.length} chars, ${scenes.length} scenes, ${props.length} props)`, {
+              projectId: capturedProjectId,
+              details: { total: results.length, withImages: successCount, types: results.map(r => r.type) },
+            }).catch(() => {});
+
+            // Update project status to anchors_generated
+            await db.updateProject(capturedProjectId, { status: "anchors_generated" });
+            console.log(`[AnchorGen] Background task completed for project ${capturedProjectId}: ${successCount}/${results.length} with images`);
+          } catch (e: any) {
+            console.error(`[AnchorGen] Background task FAILED for project ${capturedProjectId}:`, e?.message || e);
+            // Revert status on failure
+            await db.updateProject(capturedProjectId, { status: "scripted" }).catch(() => {});
+            logError("anchor_gen", `[ASYNC] Anchor generation failed for project ${capturedProjectId}: ${e?.message}`, {
+              projectId: capturedProjectId,
+            }).catch(() => {});
+          }
         });
 
-        // Update project status to anchor_generated
-        await db.updateProject(input.projectId, { status: "anchors_generated" });
-
-        return { anchors: results };
+        // Return immediately (fire-and-forget)
+        return { message: "Anchor generation started", projectId: input.projectId };
       }),
     regenerateOne: protectedProcedure
       .input(z.object({
@@ -1721,6 +1740,10 @@ CRITICAL STYLE REQUIREMENTS:
         const promptRuleChapters = await db.getRulesForScene(project.l2Id) as RuleChapter[];
         const rulesText = buildRulesForPrompt(promptRuleChapters);
 
+        // Capture for background task
+        const capturedProjectId = input.projectId;
+        const capturedVersion = script.version;
+
         const anchorInfo = anchorsList.map(a => `${a.anchorType} "${a.name}": ${a.description}`).join("\n");
 
         const systemPrompt = `你是一个AI视频生成提示词专家。根据分镜脚本和角色/场景锚点，为每一帧生成结构化的视频生成参数。
@@ -1780,91 +1803,106 @@ ${frames.map(f => `Panel ${f.index}: [${f.shotType}] ${f.description} (${f.durat
 
 请为每一帧生成视频生成参数。`;
 
-        const response = await invokeLLM({
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "prompt_list",
-              strict: true,
-              schema: {
-                type: "object",
-                properties: {
-                  prompts: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        panelIndex: { type: "integer" },
-                        promptText: { type: "string" },
-                        negativePrompt: { type: "string" },
-                        model: { type: "string" },
-                        controlStrategy: { type: "string" },
-                        shotType: { type: "string" },
-                        cameraAngle: { type: "string" },
-                        subject: { type: "string" },
-                        action: { type: "string" },
-                        cameraMovement: { type: "string" },
-                        lighting: { type: "string" },
-                        texture: { type: "string" },
-                        effects: { type: "string" },
-                        transition: { type: "string" },
+        // Run prompt generation in background (fire-and-forget) to avoid Railway 30s timeout
+        setImmediate(async () => {
+          try {
+            console.log(`[PromptGen] Background task started for project ${capturedProjectId}`);
+            const response = await invokeLLM({
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+              ],
+              response_format: {
+                type: "json_schema",
+                json_schema: {
+                  name: "prompt_list",
+                  strict: true,
+                  schema: {
+                    type: "object",
+                    properties: {
+                      prompts: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            panelIndex: { type: "integer" },
+                            promptText: { type: "string" },
+                            negativePrompt: { type: "string" },
+                            model: { type: "string" },
+                            controlStrategy: { type: "string" },
+                            shotType: { type: "string" },
+                            cameraAngle: { type: "string" },
+                            subject: { type: "string" },
+                            action: { type: "string" },
+                            cameraMovement: { type: "string" },
+                            lighting: { type: "string" },
+                            texture: { type: "string" },
+                            effects: { type: "string" },
+                            transition: { type: "string" },
+                          },
+                          required: ["panelIndex", "promptText", "negativePrompt", "model", "controlStrategy", "shotType", "cameraAngle", "subject", "action", "cameraMovement", "lighting", "texture", "effects", "transition"],
+                          additionalProperties: false,
+                        },
                       },
-                      required: ["panelIndex", "promptText", "negativePrompt", "model", "controlStrategy", "shotType", "cameraAngle", "subject", "action", "cameraMovement", "lighting", "texture", "effects", "transition"],
-                      additionalProperties: false,
                     },
+                    required: ["prompts"],
+                    additionalProperties: false,
                   },
                 },
-                required: ["prompts"],
-                additionalProperties: false,
               },
-            },
-          },
+            });
+
+            const contentRaw = response.choices?.[0]?.message?.content;
+            const content = typeof contentRaw === "string" ? contentRaw : JSON.stringify(contentRaw);
+            if (!content) throw new Error("LLM returned empty response");
+
+            const parsed = JSON.parse(content);
+
+            // Match prompts to panels and save
+            const promptData = parsed.prompts.map((p: any) => {
+              const panel = panelsList.find(pan => pan.panelIndex === p.panelIndex);
+              return {
+                panelId: panel?.id ?? 0,
+                projectId: capturedProjectId,
+                version: capturedVersion,
+                promptText: p.promptText,
+                negativePrompt: p.negativePrompt,
+                model: p.model,
+                controlStrategy: p.controlStrategy as any,
+                shotType: p.shotType,
+                cameraAngle: p.cameraAngle,
+                subject: p.subject,
+                action: p.action,
+                cameraMovement: p.cameraMovement,
+                lighting: p.lighting,
+                texture: p.texture,
+                effects: p.effects,
+                transition: p.transition,
+              };
+            });
+
+            await db.savePrompts(promptData);
+
+            logInfo("prompt_gen", `[ASYNC] Prompts generated: ${parsed.prompts.length} prompts for ${frames.length} frames`, {
+              projectId: capturedProjectId,
+              details: { promptCount: parsed.prompts.length, models: Array.from(new Set(parsed.prompts.map((p: any) => p.model))) },
+            }).catch(() => {});
+
+            // Update project status to prompt_generated
+            await db.updateProject(capturedProjectId, { status: "prompt_generated" });
+            console.log(`[PromptGen] Background task completed for project ${capturedProjectId}: ${parsed.prompts.length} prompts`);
+          } catch (e: any) {
+            console.error(`[PromptGen] Background task FAILED for project ${capturedProjectId}:`, e?.message || e);
+            // Revert status on failure
+            await db.updateProject(capturedProjectId, { status: "grid_generated" }).catch(() => {});
+            logError("prompt_gen", `[ASYNC] Prompt generation failed for project ${capturedProjectId}: ${e?.message}`, {
+              projectId: capturedProjectId,
+            }).catch(() => {});
+          }
         });
 
-        const contentRaw = response.choices?.[0]?.message?.content;
-        const content = typeof contentRaw === "string" ? contentRaw : JSON.stringify(contentRaw);
-        if (!content) throw new Error("LLM returned empty response");
-
-        const parsed = JSON.parse(content);
-
-        // Match prompts to panels and save
-        const promptData = parsed.prompts.map((p: any) => {
-          const panel = panelsList.find(pan => pan.panelIndex === p.panelIndex);
-          return {
-            panelId: panel?.id ?? 0,
-            projectId: input.projectId,
-            version: script.version,
-            promptText: p.promptText,
-            negativePrompt: p.negativePrompt,
-            model: p.model,
-            controlStrategy: p.controlStrategy as any,
-            shotType: p.shotType,
-            cameraAngle: p.cameraAngle,
-            subject: p.subject,
-            action: p.action,
-            cameraMovement: p.cameraMovement,
-            lighting: p.lighting,
-            texture: p.texture,
-            effects: p.effects,
-            transition: p.transition,
-          };
-        });
-
-        await db.savePrompts(promptData);
-
-        logInfo("prompt_gen", `Prompts generated: ${parsed.prompts.length} prompts for ${frames.length} frames`, {
-          projectId: input.projectId,
-          details: { promptCount: parsed.prompts.length, models: Array.from(new Set(parsed.prompts.map((p: any) => p.model))) },
-        });
-
-        // Update project status to prompt_generated
-        await db.updateProject(input.projectId, { status: "prompt_generated" });
-
-        return { prompts: parsed.prompts };
+        // Return immediately (fire-and-forget)
+        return { message: "Prompt generation started", projectId: input.projectId };
       }),
     list: publicProcedure
       .input(z.object({ projectId: z.number(), version: z.number().optional() }))
