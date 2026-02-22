@@ -639,4 +639,11 @@
 - [x] 更新App.tsx路由和DashboardLayout侧边栏
 - [x] 运行db:push推送schema变更（3张新表创建成功）
 - [x] 集成测试（135个测试全部通过）
-- [ ] 推送到GitHub + Railway部署
+- [x] 推送到GitHub + Railway部署
+
+### 44.8 修复批量生成数据库不同步 + Prompt中文化
+- [ ] 批量生成脚本改用Railway API（而非本地dev server）
+- [ ] 获取Railway认证Cookie或添加API Key认证
+- [ ] Prompt生成逻辑改为中文输出（Seedance prompt用中文）
+- [ ] 清理本地数据库中的无效批量项目
+- [ ] 在Railway上重新批量生成所有L3项目

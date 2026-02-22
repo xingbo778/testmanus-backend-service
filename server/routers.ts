@@ -1728,6 +1728,11 @@ ${rulesText}
 ## 通用公式
 镜头类型 + 视角 + 主体 + 动作 + 运镜 + 光影 + 材质 + 特效 + 渲染 + 环境交互 + 过渡
 
+## 语言要求（重要）
+所有promptText和negativePrompt必须使用中文输出。Seedance等国产视频生成模型对中文prompt的理解更好。
+例如："近景镜头，年轻女子坐在咖啡馆窗边，缓缓端起咖啡杯，阳光透过玻璃洒在她脸上，温暖柔和的自然光"
+而不是："Close-up shot, young woman sitting by cafe window..."
+
 ## 角色/场景锚点
 ${anchorInfo}
 
@@ -1752,8 +1757,8 @@ ${anchorInfo}
 请为每一帧输出JSON数组，每个元素包含：
 {
   "panelIndex": 1,
-  "promptText": "英文prompt",
-  "negativePrompt": "英文negative prompt",
+  "promptText": "中文prompt（用中文描述画面和动作）",
+  "negativePrompt": "中文negative prompt",
   "model": "seedance-1.5-pro/kling-2.6/veo3.1-fast",
   "controlStrategy": "first_frame/last_frame/first_last_frame/reference_frame",
   "shotType": "CU",

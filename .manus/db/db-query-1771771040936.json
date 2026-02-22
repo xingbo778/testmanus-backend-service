@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, openId, name, email, role FROM users ORDER BY id",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DfLuEnjevWTpNN.55b76eda8e78 --database esBPidbdG5KLDsJkAMi9y6 --execute SELECT id, openId, name, email, role FROM users ORDER BY id",
+  "rows": [
+    {
+      "id": "1",
+      "openId": "LGFc2jTKDTJpudBMA9w288",
+      "name": "Xingbo Huang",
+      "email": "hxb901102@gmail.com",
+      "role": "admin"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\topenId\tname\temail\trole\n1\tLGFc2jTKDTJpudBMA9w288\tXingbo Huang\thxb901102@gmail.com\tadmin\n",
+  "stderr": "",
+  "execution_time_ms": 1560
+}
