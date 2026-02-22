@@ -16,12 +16,28 @@ import { generateGridTemplateDataUrl } from "./gridTemplate";
 import { DEFAULT_SYSTEM_PROMPTS } from "./seed-prompts";
 import { logInfo, logError, logWarn } from "./appLogger";
 import { extractPanel, extractAllPanels } from "./panelExtractor";
-import { generateAllGridPages, splitFramesIntoPages, type Frame } from "./gridUtils";
+import { generateAllGridPages, splitFramesIntoPages, MAX_PANELS_PER_GRID, calculateGridLayout, type Frame } from "./gridUtils";
 import { validate30PercentRule, type FrameForValidation } from "./thirtyPercentRule";
 import { buildRulesForScript, buildRulesForGrid, buildRulesForPanel, buildRulesForPrompt, type RuleChapter } from "./ruleSelector";
 
 export const appRouter = router({
   system: systemRouter,
+  // Debug endpoint to check runtime grid config
+  debug: router({
+    gridConfig: publicProcedure.query(() => {
+      const testFrames = Array.from({length: 8}, (_, i) => ({ index: i+1, shotType: 'MS', duration: 2, description: '', cameraMovement: '' }));
+      const pages = splitFramesIntoPages(testFrames as Frame[]);
+      const layout7 = calculateGridLayout(7);
+      const layout8 = calculateGridLayout(8);
+      return {
+        MAX_PANELS_PER_GRID,
+        layout7: `${layout7.cols}x${layout7.rows}`,
+        layout8: `${layout8.cols}x${layout8.rows}`,
+        testSplit8frames: pages.map(p => ({ pageIndex: p.pageIndex, panels: p.totalPanels, rows: p.rows, cols: p.cols })),
+        buildTime: new Date().toISOString(),
+      };
+    }),
+  }),
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
