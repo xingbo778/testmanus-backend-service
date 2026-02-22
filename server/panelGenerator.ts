@@ -155,8 +155,8 @@ STYLE:
 }
 
 /**
- * Generate all panels for a grid page sequentially.
- * Sequential to avoid API rate limits and ensure consistent style.
+ * Generate all panels for a grid page in parallel with concurrency limit.
+ * Uses Promise.allSettled with batching to avoid API rate limits.
  */
 export async function generateAllPanels(opts: {
   frames: PanelGenFrame[];
@@ -164,31 +164,58 @@ export async function generateAllPanels(opts: {
   anchors: PanelGenAnchor[];
   characters: PanelGenCharacter[];
   scenes: PanelGenScene[];
+  concurrency?: number;
 }): Promise<GeneratedPanel[]> {
-  const { frames, gridImageUrl, anchors, characters, scenes } = opts;
-  const results: GeneratedPanel[] = [];
+  const { frames, gridImageUrl, anchors, characters, scenes, concurrency = 3 } = opts;
 
-  console.log(`[PanelGen] Generating ${frames.length} individual panels...`);
+  console.log(`[PanelGen] Generating ${frames.length} individual panels (concurrency: ${concurrency})...`);
 
-  for (let i = 0; i < frames.length; i++) {
-    const frame = frames[i];
-    const localIndex = i + 1;
+  // Create all panel generation tasks
+  const tasks = frames.map((frame, i) => ({
+    frame,
+    localIndex: i + 1,
+  }));
 
-    const result = await generateSinglePanel({
-      frame,
-      localIndex,
-      totalPanelsInPage: frames.length,
-      gridImageUrl,
-      anchors,
-      characters,
-      scenes,
-    });
+  const results: GeneratedPanel[] = new Array(frames.length);
 
-    results.push(result);
+  // Process in batches of `concurrency`
+  for (let batchStart = 0; batchStart < tasks.length; batchStart += concurrency) {
+    const batch = tasks.slice(batchStart, batchStart + concurrency);
+    console.log(`[PanelGen] Batch ${Math.floor(batchStart / concurrency) + 1}: panels ${batch.map(t => t.localIndex).join(', ')}`);
 
-    // Brief delay between generations to be nice to the API
-    if (i < frames.length - 1) {
-      await new Promise(r => setTimeout(r, 2000));
+    const batchResults = await Promise.allSettled(
+      batch.map(task =>
+        generateSinglePanel({
+          frame: task.frame,
+          localIndex: task.localIndex,
+          totalPanelsInPage: frames.length,
+          gridImageUrl,
+          anchors,
+          characters,
+          scenes,
+        })
+      )
+    );
+
+    // Store results in order
+    for (let j = 0; j < batchResults.length; j++) {
+      const idx = batchStart + j;
+      const settled = batchResults[j];
+      if (settled.status === 'fulfilled') {
+        results[idx] = settled.value;
+      } else {
+        results[idx] = {
+          frameIndex: tasks[idx].frame.index,
+          imageUrl: null,
+          prompt: '',
+          error: settled.reason?.message || String(settled.reason),
+        };
+      }
+    }
+
+    // Brief delay between batches
+    if (batchStart + concurrency < tasks.length) {
+      await new Promise(r => setTimeout(r, 1000));
     }
   }
 
