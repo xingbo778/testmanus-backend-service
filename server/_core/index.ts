@@ -29,6 +29,7 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function autoSeedOnStartup() {
+  // Seed system prompts
   try {
     const { seedSystemPrompts, listSystemPrompts } = await import("../db");
     const { DEFAULT_SYSTEM_PROMPTS } = await import("../seed-prompts");
@@ -40,6 +41,17 @@ async function autoSeedOnStartup() {
     }
   } catch (e) {
     console.warn("[AutoSeed] Failed to auto-seed system prompts:", e);
+  }
+
+  // Seed categories (upsert - safe to run every startup)
+  try {
+    const { seedCategories } = await import("../db");
+    const { CATEGORY_SEED } = await import("../seed-categories");
+    console.log("[AutoSeed] Seeding categories (upsert)...");
+    await seedCategories(CATEGORY_SEED);
+    console.log(`[AutoSeed] Seeded ${CATEGORY_SEED.l1.length} L1, ${CATEGORY_SEED.l2.length} L2, ${CATEGORY_SEED.l3.length} L3 categories`);
+  } catch (e) {
+    console.warn("[AutoSeed] Failed to auto-seed categories:", e);
   }
 }
 
