@@ -48,13 +48,14 @@ export interface GeneratedPanel {
 
 /**
  * Generate a single panel image.
- * References: Grid overview image + character/scene anchors.
+ * Uses character/scene anchor images as references (NOT the grid image).
+ * The grid image is described in the prompt text only to avoid Gemini treating it as an edit target.
  */
 export async function generateSinglePanel(opts: {
   frame: PanelGenFrame;
   localIndex: number;          // 1-based index within the page (1-6)
   totalPanelsInPage: number;   // total panels in this page
-  gridImageUrl: string;        // Full grid image for style reference
+  gridImageUrl: string;        // Full grid image for style reference (used in prompt text only)
   anchors: PanelGenAnchor[];
   characters: PanelGenCharacter[];
   scenes: PanelGenScene[];
@@ -62,19 +63,11 @@ export async function generateSinglePanel(opts: {
   const { frame, localIndex, totalPanelsInPage, gridImageUrl, anchors, characters, scenes } = opts;
 
   try {
-    // Build ordered reference images
+    // Build reference images - ONLY character and scene anchors
+    // We do NOT pass the grid image as an originalImage to avoid Gemini treating it as an edit target
     const orderedImages: Array<{ url: string }> = [];
     const imageDescriptions: string[] = [];
     let imgIdx = 1;
-
-    // Image #1: The full Grid image as style/composition reference
-    orderedImages.push({ url: gridImageUrl });
-    imageDescriptions.push(
-      `Image #${imgIdx}: FULL STORYBOARD GRID. This is the complete storyboard overview. ` +
-      `Your task is to generate panel #${localIndex} (out of ${totalPanelsInPage}) from this grid as a standalone high-resolution image. ` +
-      `Match the exact visual style, color grading, lighting, and character appearance from this grid.`
-    );
-    imgIdx++;
 
     // Character anchor images
     const charAnchors = anchors.filter(a => a.anchorType === 'character' && a.imageUrl?.startsWith('http'));
@@ -82,7 +75,7 @@ export async function generateSinglePanel(opts: {
       orderedImages.push({ url: ca.imageUrl! });
       const charData = characters.find(c => c.name === ca.name);
       imageDescriptions.push(
-        `Image #${imgIdx}: CHARACTER "${ca.name}" reference. ${ca.prompt || charData?.description || ca.description || 'See reference image'}`
+        `Image #${imgIdx}: CHARACTER "${ca.name}" reference photo. The character in your generated image MUST look exactly like this person. ${ca.prompt || charData?.description || ca.description || ''}`
       );
       imgIdx++;
     }
@@ -93,7 +86,7 @@ export async function generateSinglePanel(opts: {
       orderedImages.push({ url: sa.imageUrl! });
       const sceneData = scenes.find(s => s.name === sa.name);
       imageDescriptions.push(
-        `Image #${imgIdx}: SCENE "${sa.name}" reference. ${sa.prompt || sceneData?.description || sa.description || 'See reference image'}`
+        `Image #${imgIdx}: SCENE "${sa.name}" reference photo. Use this as visual reference for the environment. ${sa.prompt || sceneData?.description || sa.description || ''}`
       );
       imgIdx++;
     }
@@ -104,41 +97,36 @@ export async function generateSinglePanel(opts: {
       return `- "${ca.name}": ${ca.prompt || charData?.description || ca.description || 'See reference image'}`;
     }).join('\n');
 
-    // Build the prompt
-    const prompt = `I am providing ${orderedImages.length} reference images:
+    // Build the prompt - describe the grid context in text, not as an image
+    const prompt = `${orderedImages.length > 0 ? `I am providing ${orderedImages.length} reference images:\n\n${imageDescriptions.join('\n')}\n\n` : ''}Generate a single high-resolution cinematic image based on the following description.
 
-${imageDescriptions.join('\n')}
+This image is Panel #${localIndex} of a ${totalPanelsInPage}-panel cinematic storyboard.
 
-YOUR TASK: Generate a single high-resolution cinematic image for Panel #${localIndex} of the storyboard.
+SCENE DESCRIPTION:
+${frame.description}
 
-PANEL DESCRIPTION:
-- Shot type: ${frame.shotType}
-- Duration: ${frame.duration}s
+SHOT DETAILS:
+- Shot type: ${frame.shotType} (${getShotTypeDescription(frame.shotType)})
 - Camera movement: ${frame.cameraMovement}
-- Scene: ${frame.description}
+- Duration context: ${frame.duration}s
 
-CRITICAL REQUIREMENTS:
-1. This is a SINGLE standalone image, NOT a grid. Output exactly ONE image.
-2. Match the visual style, color palette, and lighting from the full storyboard grid (Image #1).
-3. The characters MUST look EXACTLY like the reference photos — same face, ethnicity, hair, clothing.
-${charAppearanceLines ? `\nCHARACTER APPEARANCE:\n${charAppearanceLines}` : ''}
-
-SHOT COMPOSITION:
-- Frame the shot as a ${frame.shotType} (${getShotTypeDescription(frame.shotType)})
-- Camera: ${frame.cameraMovement}
-- Capture the specific moment described: ${frame.description}
+REQUIREMENTS:
+1. Generate exactly ONE standalone cinematic image. Do NOT create a grid, collage, or multi-panel layout.
+2. The characters MUST look EXACTLY like the reference photos provided — same face, same ethnicity, same hair, same clothing.
+${charAppearanceLines ? `3. CHARACTER APPEARANCE:\n${charAppearanceLines}` : ''}
 
 STYLE:
-- Photorealistic cinematic quality (ARRI Alexa / RED camera look)
-- Cinematic lighting matching the mood of the scene
+- Photorealistic cinematic quality (shot on ARRI Alexa / RED camera)
+- Cinematic lighting that matches the mood of the scene
 - Natural skin textures, realistic environments, atmospheric depth
-- NO text, NO labels, NO watermarks, NO borders on the image`;
+- Aspect ratio: 16:9 landscape
+- NO text, NO labels, NO watermarks, NO borders, NO panel numbers`;
 
     console.log(`[PanelGen] Generating panel ${localIndex}/${totalPanelsInPage} (Frame #${frame.index}): ${frame.shotType}`);
 
     const { url: imageUrl } = await generateImage({
       prompt,
-      originalImages: orderedImages,
+      originalImages: orderedImages.length > 0 ? orderedImages : undefined,
     });
 
     logInfo("panel_gen", `Panel ${localIndex} generated successfully`, {
@@ -200,7 +188,7 @@ export async function generateAllPanels(opts: {
 
     // Brief delay between generations to be nice to the API
     if (i < frames.length - 1) {
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 2000));
     }
   }
 
