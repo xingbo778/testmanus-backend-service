@@ -47,7 +47,7 @@ export interface GeneratedPanel {
 }
 
 /**
- * Generate a single panel image.
+ * Generate a single panel image with retry support.
  * Uses character/scene anchor images as references (NOT the grid image).
  * The grid image is described in the prompt text only to avoid Gemini treating it as an edit target.
  */
@@ -61,6 +61,7 @@ export async function generateSinglePanel(opts: {
   scenes: PanelGenScene[];
 }): Promise<GeneratedPanel> {
   const { frame, localIndex, totalPanelsInPage, gridImageUrl, anchors, characters, scenes } = opts;
+  let panelPrompt = '';
 
   try {
     // Build reference images - ONLY character and scene anchors
@@ -98,7 +99,7 @@ export async function generateSinglePanel(opts: {
     }).join('\n');
 
     // Build the prompt - describe the grid context in text, not as an image
-    const prompt = `${orderedImages.length > 0 ? `I am providing ${orderedImages.length} reference images:\n\n${imageDescriptions.join('\n')}\n\n` : ''}Generate a single high-resolution cinematic image based on the following description.
+    panelPrompt = `${orderedImages.length > 0 ? `I am providing ${orderedImages.length} reference images:\n\n${imageDescriptions.join('\n')}\n\n` : ''}Generate a single high-resolution cinematic image based on the following description.
 
 This image is Panel #${localIndex} of a ${totalPanelsInPage}-panel cinematic storyboard.
 
@@ -125,7 +126,7 @@ STYLE:
     console.log(`[PanelGen] Generating panel ${localIndex}/${totalPanelsInPage} (Frame #${frame.index}): ${frame.shotType}`);
 
     const { url: imageUrl } = await generateImage({
-      prompt,
+      prompt: panelPrompt,
       originalImages: orderedImages.length > 0 ? orderedImages : undefined,
     });
 
@@ -136,7 +137,7 @@ STYLE:
     return {
       frameIndex: frame.index,
       imageUrl: imageUrl || null,
-      prompt,
+      prompt: panelPrompt,
     };
   } catch (e: any) {
     console.error(`[PanelGen] Panel ${localIndex} (Frame #${frame.index}) failed:`, e?.message || e);
@@ -148,10 +149,62 @@ STYLE:
     return {
       frameIndex: frame.index,
       imageUrl: null,
-      prompt: '',
+      prompt: panelPrompt,
       error: e instanceof Error ? e.message : String(e),
     };
   }
+}
+
+/**
+ * Generate a single panel with retry logic.
+ * Retries up to maxRetries times on failure (null imageUrl or error).
+ */
+async function generateSinglePanelWithRetry(opts: {
+  frame: PanelGenFrame;
+  localIndex: number;
+  totalPanelsInPage: number;
+  gridImageUrl: string;
+  anchors: PanelGenAnchor[];
+  characters: PanelGenCharacter[];
+  scenes: PanelGenScene[];
+  maxRetries?: number;
+}): Promise<GeneratedPanel> {
+  const { maxRetries = 2, ...panelOpts } = opts;
+  
+  let lastResult: GeneratedPanel | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      console.log(`[PanelGen] Retrying panel ${panelOpts.localIndex} (attempt ${attempt + 1}/${maxRetries + 1})...`);
+      // Wait before retry with exponential backoff
+      await new Promise(r => setTimeout(r, 2000 * attempt));
+    }
+    
+    const result = await generateSinglePanel(panelOpts);
+    lastResult = result;
+    
+    // Success: got a valid image URL
+    if (result.imageUrl) {
+      if (attempt > 0) {
+        console.log(`[PanelGen] Panel ${panelOpts.localIndex} succeeded on retry attempt ${attempt + 1}`);
+        logInfo("panel_gen", `Panel ${panelOpts.localIndex} succeeded on retry attempt ${attempt + 1}`, {
+          details: { frameIndex: panelOpts.frame.index, attempt: attempt + 1 },
+        }).catch(() => {});
+      }
+      return result;
+    }
+    
+    // Failed: log and continue to next attempt
+    console.log(`[PanelGen] Panel ${panelOpts.localIndex} attempt ${attempt + 1} failed: ${result.error || 'no image returned'}`);
+  }
+  
+  // All retries exhausted
+  console.error(`[PanelGen] Panel ${panelOpts.localIndex} failed after ${maxRetries + 1} attempts`);
+  logError("panel_gen", `Panel ${panelOpts.localIndex} failed after ${maxRetries + 1} attempts`, {
+    details: { frameIndex: panelOpts.frame.index, lastError: lastResult?.error },
+  }).catch(() => {});
+  
+  return lastResult!;
 }
 
 /**
@@ -185,7 +238,7 @@ export async function generateAllPanels(opts: {
 
     const batchResults = await Promise.allSettled(
       batch.map(task =>
-        generateSinglePanel({
+        generateSinglePanelWithRetry({
           frame: task.frame,
           localIndex: task.localIndex,
           totalPanelsInPage: frames.length,
@@ -193,6 +246,7 @@ export async function generateAllPanels(opts: {
           anchors,
           characters,
           scenes,
+          maxRetries: 2,
         })
       )
     );

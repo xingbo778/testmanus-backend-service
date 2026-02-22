@@ -520,3 +520,7 @@
 - [x] 安全删除：先生成新Grid，成功后再删除旧的
 - [x] 项目状态跟踪：grid_generating → grid_generated（schema已迁移）
 - [ ] 推送到GitHub + Railway验证（Phase 34）
+
+## Phase 35: Panel生成重试机制 (2026-02-22)
+- [ ] panelGenerator.ts 加入单Panel重试（最多2次）
+- [ ] 推送到GitHub + Railway验证
