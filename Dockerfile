@@ -8,12 +8,11 @@ COPY package.json pnpm-lock.yaml ./
 COPY patches/ ./patches/
 RUN pnpm install --frozen-lockfile --prod=false
 
-# Build - ARG CACHE_BUST is set via Railway env var to bust Docker cache
+# Build
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG CACHE_BUST
-RUN echo "Cache bust: ${CACHE_BUST}" && pnpm build
+RUN pnpm build
 
 # Production
 FROM base AS production
