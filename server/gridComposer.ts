@@ -1,13 +1,14 @@
 /**
- * Grid Composer - composes individual panel images into a final 2×3 grid using Sharp.
+ * Grid Composer - composes individual panel images into a final grid using Sharp.
  * 
- * Takes 1-6 panel image URLs, downloads them, resizes to uniform size,
- * and composites them into a 2-column × 3-row grid with white borders.
+ * Takes panel image URLs, downloads them, resizes to uniform size,
+ * and composites them into a grid with dynamic rows/cols and white borders.
  * 
- * Layout (2 cols × 3 rows):
- *   [Panel 1] [Panel 2]
- *   [Panel 3] [Panel 4]
- *   [Panel 5] [Panel 6]
+ * Layout is dynamic based on the number of panels:
+ *   2 panels → 2×1 (2 cols × 1 row)
+ *   4 panels → 2×2 (2 cols × 2 rows)
+ *   6 panels → 2×3 (2 cols × 3 rows)
+ *   8 panels → 2×4 (2 cols × 4 rows)
  */
 
 import sharp from "sharp";
@@ -18,12 +19,8 @@ import { logInfo, logError } from "./appLogger";
 const PANEL_WIDTH = 768;     // Each panel width in pixels
 const PANEL_HEIGHT = 512;    // Each panel height (16:9-ish cinematic ratio)
 const BORDER_WIDTH = 6;      // White border between panels
-const COLS = 2;
-const ROWS = 3;
-
-// Total canvas size
-const CANVAS_WIDTH = COLS * PANEL_WIDTH + (COLS + 1) * BORDER_WIDTH;
-const CANVAS_HEIGHT = ROWS * PANEL_HEIGHT + (ROWS + 1) * BORDER_WIDTH;
+const DEFAULT_COLS = 2;
+const DEFAULT_ROWS = 3;
 
 /**
  * Download an image from URL and return as Buffer.
@@ -71,8 +68,12 @@ async function createPlaceholderPanel(): Promise<Buffer> {
 }
 
 export interface ComposePanelsOptions {
-  /** Panel image URLs in order (1-6). null entries become dark placeholders. */
+  /** Panel image URLs in order. null entries become dark placeholders. */
   panelImageUrls: (string | null)[];
+  /** Number of rows in the grid. If not provided, calculated from panel count. */
+  rows?: number;
+  /** Number of columns in the grid. Defaults to 2. */
+  cols?: number;
   /** Project ID for logging */
   projectId?: number;
   /** Page index for logging */
@@ -89,16 +90,27 @@ export interface ComposeResult {
 }
 
 /**
- * Compose individual panel images into a 2×3 grid.
+ * Compose individual panel images into a grid with dynamic layout.
  * 
- * @param opts.panelImageUrls - Array of up to 6 panel image URLs (null for missing)
+ * @param opts.panelImageUrls - Array of panel image URLs (null for missing)
+ * @param opts.rows - Number of rows (auto-calculated if not provided)
+ * @param opts.cols - Number of columns (defaults to 2)
  * @returns ComposeResult with the composed grid image URL
  */
 export async function composePanels(opts: ComposePanelsOptions): Promise<ComposeResult> {
   const { panelImageUrls, projectId, pageIndex } = opts;
-  const totalPanels = Math.min(panelImageUrls.length, COLS * ROWS);
+  
+  // Determine grid dimensions
+  const cols = opts.cols ?? DEFAULT_COLS;
+  const rows = opts.rows ?? Math.max(1, Math.ceil(panelImageUrls.length / cols));
+  const totalCells = rows * cols;
+  const totalPanels = Math.min(panelImageUrls.length, totalCells);
 
-  console.log(`[GridComposer] Composing ${totalPanels} panels into ${COLS}×${ROWS} grid`);
+  // Calculate canvas size dynamically
+  const canvasWidth = cols * PANEL_WIDTH + (cols + 1) * BORDER_WIDTH;
+  const canvasHeight = rows * PANEL_HEIGHT + (rows + 1) * BORDER_WIDTH;
+
+  console.log(`[GridComposer] Composing ${totalPanels} panels into ${cols}×${rows} grid (${canvasWidth}×${canvasHeight}px)`);
 
   // Download and resize all panels (or create placeholders)
   const panelBuffers: Buffer[] = [];
@@ -124,8 +136,8 @@ export async function composePanels(opts: ComposePanelsOptions): Promise<Compose
     }
   }
 
-  // Fill remaining slots (if fewer than 6 panels) with placeholders
-  while (panelBuffers.length < COLS * ROWS) {
+  // Fill remaining slots (if fewer panels than total cells) with placeholders
+  while (panelBuffers.length < totalCells) {
     panelBuffers.push(await createPlaceholderPanel());
   }
 
@@ -133,8 +145,8 @@ export async function composePanels(opts: ComposePanelsOptions): Promise<Compose
   const composites: sharp.OverlayOptions[] = [];
 
   for (let i = 0; i < panelBuffers.length; i++) {
-    const row = Math.floor(i / COLS);
-    const col = i % COLS;
+    const row = Math.floor(i / cols);
+    const col = i % cols;
     const left = BORDER_WIDTH + col * (PANEL_WIDTH + BORDER_WIDTH);
     const top = BORDER_WIDTH + row * (PANEL_HEIGHT + BORDER_WIDTH);
 
@@ -147,8 +159,8 @@ export async function composePanels(opts: ComposePanelsOptions): Promise<Compose
 
   const composedBuffer = await sharp({
     create: {
-      width: CANVAS_WIDTH,
-      height: CANVAS_HEIGHT,
+      width: canvasWidth,
+      height: canvasHeight,
       channels: 3,
       background: { r: 255, g: 255, b: 255 }, // White borders
     },
@@ -157,7 +169,7 @@ export async function composePanels(opts: ComposePanelsOptions): Promise<Compose
     .jpeg({ quality: 92 })
     .toBuffer();
 
-  console.log(`[GridComposer] Composed grid: ${CANVAS_WIDTH}×${CANVAS_HEIGHT}px, uploading...`);
+  console.log(`[GridComposer] Composed grid: ${canvasWidth}×${canvasHeight}px, uploading...`);
 
   // Upload the composed image (JPEG to keep file size under upload limits)
   const composedUrl = await uploadFile({
@@ -167,9 +179,9 @@ export async function composePanels(opts: ComposePanelsOptions): Promise<Compose
     s3Key: `grids/composed_${projectId || 0}_${pageIndex ?? 0}_${Date.now()}.jpg`,
   });
 
-  logInfo("grid_compose", `Composed ${COLS}×${ROWS} grid: ${successCount} panels, ${failCount} placeholders`, {
+  logInfo("grid_compose", `Composed ${cols}×${rows} grid: ${successCount} panels, ${failCount} placeholders`, {
     projectId,
-    details: { pageIndex, successCount, failCount, totalPanels, canvasSize: `${CANVAS_WIDTH}×${CANVAS_HEIGHT}` },
+    details: { pageIndex, successCount, failCount, totalPanels, canvasSize: `${canvasWidth}×${canvasHeight}` },
   }).catch(() => {});
 
   return {
@@ -180,4 +192,4 @@ export async function composePanels(opts: ComposePanelsOptions): Promise<Compose
 }
 
 // Export constants for testing
-export { PANEL_WIDTH, PANEL_HEIGHT, BORDER_WIDTH, COLS, ROWS, CANVAS_WIDTH, CANVAS_HEIGHT };
+export { PANEL_WIDTH, PANEL_HEIGHT, BORDER_WIDTH, DEFAULT_COLS as COLS, DEFAULT_ROWS as ROWS };

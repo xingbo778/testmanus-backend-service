@@ -572,3 +572,11 @@
 - [x] 优化规则注入策略：Grid/Panel生成（注入精简的视觉规则——构图/景别/光线）
 - [x] 新增buildRulesForGrid()函数：为图片生成提取最相关的视觉规则
 - [x] 新增ruleSelector.ts模块 + 19个vitest测试全部通过
+## Phase 42: Grid布局计算修复 - 帧数与格数匹配 (2026-02-22)
+- [x] 修复Grid布局计算：当帧数>格数时出现panel上下分割问题
+- [x] 根据实际帧数自动选择合适的行列数（7帧→4×2=8格，不再硬塞进2×3=6格）
+- [x] 更新Grid prompt明确告知模型实际帧数和布局
+- [x] gridComposer.ts支持动态行列数（不再固定2×3）
+- [x] MAX_PANELS_PER_GRID从6提升到8
+- [x] 27个multiGrid测试全部更新并通过
+- [ ] 推送到GitHub + Railway验证
