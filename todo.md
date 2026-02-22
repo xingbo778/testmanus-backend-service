@@ -522,5 +522,9 @@
 - [ ] 推送到GitHub + Railway验证（Phase 34）
 
 ## Phase 35: Panel生成重试机制 (2026-02-22)
-- [ ] panelGenerator.ts 加入单Panel重试（最多2次）
-- [ ] 推送到GitHub + Railway验证
+- [x] panelGenerator.ts 加入单Panel重试（最多2次，指数退避）
+- [x] 修复 TypeScript 编译错误（prompt 变量名冲突→panelPrompt）
+- [x] generateAllPanels 使用 generateSinglePanelWithRetry 替代直接调用
+- [x] 更新 e2e.test.ts 适配异步 grid.generate 返回格式
+- [x] 所有测试通过（103 e2e + 19 multiGrid + 11 newFeatures + 18 其他 = 151+）
+- [x] 推送到GitHub

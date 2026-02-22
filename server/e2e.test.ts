@@ -817,12 +817,16 @@ describe("Grid Router", () => {
     await expect(caller.grid.generate({ projectId: 1 })).rejects.toThrow();
   });
 
-  it("grid.generate creates grid from script", async () => {
+  it("grid.generate creates grid from script (async mode)", async () => {
     const caller = appRouter.createCaller(createUserContext());
     const result = await caller.grid.generate({ projectId: 1 });
-    expect(result).toHaveProperty("gridId");
-    expect(result).toHaveProperty("totalPanels");
-    expect(result).toHaveProperty("pages");
+    // Async mode: returns immediately with status "generating"
+    expect(result).toHaveProperty("status", "generating");
+    expect(result).toHaveProperty("projectId", 1);
+    expect(result).toHaveProperty("totalFrames");
+    expect(result).toHaveProperty("totalPages");
+    expect(typeof result.totalFrames).toBe("number");
+    expect(typeof result.totalPages).toBe("number");
   });
 });
 
