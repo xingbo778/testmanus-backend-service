@@ -1105,8 +1105,12 @@ ${dontRules.map((r, i) => `${i + 1}. [${r.severity}] ${r.text} (来源: ${r.sour
         const characters = (script.characters as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
         const scenes = (script.scenes as Array<{ name: string; description: string; anchorPrompt?: string }>) ?? [];
 
-        // Mark project as generating (async mode)
-        await db.updateProject(input.projectId, { status: "grid_generating" });
+        // Mark project as generating (async mode) - wrapped in try-catch for DB compatibility
+        try {
+          await db.updateProject(input.projectId, { status: "grid_generating" });
+        } catch (e) {
+          console.log(`[GridGen] Could not set grid_generating status (DB enum may not be migrated yet), continuing...`);
+        }
 
         // Capture variables for background task
         const capturedProjectId = input.projectId;
