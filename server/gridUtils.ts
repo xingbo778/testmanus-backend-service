@@ -410,10 +410,12 @@ export async function generateAllGridPages(opts: {
 
   let prevGridImageUrl: string | undefined;
 
+  const MAX_PAGE_RETRIES = 2;
+
   for (const page of pages) {
     console.log(`[GridGen] ======== Page ${page.pageIndex + 1}/${pages.length}: ${page.totalPanels} panels, frames ${page.startFrame}-${page.endFrame} ========`);
 
-    const genResult = await generateSingleGridPage({
+    let genResult = await generateSingleGridPage({
       page,
       anchorsList: anchorsList as any,
       characters,
@@ -422,6 +424,29 @@ export async function generateAllGridPages(opts: {
       customPrompt: page.pageIndex === 0 ? customPrompt : undefined,
       projectId,
     });
+
+    // Page-level retry: if gridImageUrl is null (Stage 1 failed), retry up to MAX_PAGE_RETRIES times
+    let retryCount = 0;
+    while (!genResult.gridImageUrl && retryCount < MAX_PAGE_RETRIES) {
+      retryCount++;
+      const delay = 3000 * retryCount; // 3s, 6s
+      console.warn(`[GridGen] Page ${page.pageIndex + 1} failed (${genResult.error || 'no grid image'}), retrying ${retryCount}/${MAX_PAGE_RETRIES} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+
+      genResult = await generateSingleGridPage({
+        page,
+        anchorsList: anchorsList as any,
+        characters,
+        scenes,
+        prevGridImageUrl,
+        customPrompt: page.pageIndex === 0 ? customPrompt : undefined,
+        projectId,
+      });
+    }
+
+    if (retryCount > 0) {
+      console.log(`[GridGen] Page ${page.pageIndex + 1} ${genResult.gridImageUrl ? 'succeeded' : 'STILL FAILED'} after ${retryCount} retries`);
+    }
 
     tempResults.push({ page, genResult });
 
