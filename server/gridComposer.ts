@@ -50,17 +50,21 @@ async function resizePanel(imageBuffer: Buffer): Promise<Buffer> {
 }
 
 /**
- * Create a placeholder panel (solid dark gray) for missing panels.
+ * Create a placeholder panel with visible error indicator for missing/failed panels.
+ * Shows a dark background with a red X and "FAILED" text so it's clearly distinguishable.
  */
 async function createPlaceholderPanel(): Promise<Buffer> {
-  return sharp({
-    create: {
-      width: PANEL_WIDTH,
-      height: PANEL_HEIGHT,
-      channels: 3,
-      background: { r: 30, g: 30, b: 30 },
-    },
-  })
+  const w = PANEL_WIDTH;
+  const h = PANEL_HEIGHT;
+  // Create SVG with red X marker and text
+  const svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${w}" height="${h}" fill="#1a1a2e"/>
+    <line x1="${w * 0.3}" y1="${h * 0.25}" x2="${w * 0.7}" y2="${h * 0.65}" stroke="#e74c3c" stroke-width="8" stroke-linecap="round"/>
+    <line x1="${w * 0.7}" y1="${h * 0.25}" x2="${w * 0.3}" y2="${h * 0.65}" stroke="#e74c3c" stroke-width="8" stroke-linecap="round"/>
+    <text x="${w / 2}" y="${h * 0.82}" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" fill="#e74c3c" font-weight="bold">GENERATION FAILED</text>
+  </svg>`;
+  return sharp(Buffer.from(svg))
+    .resize(PANEL_WIDTH, PANEL_HEIGHT)
     .png()
     .toBuffer();
 }

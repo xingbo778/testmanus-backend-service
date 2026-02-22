@@ -12,7 +12,7 @@
 
 import { generateImage } from "./_core/imageGeneration";
 import { generateGridTemplateDataUrl } from "./gridTemplate";
-import { generateAllPanels, type PanelGenAnchor, type PanelGenCharacter, type PanelGenScene, type PanelGenFrame } from "./panelGenerator";
+import { generateAllPanels, generateSinglePanel, type PanelGenAnchor, type PanelGenCharacter, type PanelGenScene, type PanelGenFrame } from "./panelGenerator";
 import { composePanels } from "./gridComposer";
 import * as db from "./db";
 import { logInfo, logError } from "./appLogger";
@@ -263,10 +263,12 @@ ${panelLines}
 ${continuityNote}
 
 STYLE:
-- Photorealistic cinematic quality (ARRI Alexa / RED camera look)
-- Consistent character appearance across ALL panels
-- Cinematic lighting matching each panel's mood
-- Natural skin textures, realistic environments, atmospheric depth`;
+- Shot as a real photograph, NOT a digital render or CGI
+- Use rich, saturated colors with warm tones — avoid grey, washed-out, or desaturated palettes
+- Real film texture: visible skin pores, natural hair strands, fabric wrinkles, environmental dust particles
+- Lighting should feel natural and motivated (practical lights, sunlight, neon glow) — NOT flat studio lighting
+- Each panel should look like a film still from a high-budget movie, shot on 35mm film with Kodak Vision3 500T stock
+- Consistent character appearance across ALL panels`;
 
     console.log(`[GridGen] Stage 1 - Page ${pageIndex}: Generating 3×3 reference grid...`);
     const { url: referenceGridUrl } = await generateImage({
@@ -335,9 +337,38 @@ export async function generateSingleGridPage(opts: {
     scenes: scenes as PanelGenScene[],
   });
 
-  const panelImageUrls = panelResults.map(r => r.imageUrl);
-  const successCount = panelImageUrls.filter(u => u !== null).length;
+  let panelImageUrls = panelResults.map(r => r.imageUrl);
+  let successCount = panelImageUrls.filter(u => u !== null).length;
   console.log(`[GridGen] Stage 2 complete: ${successCount}/${page.frames.length} panels generated`);
+
+  // Second-chance retry for failed panels (one more attempt each)
+  const failedIndices = panelImageUrls.map((url, i) => url === null ? i : -1).filter(i => i >= 0);
+  if (failedIndices.length > 0 && successCount > 0) {
+    console.log(`[GridGen] Stage 2.5: Retrying ${failedIndices.length} failed panels: [${failedIndices.map(i => i + 1).join(', ')}]`);
+    await new Promise(r => setTimeout(r, 3000)); // Brief cooldown before retry
+    
+    for (const idx of failedIndices) {
+      try {
+        const retryResult = await generateSinglePanel({
+          frame: page.frames[idx] as PanelGenFrame,
+          localIndex: idx + 1,
+          totalPanelsInPage: page.frames.length,
+          gridImageUrl: refResult.referenceGridUrl,
+          anchors: anchorsList as PanelGenAnchor[],
+          characters: characters as PanelGenCharacter[],
+          scenes: scenes as PanelGenScene[],
+        });
+        if (retryResult.imageUrl) {
+          panelImageUrls[idx] = retryResult.imageUrl;
+          console.log(`[GridGen] Stage 2.5: Panel ${idx + 1} recovered on second-chance retry`);
+        }
+      } catch (e: any) {
+        console.warn(`[GridGen] Stage 2.5: Panel ${idx + 1} second-chance retry also failed: ${e?.message}`);
+      }
+    }
+    successCount = panelImageUrls.filter(u => u !== null).length;
+    console.log(`[GridGen] Stage 2.5 complete: ${successCount}/${page.frames.length} panels now available`);
+  }
 
   if (successCount === 0) {
     return {

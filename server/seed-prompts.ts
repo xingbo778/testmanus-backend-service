@@ -19,11 +19,11 @@ export const DEFAULT_SYSTEM_PROMPTS = [
 ## 角色anchorPrompt要求
 - 必须包含详细的外貌特征：种族/肤色、发型/发色、五官特征、体型、年龄段
 - 必须包含服装描述：具体的衣服款式、颜色、材质
-- 格式：A half-body portrait of [CHARACTER], [ethnicity] [age] [gender] with [hair] and [facial features], wearing [clothing details]. Centered, facing slightly right at 3/4 angle, pure white studio background, soft even lighting, 85mm f/1.4 lens.
+- 格式：A half-body portrait photograph of [CHARACTER], [ethnicity] [age] [gender] with [hair] and [facial features], wearing [clothing details]. Centered, facing slightly right at 3/4 angle, pure white studio background, soft even lighting. Real photograph shot on Canon EOS R5, 85mm f/1.4 lens. Visible skin pores, natural hair texture. NOT a digital render.
 
 ## 场景anchorPrompt要求
 - 必须包含环境细节：时间、天气、光线、建筑/自然特征
-- 格式：A wide establishing shot of [SCENE], [detailed environment]. Cinematic composition, atmospheric lighting. No people. 35mm wide-angle lens, 8K, photorealistic.`,
+- 格式：A wide establishing photograph of [SCENE], [detailed environment]. Rich saturated colors, natural lighting. No people. Real photograph shot on 35mm wide-angle lens, Kodak Portra 400 film. NOT a digital render.`,
   },
   {
     key: "script_user",
@@ -40,14 +40,14 @@ export const DEFAULT_SYSTEM_PROMPTS = [
     name: "角色锚点 Prompt模板",
     description: "用于生成角色参考图的提示词模板，确保角色外观一致性",
     category: "anchor",
-    content: `A half-body portrait of [CHARACTER], [detailed appearance including ethnicity, age, hair style/color, facial features, body type]. The character is wearing [specific clothing with colors and materials]. Centered in the frame, facing slightly to the right at a 3/4 angle. Shot against a pure white studio background with soft, even lighting. Professional studio photography, shot on 85mm f/1.4 lens. Photorealistic, high detail.`,
+    content: `A half-body portrait photograph of [CHARACTER], [detailed appearance including ethnicity, age, hair style/color, facial features, body type]. The character is wearing [specific clothing with colors and materials]. Centered in the frame, facing slightly to the right at a 3/4 angle. Shot against a pure white studio background with soft, even lighting. Real photograph shot on Canon EOS R5 with 85mm f/1.4 lens. Visible skin pores, natural hair texture, fabric wrinkles. Rich natural skin tones, NOT a digital render or CGI.`,
   },
   {
     key: "anchor_scene",
     name: "场景锚点 Prompt模板",
     description: "用于生成场景参考图的提示词模板",
     category: "anchor",
-    content: `A wide establishing shot of [SCENE], [detailed environment description including time of day, weather, lighting, architectural/natural features]. Cinematic composition with depth, atmospheric lighting. No people in the scene, focus on environment and atmosphere. Shot on 35mm wide-angle lens. High detail, 8K resolution, photorealistic.`,
+    content: `A wide establishing photograph of [SCENE], [detailed environment description including time of day, weather, lighting, architectural/natural features]. Rich, saturated colors with natural lighting. No people in the scene, focus on environment and atmosphere. Real photograph shot on 35mm wide-angle lens, Kodak Portra 400 film stock. Visible environmental textures (dust, moisture, surface wear). NOT a digital render or CGI.`,
   },
   {
     key: "grid_system",
@@ -78,10 +78,12 @@ PANEL-BY-PANEL BREAKDOWN:
 {panelLines}
 
 STYLE:
-- Photorealistic cinematic quality (ARRI Alexa / RED camera look)
-- Consistent character appearance across ALL panels
-- Cinematic lighting matching each panel's mood
-- Natural skin textures, realistic environments, atmospheric depth`,
+- Shot as a real photograph, NOT a digital render or CGI
+- Rich, saturated colors with warm tones — avoid grey, washed-out, or desaturated palettes
+- Real film texture: visible skin pores, natural hair strands, fabric wrinkles, dust particles
+- Natural motivated lighting (practical lights, sunlight, neon) — NOT flat studio lighting
+- Each panel looks like a film still shot on 35mm film with Kodak Vision3 500T stock
+- Consistent character appearance across ALL panels`,
   },
   {
     key: "prompt_system",

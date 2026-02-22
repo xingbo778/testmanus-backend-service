@@ -117,9 +117,10 @@ REQUIREMENTS:
 ${charAppearanceLines ? `3. CHARACTER APPEARANCE:\n${charAppearanceLines}` : ''}
 
 STYLE:
-- Photorealistic cinematic quality (shot on ARRI Alexa / RED camera)
-- Cinematic lighting that matches the mood of the scene
-- Natural skin textures, realistic environments, atmospheric depth
+- A real photograph, NOT a digital render or CGI — shot on 35mm film, Kodak Vision3 500T
+- Rich, saturated colors — avoid grey, washed-out, or desaturated palettes
+- Real film texture: visible skin pores, natural hair strands, fabric wrinkles, dust particles
+- Natural motivated lighting (practical lights, sunlight, neon) — NOT flat or overly even
 - Aspect ratio: 16:9 landscape
 - NO text, NO labels, NO watermarks, NO borders, NO panel numbers`;
 

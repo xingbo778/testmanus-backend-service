@@ -306,8 +306,8 @@ export const appRouter = router({
         const templates: Record<string, string> = {
           "script_system": `你是一个专业的分镜脚本设计师。根据给定的场景类型和规则，生成结构化的分镜脚本。\n\n## 输出要求\n- 每帧时长：1-3秒\n- 前3秒必须有强钩子\n- 角色anchorPrompt必须是英文，白背景、半身、居中\n- 场景anchorPrompt必须是英文，全景、无人物`,
           "script_user": `场景类型：{l1Id} > {l2Id} > {l3Id}\n标题：{title}\n总时长：{duration}秒\n补充说明：{additionalContext}`,
-          "anchor_character": `A half-body portrait of [CHARACTER], [detailed appearance]. The character is centered in the frame, facing slightly to the right at a 3/4 angle. Shot against a pure white studio background with soft, even lighting. Professional studio photography, shot on 85mm f/1.4 lens.`,
-          "anchor_scene": `A wide establishing shot of [SCENE], [detailed environment description]. Cinematic composition with depth, atmospheric lighting. No people in the scene, focus on environment and atmosphere. Shot on 35mm wide-angle lens. High detail, 8K resolution, photorealistic.`,
+          "anchor_character": `A half-body portrait photograph of [CHARACTER], [detailed appearance]. Centered in frame, facing slightly right at 3/4 angle. Pure white studio background, soft even lighting. Real photograph shot on Canon EOS R5, 85mm f/1.4 lens. Visible skin pores, natural hair texture. NOT a digital render.`,
+          "anchor_scene": `A wide establishing photograph of [SCENE], [detailed environment description]. Rich saturated colors, natural lighting. No people in the scene, focus on environment and atmosphere. Real photograph shot on 35mm wide-angle lens, Kodak Portra 400 film. NOT a digital render.`,
           "grid_system": `Create a professional storyboard grid image. Layout: {rows}×{cols} panels.\n\nEach panel must:\n- Match the script description exactly\n- Maintain character consistency with anchor reference images\n- Include clear panel numbering and shot type labels\n- Use cinematic composition and lighting`,
           "prompt_system": `你是一个AI视频生成提示词专家。根据分镜脚本和角色/场景锚点，为每一帧生成结构化的视频生成参数。\n\n## 通用公式\n镜头类型 + 视角 + 主体 + 动作 + 运镜 + 光影 + 材质 + 特效 + 渲染 + 环境交互 + 过渡`,
           "prompt_user": `分镜脚本：\n{frames}\n\n请为每一帧生成视频生成参数。`,
@@ -533,10 +533,10 @@ ${userRulesContext}
     }
   ],
   "characters": [
-    { "name": "角色名", "description": "外貌描述（中文，非常详细：年龄、身高体型、发型发色、五官特征、肤色、穿着风格）", "anchorPrompt": "用于生成角色参考图的英文prompt，必须遵循以下格式：A half-body portrait of [CHARACTER], [age] years old, [ethnicity], [detailed hair description], [detailed facial features], wearing [specific clothing]. The character is centered in the frame, facing slightly to the right at a 3/4 angle. Shot against a pure white studio background (#FFFFFF) with soft, even lighting. Professional studio photography, shot on 85mm f/1.4 lens. Soft key light from the upper left, subtle fill light from the right. Natural skin texture, clean catchlights in the eyes. High detail, 8K resolution, photorealistic." }
+    { "name": "角色名", "description": "外貌描述（中文，非常详细：年龄、身高体型、发型发色、五官特征、肤色、穿着风格）", "anchorPrompt": "用于生成角色参考图的英文prompt，必须遵循以下格式：A half-body portrait photograph of [CHARACTER], [age] years old, [ethnicity], [detailed hair description], [detailed facial features], wearing [specific clothing]. Centered in frame, facing slightly right at 3/4 angle. Pure white studio background (#FFFFFF), soft even lighting. Real photograph shot on Canon EOS R5, 85mm f/1.4 lens. Visible skin pores, natural hair texture, fabric wrinkles. Rich natural skin tones. NOT a digital render or CGI." }
   ],
   "scenes": [
-    { "name": "场景名", "description": "场景描述（中文，非常详细：空间大小、装修风格、家具摆设、光线条件、时间段、氛围）", "anchorPrompt": "用于生成场景参考图的英文prompt，必须遵循以下格式：A wide establishing shot of [SCENE], [detailed environment: furniture, decorations, materials, colors]. [Lighting description: direction, color temperature, shadows]. [Time of day] atmosphere. Cinematic composition with depth. Shot on 35mm wide-angle lens. High detail, 8K resolution, photorealistic. No people in the scene, focus on environment and atmosphere." }
+    { "name": "场景名", "description": "场景描述（中文，非常详细：空间大小、装修风格、家具摆设、光线条件、时间段、氛围）", "anchorPrompt": "用于生成场景参考图的英文prompt，必须遵循以下格式：A wide establishing photograph of [SCENE], [detailed environment: furniture, decorations, materials, colors]. [Lighting description: direction, color temperature, shadows]. [Time of day] atmosphere. Rich saturated colors, natural motivated lighting. Real photograph shot on 35mm wide-angle lens, Kodak Portra 400 film. Visible environmental textures (dust, moisture, surface wear). No people. NOT a digital render or CGI." }
   ],
   "props": [
     { "name": "道具名", "description": "道具描述" }
@@ -1293,7 +1293,7 @@ Same face, same clothing, same proportions across ALL panels.
 PANEL-BY-PANEL BREAKDOWN:
 ${panelLines}
 
-STYLE: Photorealistic cinematic quality matching the original grid exactly.`;
+STYLE: Real photograph quality matching the original grid exactly. Rich saturated colors, natural film texture. Shot on 35mm film, Kodak Vision3 500T. NOT a digital render or CGI.`;
 
           console.log(`[GridRegen] Generating new grid with ${modifiedIndices.length} modified panels: [${modifiedIndices.join(', ')}]`);
           const { url: newGridImageUrl } = await generateImage({
@@ -1575,7 +1575,7 @@ CRITICAL STYLE REQUIREMENTS:
 - The FIRST reference image is the ORIGINAL STORYBOARD GRID - you MUST match its exact visual style, color grading, lighting, and artistic quality
 - Your output must look like it was generated as part of that same grid - same camera quality, same color temperature, same post-processing
 - Character reference images (${anchorDesc}) show the exact appearance of characters - match their face, hair, clothing, body proportions precisely
-- Maintain the same photorealistic cinematic quality (ARRI Alexa / RED camera look)
+- Maintain the same real photograph quality — rich saturated colors, natural film texture, NOT a digital render
 - The result must be visually indistinguishable in style from the other panels in the grid`;
         }
 
