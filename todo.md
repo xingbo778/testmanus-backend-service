@@ -580,3 +580,14 @@
 - [x] MAX_PANELS_PER_GRID从6提升到8
 - [x] 27个multiGrid测试全部更新并通过
 - [ ] 推送到GitHub + Railway验证
+
+## Phase 43: Grid重新生成前端修复 + 异步Grid UX优化 (2026-02-22)
+- [x] 排查项目62在Railway上点击重新生成grid无反应的问题
+- [x] 验证grid.generate API调用正常（12帧→8+4动态布局正确）
+- [x] 前端添加grid_generating状态支持（STATUS_MAP + WorkflowStep loading状态）
+- [x] 前端异步Grid生成UX优化（toast显示"已启动" + 自动轮询8s检查完成状态）
+- [x] Grid tab显示生成中动画（Loader2旋转 + 提示文字）
+- [x] 清理调试代码（移除gridUtils.ts的console.log、index.ts的debug端点、未使用import）
+- [x] 27个multiGrid测试 + 103个e2e测试 + 19个ruleSelector测试 + 11个newFeatures测试全部通过
+- [ ] 推送到GitHub + Railway自动部署
+- [ ] 在Railway上验证前端异步Grid生成体验

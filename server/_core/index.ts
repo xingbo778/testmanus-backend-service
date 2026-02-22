@@ -5,7 +5,7 @@ import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
-import { MAX_PANELS_PER_GRID, calculateGridLayout, splitFramesIntoPages, type Frame } from "../gridUtils";
+
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 
@@ -70,18 +70,6 @@ async function startServer() {
     } catch (e) {
       res.status(500).json({ error: "Proxy error" });
     }
-  });
-
-  // Debug endpoint to verify runtime code version
-  app.get("/api/debug/grid-config", (_req, res) => {
-    const testFrames = Array.from({length: 8}, (_, i) => ({ index: i+1, shotType: 'MS', duration: 2, description: '', cameraMovement: '' })) as Frame[];
-    const pages = splitFramesIntoPages(testFrames);
-    res.json({
-      MAX_PANELS_PER_GRID,
-      layout7: calculateGridLayout(7),
-      layout8: calculateGridLayout(8),
-      testSplit8frames: pages.map((p) => ({ pageIndex: p.pageIndex, panels: p.totalPanels, rows: p.rows, cols: p.cols })),
-    });
   });
 
   // tRPC API

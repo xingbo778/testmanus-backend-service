@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import MaskCanvas from "@/components/MaskCanvas";
 
 const STATUS_MAP: Record<string, string> = {
-  draft: "草稿", scripted: "已生成脚本", grid_generated: "已生成Grid",
+  draft: "草稿", scripted: "已生成脚本", grid_generating: "Grid生成中...", grid_generated: "已生成Grid",
   reviewing: "审核中", confirmed: "已确认",
 };
 
@@ -108,7 +108,17 @@ export default function ProjectDetail() {
   );
 
   const generateGrid = trpc.grid.generate.useMutation({
-    onSuccess: () => { toast.success("Grid生成成功"); refetch(); versionHistory.refetch(); },
+    onSuccess: (result: any) => {
+      if (result?.status === "generating") {
+        toast.info(`Grid生成已启动（${result.totalFrames}帧 → ${result.totalPages}页），后台处理中...`);
+        // Start auto-polling to check for completion
+        startGridPolling();
+      } else {
+        toast.success("Grid生成成功");
+        refetch();
+      }
+      versionHistory.refetch();
+    },
     onError: (err: any) => toast.error(`Grid生成失败: ${err.message}`),
   });
 
@@ -172,6 +182,14 @@ export default function ProjectDetail() {
     onError: (err: any) => toast.error(`提取失败: ${err.message}`),
   });
 
+  // Grid generation polling (async mode)
+  const [isGridPolling, setIsGridPolling] = useState(false);
+  const gridPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startGridPolling = () => {
+    setIsGridPolling(true);
+  };
+
   // Video mutations
   const videoClips = trpc.video.clips.useQuery({ projectId }, { enabled: !!projectId });
   const finalVideos = trpc.video.finalVideos.useQuery({ projectId }, { enabled: !!projectId });
@@ -233,6 +251,36 @@ export default function ProjectDetail() {
     },
     onError: (err: any) => toast.error(`确认失败: ${err.message}`),
   });
+
+  // Auto-poll grid generation (async mode)
+  useEffect(() => {
+    if (data?.project?.status === "grid_generating" && !isGridPolling) {
+      setIsGridPolling(true);
+    }
+  }, [data?.project?.status]);
+
+  useEffect(() => {
+    if (isGridPolling) {
+      gridPollTimerRef.current = setInterval(() => {
+        refetch().then((result) => {
+          const status = result.data?.project?.status;
+          if (status && status !== "grid_generating") {
+            setIsGridPolling(false);
+            if (status === "grid_generated") {
+              toast.success("Grid生成完成！");
+            }
+            versionHistory.refetch();
+          }
+        });
+      }, 8000);
+      // Immediate first poll after 3s
+      const t = setTimeout(() => refetch(), 3000);
+      return () => { clearTimeout(t); if (gridPollTimerRef.current) clearInterval(gridPollTimerRef.current); };
+    }
+    return () => {
+      if (gridPollTimerRef.current) clearInterval(gridPollTimerRef.current);
+    };
+  }, [isGridPolling, projectId]);
 
   // Auto-poll video clips (also start polling if there are pending/generating clips on page load)
   useEffect(() => {
@@ -376,7 +424,7 @@ export default function ProjectDetail() {
                 onRegenerate={() => setConfirmRegenDialog({ step: "Anchor", action: () => generateAnchor.mutate({ projectId }) })}
                 disabled={!script}
               />
-              <WorkflowStep step={3} title="生成Grid（分镜图）" done={!!grid} loading={generateGrid.isPending}
+              <WorkflowStep step={3} title="生成Grid（分镜图）" done={!!grid && project.status !== "grid_generating"} loading={generateGrid.isPending || isGridPolling || project.status === "grid_generating"}
                 onView={() => setActiveTab("grid")}
                 onRegenerate={() => setConfirmRegenDialog({ step: "Grid", action: () => generateGrid.mutate({ projectId }) })}
                 disabled={!script}
@@ -958,6 +1006,15 @@ export default function ProjectDetail() {
                 const allPages = gridPages && gridPages.length > 0 ? gridPages : (grid ? [grid] : []);
                 const hasImages = allPages.some((gp: any) => gp.gridImageUrl);
                 if (!hasImages) {
+                  if (project.status === "grid_generating" || isGridPolling) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                        <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />
+                        <p className="text-lg font-medium">Grid生成中...</p>
+                        <p className="text-sm mt-2">后台正在生成分镜图，请稍等（通常需要2-5分钟）</p>
+                      </div>
+                    );
+                  }
                   return (
                     <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                       <ImageIcon className="h-12 w-12 mb-4 opacity-30" />

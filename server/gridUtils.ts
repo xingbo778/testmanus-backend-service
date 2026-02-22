@@ -109,10 +109,8 @@ export function calculateGridLayout(panelCount: number): { rows: number; cols: n
  * Returns an array of GridPage objects.
  */
 export const MAX_PANELS_PER_GRID = 8;
-console.log(`[GRID_CONFIG] MAX_PANELS_PER_GRID=${MAX_PANELS_PER_GRID} at module load time`);
 
 export function splitFramesIntoPages(frames: Frame[]): GridPage[] {
-  console.log(`[GRID_SPLIT] splitFramesIntoPages called with ${frames.length} frames, MAX=${MAX_PANELS_PER_GRID}`);
   const totalFrames = frames.length;
 
   // If total fits in one grid, no splitting needed
