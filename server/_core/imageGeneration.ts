@@ -196,7 +196,7 @@ export async function generateImage(
 
   if (yunwuMode) {
     // Use Yunwu native Gemini format (v1beta)
-    const model = options.model || "gemini-2.5-flash-image-preview";
+    const model = options.model || "gemini-3-pro-image-preview";
     const baseUrl = ENV.yunwuApiUrl.replace(/\/$/, "");
     const apiUrl = `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`;
 

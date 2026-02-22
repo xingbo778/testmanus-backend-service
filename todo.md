@@ -553,3 +553,10 @@
 - [x] 推送到GitHub + Railway重新生成3个项目验证
 - [x] 对比前后效果：所有页面生成成功（7/7页）
 - [x] 修复纯黑Panel问题：占位图改为红色X标记+文字提示，新增Stage 2.5二次重试
+
+## Phase 39: 切换生图模型 + 修复图片截断 (2026-02-22)
+- [x] 将默认生图模型从gemini-2.5-flash-image-preview改为gemini-3-pro-image-preview
+- [x] 排查Grid图片底部Panel未渲染完全的根因：PNG文件过大(5MB+)导致ToAPIs上传截断
+- [x] 修复图片截断问题：Sharp输出从PNG改为JPEG(quality 92)，文件大小从5MB降至~650KB
+- [x] 推送到GitHub + Railway重新生成3个项目验证
+- [x] 所有7张Grid图片完整渲染，Row 3黑色像素从59%降至3-5%

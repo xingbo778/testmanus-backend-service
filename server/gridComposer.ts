@@ -45,7 +45,8 @@ async function resizePanel(imageBuffer: Buffer): Promise<Buffer> {
       fit: 'cover',
       position: 'centre',
     })
-    .png()
+    .removeAlpha()
+    .jpeg({ quality: 95 })
     .toBuffer();
 }
 
@@ -65,7 +66,7 @@ async function createPlaceholderPanel(): Promise<Buffer> {
   </svg>`;
   return sharp(Buffer.from(svg))
     .resize(PANEL_WIDTH, PANEL_HEIGHT)
-    .png()
+    .jpeg({ quality: 90 })
     .toBuffer();
 }
 
@@ -153,17 +154,17 @@ export async function composePanels(opts: ComposePanelsOptions): Promise<Compose
     },
   })
     .composite(composites)
-    .png()
+    .jpeg({ quality: 92 })
     .toBuffer();
 
   console.log(`[GridComposer] Composed grid: ${CANVAS_WIDTH}×${CANVAS_HEIGHT}px, uploading...`);
 
-  // Upload the composed image
+  // Upload the composed image (JPEG to keep file size under upload limits)
   const composedUrl = await uploadFile({
     buffer: composedBuffer,
-    mimeType: 'image/png',
-    fileName: `composed_grid_p${projectId || 0}_page${pageIndex ?? 0}_${Date.now()}.png`,
-    s3Key: `grids/composed_${projectId || 0}_${pageIndex ?? 0}_${Date.now()}.png`,
+    mimeType: 'image/jpeg',
+    fileName: `composed_grid_p${projectId || 0}_page${pageIndex ?? 0}_${Date.now()}.jpg`,
+    s3Key: `grids/composed_${projectId || 0}_${pageIndex ?? 0}_${Date.now()}.jpg`,
   });
 
   logInfo("grid_compose", `Composed ${COLS}×${ROWS} grid: ${successCount} panels, ${failCount} placeholders`, {
