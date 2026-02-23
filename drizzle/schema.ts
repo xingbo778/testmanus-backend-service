@@ -137,7 +137,8 @@ export const grids = mysqlTable("grids", {
   rows: int("rows").notNull(),       // M
   cols: int("cols").notNull(),       // N
   totalPanels: int("totalPanels").notNull(),
-  gridImageUrl: text("gridImageUrl"),         // S3 URL of the full grid
+  gridImageUrl: text("gridImageUrl"),         // S3 URL of the final composed grid
+  referenceGridUrl: text("referenceGridUrl"), // S3 URL of the reference grid (Stage 1)
   annotatedImageUrl: text("annotatedImageUrl"), // S3 URL with annotations
   generationPrompt: text("generationPrompt"), // prompt used to generate grid
   createdAt: timestamp("createdAt").defaultNow().notNull(),

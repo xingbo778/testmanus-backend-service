@@ -219,7 +219,7 @@ export async function deleteAnchorsForProject(projectId: number, version?: numbe
 // ============================================================
 export async function saveGrid(data: {
   projectId: number; version: number; rows: number; cols: number;
-  totalPanels: number; gridImageUrl?: string; annotatedImageUrl?: string;
+  totalPanels: number; gridImageUrl?: string; referenceGridUrl?: string; annotatedImageUrl?: string;
   generationPrompt?: string;
   pageIndex?: number; pageLabel?: string; startFrame?: number; endFrame?: number;
 }) {

@@ -630,6 +630,7 @@ export async function generateAllGridPages(opts: {
       cols: page.cols,
       totalPanels: page.totalPanels,
       gridImageUrl: genResult.gridImageUrl || undefined,
+      referenceGridUrl: genResult.referenceGridUrl || undefined,
       generationPrompt: genResult.gridPrompt,
       pageIndex: page.pageIndex,
       pageLabel: page.pageLabel,
